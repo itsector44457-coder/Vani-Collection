@@ -93,77 +93,29 @@ const ANNOUNCEMENTS = [
 ];
 
 export default function Navbar() {
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
-  const [hovered, setHovered] = useState<number | null>(null);
-  const [pill, setPill] = useState({ left: 0, width: 0, opacity: 0 });
   const [scrolled, setScrolled] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [expandedMobileCategory, setExpandedMobileCategory] = useState<string | null>("Mul Cotton");
 
   const { cartCount, setIsCartOpen, wishlist } = useCart();
-
-  const linkRefs = useRef<(HTMLAnchorElement | null)[]>([]);
-  const closeTimeout = useRef<NodeJS.Timeout | null>(null);
-  const headerRef = useRef<HTMLElement>(null);
   const lenis = useLenis();
 
   /* ---------- Scroll shadow ---------- */
   useEffect(() => {
     const onScroll = () => {
       setScrolled(window.scrollY > 15);
-      if (activeMenu) setActiveMenu(null);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [activeMenu]);
+  }, []);
 
   /* ---------- Freeze Lenis when overlay/menu opens ---------- */
   useEffect(() => {
     if (!lenis) return;
-    if (activeMenu || searchOpen || mobileDrawerOpen) lenis.stop();
+    if (searchOpen || mobileDrawerOpen) lenis.stop();
     else lenis.start();
-  }, [activeMenu, searchOpen, mobileDrawerOpen, lenis]);
-
-  /* ---------- Close menu on outside click ---------- */
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
-        setActiveMenu(null);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  /* ---------- Sliding underline on desktop ---------- */
-  useEffect(() => {
-    const idx =
-      hovered !== null
-        ? hovered
-        : NAV_ITEMS.findIndex((i) => i.label === activeMenu);
-    if (idx === -1) {
-      requestAnimationFrame(() => {
-        setPill((p) => (p.opacity === 0 ? p : { ...p, opacity: 0 }));
-      });
-      return;
-    }
-    const el = linkRefs.current[idx];
-    if (!el) return;
-    requestAnimationFrame(() => {
-      setPill({ left: el.offsetLeft, width: el.offsetWidth, opacity: 1 });
-    });
-  }, [hovered, activeMenu]);
-
-  const handleEnter = (label: string) => {
-    if (closeTimeout.current) clearTimeout(closeTimeout.current);
-    setActiveMenu(label);
-  };
-  const handleLeave = () => {
-    closeTimeout.current = setTimeout(() => setActiveMenu(null), 150);
-  };
-
-  const current = NAV_ITEMS.find((i) => i.label === activeMenu);
+  }, [searchOpen, mobileDrawerOpen, lenis]);
 
   return (
     <>
@@ -197,11 +149,7 @@ export default function Navbar() {
       </motion.div>
 
       {/* ================= MAIN HEADER ================= */}
-      <header
-        ref={headerRef}
-        onMouseLeave={handleLeave}
-        className="sticky top-0 z-50 transition-shadow duration-300"
-      >
+      <header className="sticky top-0 z-50 transition-shadow duration-300">
         <motion.div
           initial={false}
           animate={{
@@ -256,51 +204,26 @@ export default function Navbar() {
               </span>
             </Link>
 
-            {/* Desktop Navigation Links */}
-            <nav
-              className="hidden lg:flex items-center gap-1 relative h-[74px] mx-auto"
-              onMouseLeave={() => {
-                setHovered(null);
-                handleLeave();
-              }}
-            >
-              {NAV_ITEMS.map((item, i) => (
-                <Link
-                  key={item.label}
-                  href={`#${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-                  ref={(el) => {
-                    linkRefs.current[i] = el;
-                  }}
-                  onMouseEnter={() => {
-                    setHovered(i);
-                    handleEnter(item.label);
-                  }}
-                  className={`relative flex items-center gap-1.5 px-4 h-full text-[11px] font-medium tracking-[0.2em] uppercase transition-colors duration-200 ${
-                    activeMenu === item.label
-                      ? "text-[#881337]"
-                      : "text-stone-800 hover:text-[#881337]"
-                  }`}
+            {/* Desktop Center: Explore Collection Button */}
+            <div className="hidden lg:flex items-center mx-auto">
+              <a
+                href="#products"
+                className="group inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full border border-stone-800 text-stone-900 hover:bg-[#881337] hover:border-[#881337] hover:text-white transition-all duration-300 text-xs font-semibold tracking-[0.2em] uppercase shadow-xs active:scale-95"
+              >
+                <span>Explore Collection</span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  className="transition-transform duration-300 group-hover:translate-x-1"
                 >
-                  {item.label}
-                  {item.isNew && (
-                    <span className="text-[8px] tracking-widest text-white bg-[#881337] px-1.5 py-0.5 rounded font-bold">
-                      HOT
-                    </span>
-                  )}
-                </Link>
-              ))}
-
-              {/* Sliding underline */}
-              <motion.span
-                animate={{
-                  left: pill.left,
-                  width: pill.width,
-                  opacity: pill.opacity,
-                }}
-                transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                className="absolute bottom-0 h-[2px] bg-[#881337] pointer-events-none"
-              />
-            </nav>
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </a>
+            </div>
 
             {/* Right Action Icons */}
             <div className="flex items-center gap-1 sm:gap-2">
@@ -363,68 +286,6 @@ export default function Navbar() {
           </div>
         </motion.div>
 
-        {/* ================= DESKTOP EDITORIAL MEGA MENU ================= */}
-        <AnimatePresence>
-          {current && (
-            <motion.div
-              key={current.label}
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              onMouseEnter={() => handleEnter(current.label)}
-              className="absolute left-1/2 -translate-x-1/2 top-full hidden lg:block"
-              style={{ width: "min(1140px, calc(100vw - 48px))" }}
-            >
-              <div className="bg-[#faf7f2] border border-[#e8dfd5] shadow-2xl rounded-b-2xl overflow-hidden p-8 grid grid-cols-12 gap-8">
-                {/* Featured Panel */}
-                <div
-                  className={`col-span-4 rounded-xl p-6 text-white bg-gradient-to-br ${current.featured.gradient} flex flex-col justify-between min-h-[260px] shadow-lg`}
-                >
-                  <div>
-                    <span className="inline-block text-[9px] uppercase tracking-[0.3em] font-semibold text-[#dfc28c] bg-black/30 px-2 py-0.5 rounded">
-                      {current.featured.tag}
-                    </span>
-                    <h3 className="font-serif text-2xl font-bold mt-3 leading-snug">
-                      {current.featured.title}
-                    </h3>
-                  </div>
-
-                  <button
-                    onClick={() => setActiveMenu(null)}
-                    className="self-start text-[10px] uppercase tracking-[0.25em] font-semibold border-b border-white/60 hover:border-white pb-1 transition"
-                  >
-                    {current.featured.cta} →
-                  </button>
-                </div>
-
-                {/* Columns */}
-                <div className="col-span-8 grid grid-cols-3 gap-6">
-                  {current.columns.map((col) => (
-                    <div key={col.title}>
-                      <h4 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#881337] mb-3 pb-1 border-b border-stone-200">
-                        {col.title}
-                      </h4>
-                      <ul className="space-y-2">
-                        {col.links.map((link) => (
-                          <li key={link}>
-                            <Link
-                              href="#products"
-                              onClick={() => setActiveMenu(null)}
-                              className="text-xs text-stone-700 hover:text-[#881337] hover:translate-x-1 inline-block transition-all"
-                            >
-                              {link}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </header>
 
       {/* ================= FULL MOBILE & TABLET SLIDE-OVER DRAWER ================= */}
