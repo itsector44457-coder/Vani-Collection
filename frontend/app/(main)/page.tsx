@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { useCart } from "../context/CartContext";
-import { PRODUCTS, STORIES_CATEGORIES, EDITORIAL_LOOKBOOK, REVIEWS, CategoryStory } from "../data/products";
-import StoryReelModal from "../components/StoryReelModal";
-import LivingProductCard from "../components/LivingProductCard";
+import { useCart } from "../../context/CartContext";
+import { PRODUCTS, STORIES_CATEGORIES, EDITORIAL_LOOKBOOK, REVIEWS, CategoryStory } from "../../data/products";
+import StoryReelModal from "../../components/StoryReelModal";
+import LivingProductCard from "../../components/LivingProductCard";
 
 export default function Home() {
   const { addToCart, setQuickViewProduct, toggleWishlist, isInWishlist } = useCart();
@@ -503,7 +503,7 @@ export default function Home() {
       <section id="products" className="py-12 sm:py-20 bg-white border-y border-[#e8dfd5]">
         <div className="max-w-[1500px] mx-auto px-3 sm:px-6 lg:px-12">
           {/* Header & Category Switcher Tabs */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 mb-8 sm:mb-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 mb-6 sm:mb-10">
             <div>
               <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
                 Artisanal Handpicked
@@ -514,31 +514,33 @@ export default function Home() {
             </div>
 
             {/* Filter Tabs - horizontally scrollable on mobile */}
-            <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0">
-              {[
-                { label: "All Styles", key: "all" },
-                { label: "Pure Mul Cotton", key: "mul-cotton" },
-                { label: "Festive Suits", key: "festive" },
-                { label: "Co-ord Sets", key: "coord-sets" },
-                { label: "Under ₹1,999", key: "budget" },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`px-3.5 sm:px-5 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-xs font-medium tracking-wider whitespace-nowrap transition ${
-                    activeTab === tab.key
-                      ? "bg-[#881337] text-white shadow-xs"
-                      : "bg-[#f5ede3] text-stone-700 hover:bg-[#ebdccb]"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            <div className="relative w-full md:w-auto">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
+                {[
+                  { label: "All Styles", key: "all" },
+                  { label: "Pure Mul Cotton", key: "mul-cotton" },
+                  { label: "Festive Suits", key: "festive" },
+                  { label: "Co-ord Sets", key: "coord-sets" },
+                  { label: "Under ₹1,999", key: "budget" },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`snap-start flex-shrink-0 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-[13px] font-semibold tracking-wide whitespace-nowrap transition-all ${
+                      activeTab === tab.key
+                        ? "bg-[#881337] text-white shadow-lg"
+                        : "bg-white text-stone-700 hover:bg-stone-100 border border-stone-200"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Product Grid: 2 columns mobile, 3 columns tablet (md), 4 columns desktop (lg) */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-8">
+          {/* Product Grid: Properly aligned with consistent gaps */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
             {filteredProducts.map((product) => (
               <LivingProductCard
                 key={product.id}

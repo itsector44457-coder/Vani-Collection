@@ -167,16 +167,41 @@ export default function Navbar() {
           }`}
         >
           <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 h-[66px] sm:h-[74px] flex items-center justify-between gap-4">
-            {/* Left: Mobile Drawer Trigger */}
+            {/* ============ Left: Mobile Drawer Trigger (UNIQUE) ============ */}
             <div className="flex items-center gap-2 lg:hidden">
               <button
                 onClick={() => setMobileDrawerOpen(true)}
-                className="w-10 h-10 -ml-2 rounded-full flex items-center justify-center text-stone-800 hover:text-[#881337] transition"
                 aria-label="Open mobile menu"
+                className="group relative w-11 h-11 -ml-1 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95"
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
+                {/* Rotating conic accent ring (brand gradient) */}
+                <span
+                  className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-300"
+                  style={{
+                    background:
+                      "conic-gradient(from 0deg, #dfc28c, #881337, #dfc28c)",
+                    padding: "1.5px",
+                    WebkitMask:
+                      "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+                    WebkitMaskComposite: "xor",
+                    maskComposite: "exclude",
+                  }}
+                />
+                {/* Soft brand glow on tap */}
+                <span className="absolute inset-0 rounded-full bg-[#881337]/0 group-active:bg-[#881337]/10 transition-colors duration-200" />
+
+                {/* Animated 3-line icon */}
+                <span className="relative flex flex-col items-center justify-center w-[22px] h-[16px]">
+                  {/* Top line */}
+                  <span className="absolute top-0 left-0 h-[2px] w-[18px] rounded-full bg-gradient-to-r from-[#1c1917] to-[#881337] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[22px] group-hover:from-[#881337] group-hover:to-[#dfc28c]" />
+                  {/* Middle line (shorter, gold) */}
+                  <span className="absolute top-[7px] left-0 h-[2px] w-[12px] rounded-full bg-[#b8935a] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[22px] group-hover:bg-[#881337]" />
+                  {/* Bottom line */}
+                  <span className="absolute bottom-0 left-0 h-[2px] w-[22px] rounded-full bg-gradient-to-r from-[#1c1917] to-[#881337] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[14px] group-hover:from-[#881337] group-hover:to-[#dfc28c]" />
+
+                  {/* Tiny gold sparkle dot */}
+                  <span className="absolute -top-[3px] -right-[5px] w-[3px] h-[3px] rounded-full bg-[#b8935a] opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100" />
+                </span>
               </button>
 
               <button
@@ -204,40 +229,84 @@ export default function Navbar() {
               </span>
             </Link>
 
-            {/* Desktop Navigation: Links to Newly Built Features */}
-            <nav className="hidden lg:flex items-center gap-7 xl:gap-9 mx-auto">
+            {/* Desktop Navigation: Mega Menu Dropdowns */}
+            <nav className="hidden lg:flex items-center gap-1 mx-auto">
+              {/* Collections Mega Menu */}
+              <MegaMenuItem
+                label="Collections"
+                categories={[
+                  {
+                    title: "By Fabric",
+                    items: ["Mul Cotton", "Chanderi Silk", "Linen Blends", "Organza", "Banarasi"]
+                  },
+                  {
+                    title: "By Occasion",
+                    items: ["Festive Wear", "Daily Wear", "Wedding Guest", "Casual Comfort"]
+                  },
+                  {
+                    title: "By Style",
+                    items: ["Anarkali Sets", "Straight Suits", "Co-ord Sets", "Sharara Sets"]
+                  }
+                ]}
+              />
+
+              {/* Stories Link */}
               <Link
                 href="/#stories"
-                className="group text-[12px] font-semibold uppercase tracking-[0.2em] text-stone-800 hover:text-[#881337] transition-colors py-2 flex items-center gap-1.5"
+                className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] text-stone-700 hover:text-[#881337] transition-colors px-4 py-2 flex items-center gap-2"
               >
                 <span>Stories</span>
                 <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-tr from-[#dfc28c] to-[#881337]" />
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#881337] scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
               </Link>
 
+              {/* Reels Link */}
               <Link
                 href="/reels"
-                className="group text-[12px] font-bold uppercase tracking-[0.2em] text-[#881337] transition-colors py-1.5 px-3 rounded-full bg-[#881337]/5 hover:bg-[#881337]/10 flex items-center gap-2 border border-[#881337]/20"
+                className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] text-stone-700 hover:text-[#881337] transition-colors px-4 py-2"
               >
-                <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
                 <span>Reels</span>
-                <span className="text-[8px] bg-[#881337] text-white px-1.5 py-0.5 rounded font-bold tracking-widest">
-                  NEW
-                </span>
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#881337] scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
               </Link>
 
+              {/* Living Looks Link */}
               <Link
                 href="/#products"
-                className="group text-[12px] font-semibold uppercase tracking-[0.2em] text-stone-800 hover:text-[#881337] transition-colors py-2 flex items-center gap-1.5"
+                className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] text-stone-700 hover:text-[#881337] transition-colors px-4 py-2"
               >
                 <span>Living Looks</span>
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#881337] scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
               </Link>
 
-              <Link
-                href="/#lookbook"
-                className="group text-[12px] font-semibold uppercase tracking-[0.2em] text-stone-800 hover:text-[#881337] transition-colors py-2"
-              >
-                <span>Lookbook</span>
-              </Link>
+              {/* Lookbook Mega Menu */}
+              <MegaMenuItem
+                label="Lookbook"
+                categories={[
+                  {
+                    title: "Latest Edits",
+                    items: ["Spring Collection", "Summer Breeze", "Festive Luxe", "Wedding Season"]
+                  },
+                  {
+                    title: "Inspiration",
+                    items: ["Celebrity Picks", "Stylist Favorites", "Best Sellers", "New Arrivals"]
+                  }
+                ]}
+              />
+
+              {/* Shop By Price */}
+              <MegaMenuItem
+                label="Shop by Price"
+                categories={[
+                  {
+                    title: "Budget Friendly",
+                    items: ["Under ₹1,499", "Under ₹1,999", "Under ₹2,999"]
+                  },
+                  {
+                    title: "Premium Range",
+                    items: ["₹3,000 - ₹5,000", "₹5,000 - ₹10,000", "Luxury Collection"]
+                  }
+                ]}
+              />
             </nav>
 
             {/* Right Action Icons */}
@@ -322,67 +391,79 @@ export default function Navbar() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 280 }}
-              className="fixed top-0 left-0 bottom-0 w-[84vw] max-w-[340px] bg-[#faf7f2] z-[96] shadow-2xl flex flex-col border-r border-[#e8dfd5] lg:hidden"
+              className="fixed top-0 left-0 bottom-0 w-[88vw] max-w-[360px] z-[96] shadow-2xl flex flex-col lg:hidden"
+              style={{ background: "#faf7f2", height: "100vh" }}
             >
-              {/* Drawer Top Header */}
-              <div className="p-5 border-b border-stone-200 flex items-center justify-between bg-white">
-                <div>
-                  <h3 className="font-serif text-lg font-medium text-stone-900 leading-none">
-                    Vani Collection
-                  </h3>
-                  <span className="text-[8px] uppercase tracking-[0.3em] text-[#b8935a] font-semibold">
-                    Jaipur Atelier
-                  </span>
+              {/* ── Luxury Branded Header ── */}
+              <div
+                className="relative px-5 pt-6 pb-5 flex items-end justify-between shrink-0"
+                style={{ background: "linear-gradient(135deg, #1c1917 0%, #3d2012 55%, #881337 100%)" }}
+              >
+                <div
+                  className="absolute inset-0 opacity-[0.05] pointer-events-none"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+                    backgroundSize: "150px 150px",
+                  }}
+                />
+                <div className="relative z-10">
+                  <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-[#dfc28c] block mb-1">Jaipur Atelier</span>
+                  <h2 className="font-serif text-2xl text-white font-light leading-none">Vani Collection</h2>
+                  <p className="text-[10px] text-white/50 mt-1.5 tracking-wider">Handcrafted Luxury Since 2018</p>
                 </div>
                 <button
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 hover:bg-stone-200 text-xs"
+                  className="relative z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/30 flex items-center justify-center text-white transition"
                 >
-                  ✕
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6L6 18M6 6l12 12" />
+                  </svg>
                 </button>
               </div>
 
               {/* Quick Search inside Drawer */}
-              <div className="p-4 border-b border-stone-200 bg-stone-50">
+              <div className="px-4 pt-4 pb-3 border-b border-stone-200/80 bg-white/50 shrink-0">
                 <div
                   onClick={() => {
                     setMobileDrawerOpen(false);
                     setSearchOpen(true);
                   }}
-                  className="flex items-center gap-2 bg-white border border-stone-300 rounded-full px-3.5 py-2 text-xs text-stone-400 cursor-pointer"
+                  className="flex items-center gap-3 bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm text-stone-400 cursor-pointer hover:border-stone-400 transition"
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="11" cy="11" r="7" />
                     <path d="M21 21l-4.35-4.35" />
                   </svg>
-                  <span>Search Mul, Suits, Co-ords...</span>
+                  <span>Search products...</span>
                 </div>
               </div>
 
               {/* Quick Links for New Features */}
-              <div className="grid grid-cols-2 gap-2 p-4 pb-2 border-b border-stone-200">
+              <div className="grid grid-cols-2 gap-2.5 px-4 py-3 border-b border-stone-200/80 bg-white/30 shrink-0">
                 <Link
                   href="/reels"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-[#881337]/10 to-[#881337]/5 border border-[#881337]/20 text-[#881337] font-semibold text-xs"
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-br from-[#881337] to-[#701a35] text-white font-semibold text-xs shadow-lg"
                 >
-                  <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
-                  <span>Reels Feed</span>
-                  <span className="text-[8px] bg-[#881337] text-white px-1 rounded font-bold ml-auto">HOT</span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="none">
+                    <rect x="2" y="2" width="20" height="20" rx="4" />
+                    <path d="M10 8l6 4-6 4V8z" fill="#881337" />
+                  </svg>
+                  <span>Reels</span>
                 </Link>
                 <Link
                   href="/#stories"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-800 font-semibold text-xs"
+                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-white border border-stone-200 text-stone-800 font-semibold text-xs hover:bg-stone-50 transition"
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
                   <span>Stories</span>
                 </Link>
               </div>
 
-              {/* Navigation Categories Accordion */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                <span className="text-[9px] uppercase tracking-[0.3em] font-bold text-stone-400 px-2 block mb-2">
+              {/* Navigation Categories Accordion - SCROLLABLE */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5" style={{ overscrollBehavior: "contain" }}>
+                <span className="text-[9px] uppercase tracking-[0.3em] font-bold text-stone-400 block mb-3">
                   Collections
                 </span>
                 {NAV_ITEMS.map((item) => {
@@ -390,25 +471,33 @@ export default function Navbar() {
                   return (
                     <div
                       key={item.label}
-                      className="border border-stone-200/80 rounded-xl overflow-hidden bg-white shadow-xs"
+                      className="border border-stone-200 rounded-xl overflow-hidden bg-white shadow-sm"
                     >
                       <button
                         onClick={() =>
                           setExpandedMobileCategory(isExpanded ? null : item.label)
                         }
-                        className="w-full flex items-center justify-between p-3.5 text-left text-xs font-semibold text-stone-800"
+                        className="w-full flex items-center justify-between px-4 py-3.5 text-left"
                       >
-                        <span className="flex items-center gap-2">
-                          <span className="font-serif text-sm">{item.label}</span>
+                        <span className="flex items-center gap-2.5">
+                          <span className="font-serif text-base font-semibold text-gray-900">{item.label}</span>
                           {item.isNew && (
-                            <span className="text-[8px] bg-[#881337] text-white px-1.5 py-0.5 rounded font-bold">
-                              HOT
+                            <span className="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-bold">
+                              NEW
                             </span>
                           )}
                         </span>
-                        <span className="text-stone-400 text-xs transition-transform duration-200">
-                          {isExpanded ? "−" : "+"}
-                        </span>
+                        <svg 
+                          width="16" 
+                          height="16" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2.5"
+                          className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        >
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
                       </button>
 
                       <AnimatePresence>
@@ -417,22 +506,23 @@ export default function Navbar() {
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="bg-[#faf7f2] border-t border-stone-200 p-3.5 space-y-3"
+                            className="bg-stone-50 border-t border-stone-200 px-4 py-4 space-y-4"
                           >
                             {item.columns.map((col) => (
                               <div key={col.title}>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-[#881337] block mb-1.5">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-[#881337] block mb-2">
                                   {col.title}
                                 </span>
-                                <div className="grid grid-cols-1 gap-1.5 pl-2">
-                                  {col.links.slice(0, 4).map((link) => (
+                                <div className="grid grid-cols-1 gap-2 pl-1">
+                                  {col.links.slice(0, 5).map((link) => (
                                     <Link
                                       key={link}
                                       href="#products"
                                       onClick={() => setMobileDrawerOpen(false)}
-                                      className="text-xs text-stone-600 hover:text-[#881337] py-0.5"
+                                      className="flex items-center gap-2 text-sm text-stone-600 hover:text-[#881337] py-1 transition group"
                                     >
-                                      • {link}
+                                      <span className="w-1 h-1 rounded-full bg-stone-300 group-hover:bg-[#881337] transition" />
+                                      <span>{link}</span>
                                     </Link>
                                   ))}
                                 </div>
@@ -640,5 +730,123 @@ function IconBtn({
     >
       {children}
     </button>
+  );
+}
+
+
+/* ========================================
+   MEGA MENU ITEM COMPONENT
+   ======================================== */
+function MegaMenuItem({ 
+  label, 
+  categories 
+}: { 
+  label: string;
+  categories: Array<{ title: string; items: string[] }>;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => setIsOpen(false), 150);
+  };
+
+  return (
+    <div 
+      className="relative" 
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Trigger Button */}
+      <button className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] text-stone-700 hover:text-[#881337] transition-colors px-4 py-2 flex items-center gap-1.5">
+        <span>{label}</span>
+        <svg 
+          width="12" 
+          height="12" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.5"
+          className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+        <span className={`absolute bottom-0 left-0 right-0 h-0.5 bg-[#881337] transition-transform origin-left ${isOpen ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`} />
+      </button>
+
+      {/* Mega Dropdown */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute top-full left-1/2 -translate-x-1/2 pt-2 z-50"
+          >
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden min-w-[600px]">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-stone-50 to-white px-6 py-4 border-b border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900">{label}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Explore our curated collection</p>
+              </div>
+
+              {/* Categories Grid */}
+              <div className="grid grid-cols-2 gap-8 p-6">
+                {categories.map((category, idx) => (
+                  <div key={idx} className="space-y-3">
+                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-200 pb-2">
+                      {category.title}
+                    </h4>
+                    <ul className="space-y-2">
+                      {category.items.map((item, itemIdx) => (
+                        <li key={itemIdx}>
+                          <Link
+                            href="/"
+                            className="group flex items-center gap-2 text-sm text-gray-600 hover:text-[#881337] transition-colors py-1"
+                          >
+                            <span className="w-1 h-1 rounded-full bg-gray-300 group-hover:bg-[#881337] transition-colors" />
+                            <span>{item}</span>
+                            <svg 
+                              width="14" 
+                              height="14" 
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              strokeWidth="2"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1 group-hover:translate-x-0"
+                            >
+                              <path d="M5 12h14M12 5l7 7-7 7" />
+                            </svg>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer CTA */}
+              <div className="bg-gradient-to-r from-[#881337]/5 to-[#881337]/10 px-6 py-4 border-t border-gray-100">
+                <Link 
+                  href="/"
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-[#881337] hover:text-[#701a35] transition-colors"
+                >
+                  <span>View All in {label}</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

@@ -109,3 +109,35 @@ input:focus-visible {
   font-size: clamp(2rem, 6vw, 5rem);
   line-height: 1.08;
 }
+
+/* Reels scroll snap - strict settings */
+.reels-scroll-container {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.reels-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.reel-item {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Override zoom for reels page to get exact viewport height */
+@media (min-width: 640px) {
+  .reels-page-container {
+    zoom: 1 !important;
+  }
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

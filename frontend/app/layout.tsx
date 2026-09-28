@@ -46,8 +46,7 @@ export default function RootLayout({
       <body className="min-h-screen flex flex-col bg-[#faf7f2] text-[#1c1917] selection:bg-[#881337] selection:text-white">
         <CartProvider>
           <SmoothScroll>
-            <Navbar />
-            <main className="flex-grow">{children}</main>
+            {children}
             <CartDrawer />
             <QuickViewModal />
           </SmoothScroll>

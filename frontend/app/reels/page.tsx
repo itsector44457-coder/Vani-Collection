@@ -4,13 +4,14 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
 import { PRODUCTS } from "../../data/products";
+import ReelsSidebar from "../../components/ReelsSidebar";
 import Link from "next/link";
 
 const REELS = [
   {
     id: "reel-1",
     productId: "vani-1",
-    videoSrc: "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4",
+    videoSrc: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
     poster: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=720&q=85",
     caption: "Pure Mul Cotton — Featherlight for Summer Days",
     tag: "Bagru Handblock",
@@ -21,7 +22,7 @@ const REELS = [
   {
     id: "reel-2",
     productId: "vani-2",
-    videoSrc: "https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4",
+    videoSrc: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
     poster: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=720&q=85",
     caption: "Festive Chanderi Silk — Craft the Perfect Heirloom Look",
     tag: "Gota Patti Zari",
@@ -32,7 +33,7 @@ const REELS = [
   {
     id: "reel-3",
     productId: "vani-3",
-    videoSrc: "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4",
+    videoSrc: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
     poster: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=720&q=85",
     caption: "Effortless Indo-Western Co-ords — Airport to Brunch",
     tag: "Modern Comfort",
@@ -43,7 +44,7 @@ const REELS = [
   {
     id: "reel-4",
     productId: "vani-4",
-    videoSrc: "https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4",
+    videoSrc: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
     poster: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=720&q=85",
     caption: "Royal Kalidaar Anarkali — 5-Meter Full Flared Drama",
     tag: "Mughal Grandeur",
@@ -54,7 +55,7 @@ const REELS = [
   {
     id: "reel-5",
     productId: "vani-5",
-    videoSrc: "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4",
+    videoSrc: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
     poster: "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=720&q=85",
     caption: "Budget Luxe Under Rs.1,999 — Premium Without The Price Tag",
     tag: "Pocket Luxe",
@@ -105,7 +106,7 @@ function ReelCard({
   };
 
   return (
-    <div className="relative w-full h-full flex items-center justify-center bg-black">
+    <div className="relative w-full h-screen bg-black overflow-hidden" style={{ height: '100dvh' }}>
       <video
         ref={videoRef}
         src={reel.videoSrc}
@@ -118,15 +119,17 @@ function ReelCard({
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/30 pointer-events-none" />
       <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-transparent pointer-events-none" />
 
-      <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between z-20">
-        <Link href="/" className="flex items-center gap-2 text-white">
+      <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between z-20 lg:justify-end">
+        {/* Mobile only — back button */}
+        <Link href="/" className="lg:hidden flex items-center gap-2 text-white">
           <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M19 12H5M12 5l-7 7 7 7" />
             </svg>
           </div>
-          <span className="font-serif text-sm font-medium tracking-wide">Vani Reels</span>
         </Link>
+        
+        {/* Mute button */}
         <button
           onClick={() => setMuted(!muted)}
           className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white"
@@ -260,28 +263,64 @@ export default function ReelsPage() {
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      <div
-        ref={containerRef}
-        className="flex-1 overflow-y-scroll"
-        style={{ scrollSnapType: "y mandatory" }}
-      >
-        {REELS.map((reel, idx) => (
-          <div key={reel.id} style={{ scrollSnapAlign: "start" }} className="relative w-full h-screen">
-            <ReelCard reel={reel} isActive={activeIndex === idx} onLike={handleLike} likedIds={likedIds} />
-          </div>
-        ))}
-      </div>
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-30 pointer-events-none">
-        {REELS.map((_, idx) => (
-          <div
-            key={idx}
+    <>
+      {/* Instagram-style sidebar — desktop only */}
+      <ReelsSidebar />
+
+      {/* Main reels wrapper - exact viewport height, overflow hidden */}
+      <div className="reels-page-container fixed inset-0 lg:left-[245px] bg-black">
+        {/* Scrollable container - MUST be exactly viewport height */}
+        <div
+          ref={containerRef}
+          className="reels-scroll-container absolute inset-0 overflow-y-scroll overflow-x-hidden"
+          style={{
+            height: '100dvh',
+            scrollSnapType: 'y mandatory',
+          }}
+        >
+          {REELS.map((reel, idx) => (
+            <div 
+              key={reel.id} 
+              className="reel-item"
+              style={{
+                height: '100dvh',
+                minHeight: '100dvh',
+                maxHeight: '100dvh',
+                scrollSnapAlign: 'start',
+                scrollSnapStop: 'always',
+              }}
+            >
+              {/* Centered portrait container */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="relative w-full md:w-[470px] md:max-w-[470px]" style={{ height: '100dvh' }}>
+                  <ReelCard reel={reel} isActive={activeIndex === idx} onLike={handleLike} likedIds={likedIds} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* Scroll indicator dots — 2 fixed positions, active dot moves */}
+        <div className="fixed right-4 md:right-8 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-50 pointer-events-none">
+          {/* Top position dot */}
+          <div 
             className={`rounded-full transition-all duration-300 ${
-              activeIndex === idx ? "w-1.5 h-5 bg-white" : "w-1.5 h-1.5 bg-white/40"
+              activeIndex === 0 
+                ? "w-1.5 h-5 bg-white" 
+                : "w-1.5 h-1.5 bg-white/40"
             }`}
           />
-        ))}
+          
+          {/* Bottom position dot */}
+          <div 
+            className={`rounded-full transition-all duration-300 ${
+              activeIndex > 0 
+                ? "w-1.5 h-5 bg-white" 
+                : "w-1.5 h-1.5 bg-white/40"
+            }`}
+          />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
