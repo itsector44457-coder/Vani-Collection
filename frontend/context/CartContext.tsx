@@ -26,6 +26,7 @@ export interface Product {
   badgeType?: "bestseller" | "new" | "sale" | "mul";
   image: string;
   hoverImage: string;
+  videoUrl?: string;
   sizes: string[];
   description: string;
   details: string[];

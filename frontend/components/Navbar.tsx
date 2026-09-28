@@ -641,6 +641,7 @@ export default function Navbar() {
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <div className="flex items-center justify-around px-2 py-1.5">
+          {/* Home */}
           <Link
             href="/"
             className="flex flex-col items-center text-stone-800 hover:text-[#881337] py-1 px-3 rounded-xl transition-colors"
@@ -652,6 +653,7 @@ export default function Navbar() {
             <span className="text-[9px] font-medium mt-0.5">Home</span>
           </Link>
 
+          {/* Shop */}
           <button
             onClick={() => setMobileDrawerOpen(true)}
             className="flex flex-col items-center text-stone-800 hover:text-[#881337] py-1 px-3 rounded-xl transition-colors"
@@ -662,9 +664,25 @@ export default function Navbar() {
               <rect x="14" y="14" width="7" height="7" rx="1" />
               <rect x="3" y="14" width="7" height="7" rx="1" />
             </svg>
-            <span className="text-[9px] font-medium mt-0.5">Categories</span>
+            <span className="text-[9px] font-medium mt-0.5">Shop</span>
           </button>
 
+          {/* Reels — PROMINENT CENTER BUTTON */}
+          <Link
+            href="/reels"
+            className="flex flex-col items-center -mt-5"
+          >
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#b91c1c] via-[#881337] to-[#701a35] flex items-center justify-center shadow-[0_4px_18px_rgba(185,28,28,0.55)] border-2 border-[#dfc28c]/60">
+              {/* Play / Reels icon */}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                <rect x="2" y="2" width="20" height="20" rx="5" />
+                <path d="M8 9.5l8 4.5-8 4.5V9.5z" fill="white" stroke="none" />
+              </svg>
+            </div>
+            <span className="text-[9px] font-bold mt-1 text-[#881337] tracking-wide">Reels</span>
+          </Link>
+
+          {/* Wishlist */}
           <button
             onClick={() => {
               const target = document.getElementById("products");
@@ -683,6 +701,7 @@ export default function Navbar() {
             <span className="text-[9px] font-medium mt-0.5">Wishlist</span>
           </button>
 
+          {/* Bag */}
           <button
             onClick={() => setIsCartOpen(true)}
             className="flex flex-col items-center py-1 px-3 rounded-xl transition-colors relative"

@@ -82,6 +82,7 @@ export const PRODUCTS: Product[] = [
     badgeType: "bestseller",
     image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=85",
     hoverImage: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=900&q=85",
+    videoUrl: "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4",
     sizes: ["XS", "S", "M", "L", "XL", "XXL"],
     description: "Handcrafted in Bagru with wooden handblock floral motifs on ultra-soft 100-count breathable mul cotton. Features delicate gota work along the kalis and neckline with a gossamer Kota Doria dupatta.",
     details: [
@@ -105,6 +106,7 @@ export const PRODUCTS: Product[] = [
     badgeType: "sale",
     image: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=900&q=85",
     hoverImage: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=85",
+    videoUrl: "https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4",
     sizes: ["S", "M", "L", "XL", "XXL"],
     description: "An ethereal ivory festive ensemble woven in lustrous Chanderi silk with delicate golden zari embroidery and mirror work. Paired with a grand ruffled tiered sharara.",
     details: [
@@ -128,6 +130,7 @@ export const PRODUCTS: Product[] = [
     badgeType: "bestseller",
     image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=900&q=85",
     hoverImage: "https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&w=900&q=85",
+    videoUrl: "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4",
     sizes: ["XS", "S", "M", "L", "XL"],
     description: "Modern Indo-western sophistication made effortless. High-low tunic with mandarin collar and mother-of-pearl buttons paired with tailored comfort trousers.",
     details: [
@@ -150,6 +153,7 @@ export const PRODUCTS: Product[] = [
     badgeType: "new",
     image: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=900&q=85",
     hoverImage: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=900&q=85",
+    videoUrl: "https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4",
     sizes: ["S", "M", "L", "XL", "XXL", "3XL"],
     description: "Classic royal Mughal overlap Angrakha silhouette with handcrafted fabric dori ties and brass bell latkans. Decorated with subtle foil accents for festive shimmer.",
     details: [
@@ -172,6 +176,7 @@ export const PRODUCTS: Product[] = [
     badgeType: "sale",
     image: "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=900&q=85",
     hoverImage: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=85",
+    videoUrl: "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4",
     sizes: ["XS", "S", "M", "L", "XL"],
     description: "Inspired by the flora of Dal Lake, featuring detailed multi-color Kashida needlework along the yoke, sleeve cuffs, and side slits.",
     details: [
@@ -194,6 +199,7 @@ export const PRODUCTS: Product[] = [
     badgeType: "bestseller",
     image: "https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&w=900&q=85",
     hoverImage: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=900&q=85",
+    videoUrl: "https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4",
     sizes: ["S", "M", "L", "XL", "XXL"],
     description: "Vibrant Haldi and festive celebrations made grand in molten mustard silk Chanderi accented with intricate marodi and pita zari craftsmanship.",
     details: [
@@ -216,6 +222,7 @@ export const PRODUCTS: Product[] = [
     badgeType: "mul",
     image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=900&q=85",
     hoverImage: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=900&q=85",
+    videoUrl: "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4",
     sizes: ["XS", "S", "M", "L", "XL"],
     description: "Versatile fusion tiered maxi that transitions effortlessly from morning poojas to evening cafe outings. Features smocked waist detailing and wooden bead tassels.",
     details: [
@@ -238,6 +245,7 @@ export const PRODUCTS: Product[] = [
     badgeType: "new",
     image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=900&q=85",
     hoverImage: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=900&q=85",
+    videoUrl: "https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4",
     sizes: ["Free Size (6.5m with blouse)"],
     description: "Draped in pure poetic nostalgia. Handspun organic cotton saree with traditional jaal print and running contrast handblock blouse piece.",
     details: [

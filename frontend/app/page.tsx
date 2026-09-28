@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../context/CartContext";
 import { PRODUCTS, STORIES_CATEGORIES, EDITORIAL_LOOKBOOK, REVIEWS, CategoryStory } from "../data/products";
 import StoryReelModal from "../components/StoryReelModal";
+import LivingProductCard from "../components/LivingProductCard";
 
 export default function Home() {
   const { addToCart, setQuickViewProduct, toggleWishlist, isInWishlist } = useCart();
@@ -538,140 +539,18 @@ export default function Home() {
 
           {/* Product Grid: 2 columns mobile, 3 columns tablet (md), 4 columns desktop (lg) */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-8">
-            {filteredProducts.map((product) => {
-              const isWish = isInWishlist(product.id);
-              const selectedSize = selectedSizes[product.id] || product.sizes[0];
-
-              return (
-                <div
-                  key={product.id}
-                  className="group relative flex flex-col bg-[#faf7f2] rounded-xl overflow-hidden border border-[#e8dfd5] transition-all hover:shadow-xl hover:-translate-y-1"
-                >
-                  {/* Image Container with alternate hover swap */}
-                  <div
-                    onClick={() => setQuickViewProduct(product)}
-                    className="relative aspect-[3/4] w-full overflow-hidden bg-stone-100 cursor-pointer"
-                  >
-                    {/* Front Image */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={product.image}
-                      alt={product.title}
-                      className="w-full h-full object-cover object-top transition-opacity duration-500 group-hover:opacity-0"
-                    />
-
-                    {/* Alternate Hover Image */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={product.hoverImage || product.image}
-                      alt={`${product.title} alternate`}
-                      className="absolute inset-0 w-full h-full object-cover object-top opacity-0 transition-opacity duration-500 group-hover:opacity-100 group-hover:scale-105"
-                    />
-
-                    {/* Badge */}
-                    {product.badge && (
-                      <span className="absolute top-2 sm:top-3 left-2 sm:left-3 bg-[#881337] text-white text-[8px] sm:text-[9px] uppercase font-bold tracking-widest px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded shadow-xs">
-                        {product.badge}
-                      </span>
-                    )}
-
-                    {/* Wishlist Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleWishlist(product.id);
-                      }}
-                      className={`absolute top-2 sm:top-3 right-2 sm:right-3 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center transition shadow-xs text-xs sm:text-sm ${
-                        isWish ? "text-rose-600" : "text-stone-600 hover:text-rose-600"
-                      }`}
-                      aria-label="Add to wishlist"
-                    >
-                      {isWish ? "♥" : "♡"}
-                    </button>
-
-                    {/* Quick View Button (Desktop hover overlay) */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setQuickViewProduct(product);
-                      }}
-                      className="hidden sm:block absolute bottom-3 inset-x-3 bg-white/95 hover:bg-white text-stone-900 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-all shadow-md transform translate-y-2 group-hover:translate-y-0"
-                    >
-                      Quick View
-                    </button>
-                  </div>
-
-                  {/* Product Details */}
-                  <div className="p-2.5 sm:p-4 md:p-5 flex-1 flex flex-col justify-between">
-                    <div>
-                      {/* Fabric pill */}
-                      <span className="text-[9px] sm:text-[10px] text-[#b8935a] font-semibold uppercase tracking-wider block mb-0.5 sm:mb-1 truncate">
-                        {product.fabric}
-                      </span>
-
-                      {/* Title */}
-                      <h3
-                        onClick={() => setQuickViewProduct(product)}
-                        className="font-serif text-xs sm:text-sm md:text-base font-medium text-stone-900 line-clamp-2 cursor-pointer hover:text-[#881337] transition leading-snug mb-1 sm:mb-2 min-h-[32px] sm:min-h-[40px]"
-                      >
-                        {product.title}
-                      </h3>
-
-                      {/* Ratings */}
-                      <div className="flex items-center gap-1 text-[10px] sm:text-xs text-stone-500 mb-2">
-                        <span className="text-amber-500 font-bold">★ {product.rating}</span>
-                        <span className="hidden xs:inline">({product.reviewsCount})</span>
-                      </div>
-
-                      {/* Size Selector Chips */}
-                      <div className="flex flex-wrap items-center gap-1 mb-2.5 sm:mb-3">
-                        {product.sizes.slice(0, 4).map((size) => (
-                          <button
-                            key={size}
-                            onClick={() => handleSizeChange(product.id, size)}
-                            className={`px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-medium border transition ${
-                              selectedSize === size
-                                ? "bg-[#1c1917] text-white border-[#1c1917]"
-                                : "bg-white text-stone-700 border-stone-300 hover:border-stone-400"
-                            }`}
-                          >
-                            {size}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Pricing & Add to Cart button */}
-                    <div className="pt-2 sm:pt-3 border-t border-stone-200/80">
-                      <div className="flex items-baseline justify-between mb-2 sm:mb-3">
-                        <div className="flex items-baseline gap-1 sm:gap-1.5">
-                          <span className="text-sm sm:text-base md:text-lg font-bold text-[#881337]">
-                            ₹{product.price}
-                          </span>
-                          {product.originalPrice > product.price && (
-                            <span className="text-[10px] sm:text-xs text-stone-400 line-through">
-                              ₹{product.originalPrice}
-                            </span>
-                          )}
-                        </div>
-                        {product.originalPrice > product.price && (
-                          <span className="text-[8px] sm:text-[9.5px] font-bold text-emerald-800 bg-emerald-100 px-1 py-0.5 rounded">
-                            {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%
-                          </span>
-                        )}
-                      </div>
-
-                      <button
-                        onClick={() => addToCart(product, selectedSize, 1)}
-                        className="w-full bg-[#1c1917] hover:bg-[#881337] text-white py-2 sm:py-2.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition shadow-xs flex items-center justify-center gap-1 active:scale-95"
-                      >
-                        <span>+ Add to Bag</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {filteredProducts.map((product) => (
+              <LivingProductCard
+                key={product.id}
+                product={product}
+                isWish={isInWishlist(product.id)}
+                toggleWishlist={toggleWishlist}
+                onQuickView={setQuickViewProduct}
+                onAddToCart={addToCart}
+                selectedSize={selectedSizes[product.id] || product.sizes[0]}
+                onSelectSize={handleSizeChange}
+              />
+            ))}
           </div>
         </div>
       </section>
