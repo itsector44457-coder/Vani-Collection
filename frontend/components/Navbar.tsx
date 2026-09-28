@@ -204,26 +204,41 @@ export default function Navbar() {
               </span>
             </Link>
 
-            {/* Desktop Center: Explore Collection Button */}
-            <div className="hidden lg:flex items-center mx-auto">
-              <a
-                href="#products"
-                className="group inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full border border-stone-800 text-stone-900 hover:bg-[#881337] hover:border-[#881337] hover:text-white transition-all duration-300 text-xs font-semibold tracking-[0.2em] uppercase shadow-xs active:scale-95"
+            {/* Desktop Navigation: Links to Newly Built Features */}
+            <nav className="hidden lg:flex items-center gap-7 xl:gap-9 mx-auto">
+              <Link
+                href="/#stories"
+                className="group text-[12px] font-semibold uppercase tracking-[0.2em] text-stone-800 hover:text-[#881337] transition-colors py-2 flex items-center gap-1.5"
               >
-                <span>Explore Collection</span>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  className="transition-transform duration-300 group-hover:translate-x-1"
-                >
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </a>
-            </div>
+                <span>Stories</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-tr from-[#dfc28c] to-[#881337]" />
+              </Link>
+
+              <Link
+                href="/reels"
+                className="group text-[12px] font-bold uppercase tracking-[0.2em] text-[#881337] transition-colors py-1.5 px-3 rounded-full bg-[#881337]/5 hover:bg-[#881337]/10 flex items-center gap-2 border border-[#881337]/20"
+              >
+                <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
+                <span>Reels</span>
+                <span className="text-[8px] bg-[#881337] text-white px-1.5 py-0.5 rounded font-bold tracking-widest">
+                  NEW
+                </span>
+              </Link>
+
+              <Link
+                href="/#products"
+                className="group text-[12px] font-semibold uppercase tracking-[0.2em] text-stone-800 hover:text-[#881337] transition-colors py-2 flex items-center gap-1.5"
+              >
+                <span>Living Looks</span>
+              </Link>
+
+              <Link
+                href="/#lookbook"
+                className="group text-[12px] font-semibold uppercase tracking-[0.2em] text-stone-800 hover:text-[#881337] transition-colors py-2"
+              >
+                <span>Lookbook</span>
+              </Link>
+            </nav>
 
             {/* Right Action Icons */}
             <div className="flex items-center gap-1 sm:gap-2">
@@ -342,6 +357,27 @@ export default function Navbar() {
                   </svg>
                   <span>Search Mul, Suits, Co-ords...</span>
                 </div>
+              </div>
+
+              {/* Quick Links for New Features */}
+              <div className="grid grid-cols-2 gap-2 p-4 pb-2 border-b border-stone-200">
+                <Link
+                  href="/reels"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-br from-[#881337]/10 to-[#881337]/5 border border-[#881337]/20 text-[#881337] font-semibold text-xs"
+                >
+                  <span className="w-2 h-2 rounded-full bg-rose-600 animate-pulse" />
+                  <span>Reels Feed</span>
+                  <span className="text-[8px] bg-[#881337] text-white px-1 rounded font-bold ml-auto">HOT</span>
+                </Link>
+                <Link
+                  href="/#stories"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="flex items-center gap-2 p-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-200 text-stone-800 font-semibold text-xs"
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>Stories</span>
+                </Link>
               </div>
 
               {/* Navigation Categories Accordion */}

@@ -323,7 +323,7 @@ export default function Home() {
       </section>
 
       {/* ================= 2. CIRCULAR STORY HIGHLIGHTS (Aisha Creations Style) ================= */}
-      <section className="py-5 sm:py-10 border-b border-[#e8dfd5] bg-[#faf7f2]">
+      <section id="stories" className="py-5 sm:py-10 border-b border-[#e8dfd5] bg-[#faf7f2]">
         <div className="max-w-[1500px] mx-auto px-4 sm:px-8">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div>
