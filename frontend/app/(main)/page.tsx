@@ -826,7 +826,7 @@ export default function Home() {
               Vani Collection
             </span>
             <span className="text-[8.5px] uppercase tracking-[0.4em] text-[#dfc28c] block font-semibold">
-              Jaipur Atelier · New Delhi
+              Guna Atelier · Madhya Pradesh
             </span>
             <p className="text-stone-400 text-xs leading-relaxed max-w-sm">
               Dedicated to preserving the timeless art of 100-count pure Mul Cotton, Bagru handblock wooden prints, and royal Mughal kalidaar anarkalis.
@@ -885,7 +885,7 @@ export default function Home() {
 
         {/* Sub-footer */}
         <div className="max-w-[1500px] mx-auto px-5 sm:px-8 lg:px-16 pt-6 sm:pt-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-stone-500">
-          <p>© 2026 Vani Collection. All rights reserved. Handcrafted with love in Jaipur, India.</p>
+          <p>© 2026 Vani Collection. All rights reserved. Handcrafted with love in Apna GUNA, India.</p>
           <div className="flex gap-4 sm:gap-6">
             <span className="hover:text-stone-300 cursor-pointer">Privacy Policy</span>
             <span className="hover:text-stone-300 cursor-pointer">Terms of Service</span>
