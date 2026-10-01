@@ -6,6 +6,36 @@ import { useCart } from "../../context/CartContext";
 import { PRODUCTS } from "../../data/products";
 import ReelsSidebar from "../../components/ReelsSidebar";
 import Link from "next/link";
+import { generateProductSlug } from "../../lib/utils";
+
+/* ─────────────────────────────────────────────────────────────
+  ROOT CAUSE ANALYSIS (why things broke):
+  1. globals.css sets `html { zoom: 0.9 }` on sm+ screens.
+     This means the browser's layout viewport is zoomed, but
+     100dvh / 100vh units still refer to the PHYSICAL viewport
+     height (pre-zoom), making each reel item taller than the
+     scroll container → next reel always bleeds into view.
+  2. The `.reel-item` CSS class adds `position: relative` +
+     `overflow: hidden`, but the ReelCard uses `absolute inset-0`
+     which needs a positioned parent that is EXACTLY the height
+     of the scroll slot — when zoom breaks that height the whole
+     card bleeds.
+  3. The sidebar `overflow-y-auto` was on the nav section only,
+     but the sidebar itself had no explicit height, so it didn't
+     scroll.
+
+  THE FIX:
+  - Wrap the entire reels page in a div with `zoom: 1.111...`
+    (= 1/0.9) to cancel out the global 0.9 zoom, making the
+    page render at true 1:1 scale again. Now 100vh == real
+    viewport height.
+  - Each reel slot uses `height: 100vh` (not dvh) consistently.
+  - The scroll container uses `height: 100vh` too, NOT 100dvh.
+  - The sidebar gets explicit `height: 100vh` + `overflow-y: auto`.
+  - The reel card NO LONGER uses `.reel-item` class (to avoid the
+    CSS `position: relative; overflow: hidden` interference) —
+    we set those inline.
+───────────────────────────────────────────────────────────── */
 
 const REELS = [
   {
@@ -57,7 +87,7 @@ const REELS = [
     productId: "vani-5",
     videoSrc: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
     poster: "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=720&q=85",
-    caption: "Budget Luxe Under Rs.1,999 — Premium Without The Price Tag",
+    caption: "Budget Luxe Under ₹1,999 — Premium Without The Price Tag",
     tag: "Pocket Luxe",
     price: "₹1,799",
     likes: 4321,
@@ -65,22 +95,25 @@ const REELS = [
   },
 ];
 
+/* ════════════════════════════════════════
+   REEL CARD — fills 100% of its slot
+════════════════════════════════════════ */
 function ReelCard({
   reel,
   isActive,
   onLike,
   likedIds,
 }: {
-  reel: typeof REELS[0];
+  reel: (typeof REELS)[0];
   isActive: boolean;
   onLike: (id: string) => void;
   likedIds: Set<string>;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const product = PRODUCTS.find((p) => p.id === reel.productId) || PRODUCTS[0];
+  const product = PRODUCTS.find((p) => p.id === reel.productId) ?? PRODUCTS[0];
   const { addToCart, setIsCartOpen } = useCart();
   const [muted, setMuted] = useState(true);
-  const [showBuyToast, setShowBuyToast] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   const isLiked = likedIds.has(reel.id);
 
   useEffect(() => {
@@ -96,8 +129,8 @@ function ReelCard({
 
   const handleAddToCart = () => {
     addToCart(product, product.sizes[0], 1);
-    setShowBuyToast(true);
-    setTimeout(() => setShowBuyToast(false), 2500);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2500);
   };
 
   const handleBuyNow = () => {
@@ -106,7 +139,13 @@ function ReelCard({
   };
 
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden" style={{ height: '100dvh' }}>
+    // This div is exactly 100vh tall (the scroll slot height).
+    // It must NOT use the .reel-item class (which adds overflow:hidden
+    // and position:relative via globals.css and can conflict).
+    // We set these inline to be explicit.
+    <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", background: "#000" }}>
+
+      {/* Video fills the card */}
       <video
         ref={videoRef}
         src={reel.videoSrc}
@@ -114,120 +153,144 @@ function ReelCard({
         loop
         muted={muted}
         playsInline
-        className="absolute inset-0 w-full h-full object-cover"
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/30 pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-transparent pointer-events-none" />
 
-      <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between z-20 lg:justify-end">
-        {/* Mobile only — back button */}
-        <Link href="/" className="lg:hidden flex items-center gap-2 text-white">
-          <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M19 12H5M12 5l-7 7 7 7" />
-            </svg>
-          </div>
+      {/* Gradient overlays */}
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.35) 100%)", pointerEvents: "none" }} />
+
+      {/* ── TOP: back + mute ── */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 0" }}>
+        {/* Back — mobile only */}
+        <Link
+          href="/"
+          className="lg:hidden"
+          style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
         </Link>
-        
-        {/* Mute button */}
+        {/* Spacer on desktop */}
+        <div className="hidden lg:block" />
+        {/* Mute */}
         <button
-          onClick={() => setMuted(!muted)}
-          className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white"
+          onClick={() => setMuted((m) => !m)}
+          style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
         >
           {muted ? (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <line x1="23" y1="9" x2="17" y2="15" />
-              <line x1="17" y1="9" x2="23" y2="15" />
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" />
             </svg>
           ) : (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-              <path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" />
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" />
             </svg>
           )}
         </button>
       </div>
 
-      <div className="absolute right-4 bottom-44 flex flex-col items-center gap-5 z-20">
-        <button onClick={() => onLike(reel.id)} className="flex flex-col items-center gap-1">
+      {/* ── RIGHT: like / share / product thumb ──
+          Positioned from the bottom so it always stays above the CTA area.
+          bottom: 200px gives clearance above the ~172px CTA block. */}
+      <div style={{ position: "absolute", right: 14, bottom: 200, zIndex: 20, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        {/* Like */}
+        <button onClick={() => onLike(reel.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer" }}>
           <motion.div
-            whileTap={{ scale: 1.4 }}
-            className={`w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md border transition ${
-              isLiked ? "bg-rose-600 border-rose-400 text-white" : "bg-black/40 border-white/20 text-white"
-            }`}
+            whileTap={{ scale: 1.35 }}
+            style={{
+              width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+              backdropFilter: "blur(8px)", border: `1px solid ${isLiked ? "rgba(251,113,133,0.6)" : "rgba(255,255,255,0.25)"}`,
+              background: isLiked ? "rgba(225,29,72,0.85)" : "rgba(0,0,0,0.45)",
+              color: "#fff",
+            }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill={isLiked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
               <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
             </svg>
           </motion.div>
-          <span className="text-white text-[10px] font-semibold drop-shadow-lg">
+          <span style={{ color: "#fff", fontSize: 10, fontWeight: 600, textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
             {(reel.likes + (isLiked ? 1 : 0)).toLocaleString()}
           </span>
         </button>
 
+        {/* Share */}
         <button
-          onClick={() => {
-            if (typeof navigator !== "undefined" && navigator.share) {
-              navigator.share({ title: "Vani Collection", url: window.location.href }).catch(() => {});
-            }
-          }}
-          className="flex flex-col items-center gap-1"
+          onClick={() => navigator?.share?.({ title: "Vani Collection", url: window.location.href }).catch(() => {})}
+          style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer" }}
         >
-          <div className="w-11 h-11 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center text-white">
+          <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(0,0,0,0.45)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
             </svg>
           </div>
-          <span className="text-white text-[10px] font-semibold drop-shadow-lg">{reel.shares.toLocaleString()}</span>
+          <span style={{ color: "#fff", fontSize: 10, fontWeight: 600, textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>{reel.shares.toLocaleString()}</span>
         </button>
 
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={product.image}
-          alt={product.title}
-          className="w-11 h-11 rounded-xl object-cover border-2 border-white/60 shadow-lg"
-        />
+        {/* Product thumb → product page */}
+        <Link href={`/product/${generateProductSlug(product.title)}`}>
+          <img
+            src={product.image}
+            alt={product.title}
+            style={{ width: 44, height: 44, borderRadius: 12, objectFit: "cover", border: "2px solid rgba(255,255,255,0.65)", boxShadow: "0 2px 12px rgba(0,0,0,0.5)", display: "block" }}
+          />
+        </Link>
       </div>
 
-      <div className="absolute bottom-0 inset-x-0 p-5 z-20">
-        <span className="inline-block bg-[#881337]/90 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2">
+      {/* ── BOTTOM: caption + CTA ── */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 20, padding: "0 20px 28px" }}>
+        {/* Tag */}
+        <span style={{ display: "inline-block", background: "rgba(136,19,55,0.92)", backdropFilter: "blur(4px)", color: "#fff", fontSize: 10, fontWeight: 700, padding: "4px 12px", borderRadius: 100, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
           {reel.tag}
         </span>
-        <p className="text-white text-sm font-medium leading-snug mb-3 max-w-[75%] drop-shadow-lg">{reel.caption}</p>
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-white/80 text-[11px] line-clamp-1 max-w-[200px]">{product.title}</p>
-            <p className="text-[#dfc28c] font-bold text-lg">{reel.price}</p>
+
+        {/* Caption */}
+        <p style={{ color: "#fff", fontSize: 15, fontWeight: 600, lineHeight: 1.4, marginBottom: 10, textShadow: "0 1px 6px rgba(0,0,0,0.7)" }}>
+          {reel.caption}
+        </p>
+
+        {/* Product name + price */}
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 16 }}>
+          <div style={{ flex: 1, paddingRight: 12 }}>
+            <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 11, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical" }}>
+              {product.title}
+            </p>
+            <p style={{ color: "#dfc28c", fontWeight: 700, fontSize: 22, marginTop: 2 }}>{reel.price}</p>
           </div>
+          <Link
+            href={`/product/${generateProductSlug(product.title)}`}
+            style={{ flexShrink: 0, fontSize: 11, color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 100, padding: "6px 14px", backdropFilter: "blur(4px)", whiteSpace: "nowrap" }}
+          >
+            View →
+          </Link>
         </div>
-        <div className="flex gap-2.5">
+
+        {/* CTA buttons */}
+        <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={handleAddToCart}
-            className="flex-1 bg-white/15 backdrop-blur-md border border-white/30 text-white py-3.5 rounded-full text-xs uppercase tracking-widest font-semibold hover:bg-white/25 active:scale-95 transition"
+            style={{ flex: 1, background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", padding: "14px 0", borderRadius: 100, fontSize: 11, fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer" }}
           >
             + Add to Bag
           </button>
           <button
             onClick={handleBuyNow}
-            className="flex-1 bg-gradient-to-r from-[#b91c1c] to-[#881337] text-white py-3.5 rounded-full text-xs uppercase tracking-widest font-bold shadow-[0_4px_20px_rgba(185,28,28,0.5)] active:scale-95 transition"
+            style={{ flex: 1, background: "linear-gradient(135deg, #b91c1c, #881337)", color: "#fff", border: "none", padding: "14px 0", borderRadius: 100, fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", boxShadow: "0 4px 20px rgba(185,28,28,0.45)" }}
           >
             Buy Now
           </button>
         </div>
       </div>
 
+      {/* Toast */}
       <AnimatePresence>
-        {showBuyToast && (
+        {showToast && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: -16 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="absolute top-16 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-xl z-30 whitespace-nowrap"
+            exit={{ opacity: 0, y: -16 }}
+            style={{ position: "absolute", top: 72, left: "50%", transform: "translateX(-50%)", background: "#16a34a", color: "#fff", padding: "10px 20px", borderRadius: 100, fontSize: 12, fontWeight: 600, boxShadow: "0 4px 20px rgba(0,0,0,0.4)", zIndex: 30, whiteSpace: "nowrap" }}
           >
-            Added to your bag!
+            ✓ Added to your bag!
           </motion.div>
         )}
       </AnimatePresence>
@@ -235,6 +298,9 @@ function ReelCard({
   );
 }
 
+/* ════════════════════════════════════════
+   PAGE
+════════════════════════════════════════ */
 export default function ReelsPage() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
@@ -243,84 +309,165 @@ export default function ReelsPage() {
   const handleLike = useCallback((id: string) => {
     setLikedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }, []);
 
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const handleScroll = () => {
-      const scrollTop = container.scrollTop;
-      const height = container.clientHeight;
-      const index = Math.round(scrollTop / height);
-      setActiveIndex(Math.max(0, Math.min(REELS.length - 1, index)));
+    const el = containerRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const idx = Math.round(el.scrollTop / el.clientHeight);
+      setActiveIndex(Math.max(0, Math.min(REELS.length - 1, idx)));
     };
-    container.addEventListener("scroll", handleScroll, { passive: true });
-    return () => container.removeEventListener("scroll", handleScroll);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <>
-      {/* Instagram-style sidebar — desktop only */}
+    /*
+      ZOOM CANCELLATION WRAPPER:
+      globals.css applies `zoom: 0.9` on html at sm+.
+      We must counter it here with `zoom: 1.1111` (= 1/0.9)
+      so the reels page always renders at true 1:1 scale.
+      Without this, 100vh !== one screen height and reels bleed.
+
+      We also set overflow:hidden on body for this page via the
+      outer div being position:fixed — the page never scrolls,
+      only the inner snap container does.
+    */
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        // Cancel the html zoom so this page renders at 1:1 scale
+        zoom: "1.1111",
+        background: "#0a0807",
+      }}
+    >
+      {/* Sidebar — desktop only */}
       <ReelsSidebar />
 
-      {/* Main reels wrapper - exact viewport height, overflow hidden */}
-      <div className="reels-page-container fixed inset-0 lg:left-[245px] bg-black">
-        {/* Scrollable container - MUST be exactly viewport height */}
+      {/*
+        Content area — starts after the sidebar on desktop (left: 248px).
+        On mobile it's full width.
+        It centers the portrait reel column.
+      */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
+        className="lg:left-[248px]"
+      >
+        {/* Dark background with subtle pattern for the sides of widescreen */}
+        <div style={{ position: "absolute", inset: 0, background: "#0a0807" }}>
+          <div
+            style={{
+              position: "absolute", inset: 0, opacity: 0.04,
+              backgroundImage: "radial-gradient(circle, #dfc28c 1px, transparent 1px)",
+              backgroundSize: "28px 28px",
+            }}
+          />
+          <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "none", userSelect: "none" }}>
+            <p style={{ fontFamily: "var(--font-playfair), Georgia, serif", color: "rgba(223,194,140,0.06)", fontSize: 48, letterSpacing: "0.3em", whiteSpace: "nowrap" }}>
+              Vani Collection
+            </p>
+          </div>
+        </div>
+
+        {/* Portrait column — centered in the content area */}
         <div
-          ref={containerRef}
-          className="reels-scroll-container absolute inset-0 overflow-y-scroll overflow-x-hidden"
           style={{
-            height: '100dvh',
-            scrollSnapType: 'y mandatory',
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          {REELS.map((reel, idx) => (
-            <div 
-              key={reel.id} 
-              className="reel-item"
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: 430,
+              height: "100vh",   // 100vh = one screen slot (zoom is cancelled above)
+            }}
+          >
+            {/* ── Scroll snap container ── */}
+            <div
+              ref={containerRef}
               style={{
-                height: '100dvh',
-                minHeight: '100dvh',
-                maxHeight: '100dvh',
-                scrollSnapAlign: 'start',
-                scrollSnapStop: 'always',
+                position: "absolute",
+                inset: 0,
+                overflowY: "scroll",
+                overflowX: "hidden",
+                scrollSnapType: "y mandatory",
+                // Hide scrollbar
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
               }}
             >
-              {/* Centered portrait container */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="relative w-full md:w-[470px] md:max-w-[470px]" style={{ height: '100dvh' }}>
-                  <ReelCard reel={reel} isActive={activeIndex === idx} onLike={handleLike} likedIds={likedIds} />
+              {REELS.map((reel, idx) => (
+                <div
+                  key={reel.id}
+                  style={{
+                    // Each slot must be EXACTLY the same height as the container
+                    height: "100vh",
+                    minHeight: "100vh",
+                    maxHeight: "100vh",
+                    scrollSnapAlign: "start",
+                    scrollSnapStop: "always",
+                    // Do NOT use position:relative here — let ReelCard set its own
+                    overflow: "hidden",
+                  }}
+                >
+                  <ReelCard
+                    reel={reel}
+                    isActive={activeIndex === idx}
+                    onLike={handleLike}
+                    likedIds={likedIds}
+                  />
                 </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-        
-        {/* Scroll indicator dots — 2 fixed positions, active dot moves */}
-        <div className="fixed right-4 md:right-8 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-50 pointer-events-none">
-          {/* Top position dot */}
-          <div 
-            className={`rounded-full transition-all duration-300 ${
-              activeIndex === 0 
-                ? "w-1.5 h-5 bg-white" 
-                : "w-1.5 h-1.5 bg-white/40"
-            }`}
-          />
-          
-          {/* Bottom position dot */}
-          <div 
-            className={`rounded-full transition-all duration-300 ${
-              activeIndex > 0 
-                ? "w-1.5 h-5 bg-white" 
-                : "w-1.5 h-1.5 bg-white/40"
-            }`}
-          />
+
+            {/* Progress dots — inside portrait column, right edge */}
+            <div
+              style={{
+                position: "absolute",
+                right: 6,
+                top: "50%",
+                transform: "translateY(-50%)",
+                zIndex: 50,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 5,
+                pointerEvents: "none",
+              }}
+            >
+              {REELS.map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: 3,
+                    height: activeIndex === i ? 22 : 6,
+                    borderRadius: 99,
+                    background: "#fff",
+                    opacity: activeIndex === i ? 1 : 0.3,
+                    transition: "height 0.3s ease, opacity 0.3s ease",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

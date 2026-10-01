@@ -87,20 +87,20 @@ interface NavItem {
 const NAV: NavItem[] = [
   { name: "Home", href: "/", icon: HomeIcon },
   { name: "Reels", href: "/reels", icon: ReelsIcon, badge: "Live", matchPrefix: true },
-  { name: "Shop", href: "/shop", icon: ShopIcon, matchPrefix: true },
-  { name: "Wishlist", href: "/wishlist", icon: HeartIcon },
+  { name: "Shop", href: "/products", icon: ShopIcon, matchPrefix: true },
+  { name: "Wishlist", href: "/account", icon: HeartIcon },
 ];
 
 const ACCOUNT: NavItem[] = [
-  { name: "Orders", href: "/orders", icon: OrdersIcon, matchPrefix: true },
-  { name: "Profile", href: "/profile", icon: UserIcon, matchPrefix: true },
+  { name: "Orders", href: "/account", icon: OrdersIcon, matchPrefix: true },
+  { name: "Profile", href: "/account", icon: UserIcon, matchPrefix: true },
 ];
 
 const CATEGORIES = [
-  { name: "Sarees", href: "/shop/sarees" },
-  { name: "Lehengas", href: "/shop/lehengas" },
-  { name: "Anarkalis", href: "/shop/anarkalis" },
-  { name: "Kurta Sets", href: "/shop/kurta-sets" },
+  { name: "Sarees", href: "/products?category=festive" },
+  { name: "Anarkalis", href: "/products?category=anarkalis" },
+  { name: "Co-ord Sets", href: "/products?category=coord-sets" },
+  { name: "Mul Cotton", href: "/products?category=mul-cotton" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -185,7 +185,10 @@ export default function ReelsSidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-50 hidden h-screen w-[248px] flex-col border-r border-white/[0.06] bg-[#14100f] text-[#f5f1ea] lg:flex">
+    <aside
+      className="fixed left-0 top-0 z-50 hidden lg:flex flex-col border-r border-white/[0.06] bg-[#14100f] text-[#f5f1ea]"
+      style={{ width: 248, height: "100vh", overflow: "hidden" }}
+    >
       {/* ---------- Brand ---------- */}
       <div className="px-5 pt-7 pb-5">
         <Link href="/" className="group flex items-center gap-3">

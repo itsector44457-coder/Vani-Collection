@@ -12,7 +12,7 @@ export function AuthShell({
   title,
   subtitle,
   children,
-  footer,
+  footer,   
 }: {
   eyebrow: string;
   title: string;

@@ -5,6 +5,30 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLenis } from "./SmoothScroll";
 import { useCart } from "../context/CartContext";
+import SearchOverlay from "./SearchOverlay";
+
+// Utility function to convert display names to URL category parameters
+const getCategoryParam = (displayName: string): string => {
+  const categoryMap: Record<string, string> = {
+    "Mul Cotton": "mul-cotton",
+    "Festive Edit": "festive", 
+    "Festive Wear": "festive",
+    "Festive Luxe": "festive",
+    "Co-ord Sets": "coord-sets",
+    "Anarkalis": "anarkalis",
+    "Daily Wear": "all",
+    "Wedding Guest": "festive",
+    "Casual Comfort": "all",
+    "Spring Collection": "all",
+    "Summer Breeze": "all",
+    "Wedding Season": "festive",
+    "Chanderi Silk": "all",
+    "Linen Blends": "all",
+    "Organza": "all",
+    "Banarasi": "all",
+  };
+  return categoryMap[displayName] || "all";
+};
 
 /* =========================================================
    NAV DATA (Curated for Vani Collection Boutique)
@@ -320,25 +344,33 @@ export default function Navbar() {
                 </IconBtn>
               </div>
 
-              {/* Wishlist Icon */}
-              <IconBtn
-                label="Wishlist"
-                onClick={() => {
-                  const target = document.getElementById("products");
-                  target?.scrollIntoView({ behavior: "smooth" });
-                }}
-              >
-                <div className="relative">
-                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-                  </svg>
-                  {wishlist.length > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center font-bold">
-                      {wishlist.length}
-                    </span>
-                  )}
-                </div>
-              </IconBtn>
+              {/* Wishlist Icon → /account wishlist tab */}
+              <Link href="/account" aria-label="Wishlist">
+                <IconBtn label="Wishlist">
+                  <div className="relative">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
+                    </svg>
+                    {wishlist.length > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center font-bold">
+                        {wishlist.length}
+                      </span>
+                    )}
+                  </div>
+                </IconBtn>
+              </Link>
+
+              {/* Account icon */}
+              <div className="hidden lg:block">
+                <Link href="/account" aria-label="My Account">
+                  <IconBtn label="Account">
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                    </svg>
+                  </IconBtn>
+                </Link>
+              </div>
 
               {/* Shopping Bag Trigger */}
               <button
@@ -517,7 +549,7 @@ export default function Navbar() {
                                   {col.links.slice(0, 5).map((link) => (
                                     <Link
                                       key={link}
-                                      href="#products"
+                                      href={`/products?category=${getCategoryParam(link)}`}
                                       onClick={() => setMobileDrawerOpen(false)}
                                       className="flex items-center gap-2 text-sm text-stone-600 hover:text-[#881337] py-1 transition group"
                                     >
@@ -538,7 +570,7 @@ export default function Navbar() {
                 {/* Additional Quick Links */}
                 <div className="pt-4 border-t border-stone-200 space-y-2 text-xs text-stone-700">
                   <Link
-                    href="#lookbook"
+                    href="/products"
                     onClick={() => setMobileDrawerOpen(false)}
                     className="flex items-center justify-between p-2.5 rounded-lg hover:bg-stone-100"
                   >
@@ -566,61 +598,7 @@ export default function Navbar() {
       </AnimatePresence>
 
       {/* ================= SEARCH OVERLAY ================= */}
-      <AnimatePresence>
-        {searchOpen && (
-          <div className="fixed inset-0 z-[115] flex items-start justify-center pt-20 sm:pt-24 px-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSearchOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-              className="relative w-full max-w-xl bg-white rounded-2xl shadow-2xl p-5 sm:p-6 border border-stone-200 z-[116]"
-            >
-              <div className="flex items-center gap-3 border-b border-stone-200 pb-3">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-stone-400">
-                  <circle cx="11" cy="11" r="8" />
-                  <path d="M21 21l-4.35-4.35" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search Mul Cotton, Anarkalis, Sharara sets..."
-                  autoFocus
-                  className="w-full text-xs sm:text-sm text-stone-900 focus:outline-none"
-                />
-                <button
-                  onClick={() => setSearchOpen(false)}
-                  className="text-xs text-stone-400 hover:text-stone-700 px-2 py-1 bg-stone-100 rounded"
-                >
-                  ESC
-                </button>
-              </div>
-
-              <div className="mt-4">
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-stone-400 block mb-2">
-                  Popular Searches
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {["Pure Mul Cotton", "Bagru Print Kurta", "Anarkali Set", "Haldi Yellow Suit", "Co-ord Set", "Under ₹1999"].map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => setSearchOpen(false)}
-                      className="px-3 py-1.5 bg-stone-100 hover:bg-[#881337] hover:text-white rounded-full text-xs text-stone-700 transition"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
       {/* ================= MOBILE BOTTOM STICKY BAR (Native App feel) ================= */}
       <div
@@ -641,8 +619,8 @@ export default function Navbar() {
           </Link>
 
           {/* Shop */}
-          <button
-            onClick={() => setMobileDrawerOpen(true)}
+          <Link
+            href="/products"
             className="flex flex-col items-center text-stone-800 hover:text-[#881337] py-1 px-3 rounded-xl transition-colors"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -652,7 +630,7 @@ export default function Navbar() {
               <rect x="3" y="14" width="7" height="7" rx="1" />
             </svg>
             <span className="text-[9px] font-medium mt-0.5">Shop</span>
-          </button>
+          </Link>
 
           {/* Reels — PROMINENT CENTER BUTTON */}
           <Link
@@ -669,12 +647,9 @@ export default function Navbar() {
             <span className="text-[9px] font-bold mt-1 text-[#881337] tracking-wide">Reels</span>
           </Link>
 
-          {/* Wishlist */}
-          <button
-            onClick={() => {
-              const target = document.getElementById("products");
-              target?.scrollIntoView({ behavior: "smooth" });
-            }}
+          {/* Wishlist → Account */}
+          <Link
+            href="/account"
             className="flex flex-col items-center text-stone-800 hover:text-[#881337] py-1 px-3 rounded-xl transition-colors relative"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -686,7 +661,7 @@ export default function Navbar() {
               </span>
             )}
             <span className="text-[9px] font-medium mt-0.5">Wishlist</span>
-          </button>
+          </Link>
 
           {/* Bag */}
           <button
@@ -807,7 +782,7 @@ function MegaMenuItem({
                       {category.items.map((item, itemIdx) => (
                         <li key={itemIdx}>
                           <Link
-                            href="/"
+                            href={`/products?category=${getCategoryParam(item)}`}
                             className="group flex items-center gap-2 text-sm text-gray-600 hover:text-[#881337] transition-colors py-1"
                           >
                             <span className="w-1 h-1 rounded-full bg-gray-300 group-hover:bg-[#881337] transition-colors" />
@@ -834,7 +809,7 @@ function MegaMenuItem({
               {/* Footer CTA */}
               <div className="bg-gradient-to-r from-[#881337]/5 to-[#881337]/10 px-6 py-4 border-t border-gray-100">
                 <Link 
-                  href="/"
+                  href={`/products?category=${getCategoryParam(label)}`}
                   className="inline-flex items-center gap-2 text-sm font-semibold text-[#881337] hover:text-[#701a35] transition-colors"
                 >
                   <span>View All in {label}</span>

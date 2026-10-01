@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useRef, useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { Product } from "../context/CartContext";
+import { generateProductSlug } from "../lib/utils";
 
 interface LivingProductCardProps {
   product: Product;
@@ -127,11 +130,12 @@ export default function LivingProductCard({
         className="relative aspect-[3/4] w-full overflow-hidden bg-stone-100 cursor-pointer"
       >
         {/* Still Photo (Primary) */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={product.image}
           alt={product.title}
-          className={`w-full h-full object-cover object-top transition-opacity duration-700 ease-in-out ${
+          fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+          className={`object-cover object-top transition-opacity duration-700 ease-in-out ${
             showVideo ? "opacity-0" : "opacity-100"
           }`}
         />
@@ -200,13 +204,15 @@ export default function LivingProductCard({
             {product.fabric}
           </span>
 
-          {/* Title */}
-          <h3
-            onClick={() => onQuickView(product)}
-            className="font-serif text-xs sm:text-sm md:text-base font-medium text-stone-900 line-clamp-2 cursor-pointer hover:text-[#881337] transition leading-snug mb-1 sm:mb-2 min-h-[32px] sm:min-h-[40px]"
+          {/* Title - Link to Product Page */}
+          <Link 
+            href={`/product/${generateProductSlug(product.title)}`}
+            className="block"
           >
-            {product.title}
-          </h3>
+            <h3 className="font-serif text-xs sm:text-sm md:text-base font-medium text-stone-900 line-clamp-2 cursor-pointer hover:text-[#881337] transition leading-snug mb-1 sm:mb-2 min-h-[32px] sm:min-h-[40px]">
+              {product.title}
+            </h3>
+          </Link>
 
           {/* Ratings */}
           <div className="flex items-center gap-1 text-[10px] sm:text-xs text-stone-500 mb-2">

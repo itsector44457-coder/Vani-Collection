@@ -1,4 +1,5 @@
 import Navbar from "../../components/Navbar";
+import Footer from "../../components/Footer";
 
 export default function MainLayout({
   children,
@@ -9,6 +10,7 @@ export default function MainLayout({
     <>
       <Navbar />
       <main className="flex-grow">{children}</main>
+      <Footer />
     </>
   );
 }

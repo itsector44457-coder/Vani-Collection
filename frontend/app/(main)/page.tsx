@@ -54,7 +54,7 @@ export default function Home() {
       ctaText: "Shop Pure Mul Sets",
       ctaLink: "#products",
       tag: "Jaipur Atelier Exclusive",
-      image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1920&q=85",
+      image: "/vani-store-front.jpg",
       position: "object-[center_30%]",
     },
     {

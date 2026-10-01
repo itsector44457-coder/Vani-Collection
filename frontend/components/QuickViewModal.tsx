@@ -3,6 +3,8 @@
 import { useCart } from "../context/CartContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import Link from "next/link";
+import { generateProductSlug } from "../lib/utils";
 
 export default function QuickViewModal() {
   const { quickViewProduct, setQuickViewProduct, addToCart, toggleWishlist, isInWishlist } = useCart();
@@ -218,6 +220,18 @@ export default function QuickViewModal() {
               >
                 <span>💬 Order / Ask Size via WhatsApp</span>
               </a>
+
+              {/* View Full Details Button */}
+              <Link
+                href={`/product/${generateProductSlug(quickViewProduct.title)}`}
+                className="w-full bg-white hover:bg-stone-50 text-stone-800 border border-stone-300 py-2.5 rounded-full text-xs font-semibold transition flex items-center justify-center gap-2 hover:border-[#881337] hover:text-[#881337]"
+                onClick={() => setQuickViewProduct(null)} // Close modal when navigating
+              >
+                <span>👁️ View Full Details</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </Link>
             </div>
           </div>
         </motion.div>

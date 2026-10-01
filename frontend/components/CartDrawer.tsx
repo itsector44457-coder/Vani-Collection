@@ -3,6 +3,7 @@
 import { useCart } from "../context/CartContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function CartDrawer() {
   const {
@@ -16,6 +17,7 @@ export default function CartDrawer() {
     cartCount,
   } = useCart();
 
+  const router = useRouter();
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -245,7 +247,7 @@ export default function CartDrawer() {
 
                 {/* Checkout button */}
                 <button
-                  onClick={() => alert("Proceeding to secure checkout! Razorpay & Cash On Delivery available.")}
+                  onClick={() => { setIsCartOpen(false); router.push("/checkout"); }}
                   className="w-full bg-[#881337] hover:bg-[#6b0f2b] text-white py-3.5 rounded-full text-xs uppercase tracking-[0.2em] font-semibold transition shadow-md flex items-center justify-center gap-2 group"
                 >
                   <span>Proceed to Checkout</span>
