@@ -51,6 +51,9 @@ export default function CartDrawer() {
 
           {/* Drawer */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cart-drawer-title"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
@@ -61,9 +64,9 @@ export default function CartDrawer() {
             {/* Header */}
             <div className="p-6 border-b border-[#e8dfd5] flex items-center justify-between bg-white/70">
               <div className="flex items-center gap-2">
-                <span className="font-serif text-2xl text-[#1c1917] tracking-wide">
+                <h2 id="cart-drawer-title" className="font-serif text-2xl text-[#1c1917] tracking-wide">
                   Your Shopping Bag
-                </span>
+                </h2>
                 <span className="text-xs bg-[#881337] text-white px-2 py-0.5 rounded-full font-medium">
                   {cartCount}
                 </span>

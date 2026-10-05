@@ -1,49 +1,63 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const [email, setEmail] = useState("");
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleSubscribe = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!email.trim()) return;
+    setSubscribed(true);
+    setEmail("");
+  };
 
   return (
     <footer className="bg-[#1c1917] text-white">
       {/* Main Footer Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          
           {/* Brand Section */}
           <div className="lg:col-span-1">
             <div className="mb-6">
-              <h3 className="font-serif text-2xl text-[#dfc28c] mb-2">Vani Collection</h3>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-4">Atelier</p>
+              <h3 className="font-serif text-2xl text-[#dfc28c] mb-2">
+                Vani Collection
+              </h3>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-white/60 mb-4">
+                Atelier
+              </p>
               <p className="text-sm text-white/80 leading-relaxed">
-                Handcrafted luxury in 100-count pure Mul Cotton, Bagru handblock prints, and royal Anarkalis from our Jaipur atelier.
+                Handcrafted luxury in 100-count pure Mul Cotton, Bagru handblock
+                prints, and royal Anarkalis from our Jaipur atelier.
               </p>
             </div>
-            
+
             {/* Social Links */}
             <div className="flex gap-3">
-              <a 
-                href="https://instagram.com/vanicollection" 
-                target="_blank" 
+              <a
+                href="https://instagram.com/vanicollection"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
                 aria-label="Instagram"
               >
                 <span className="text-sm">📷</span>
               </a>
-              <a 
-                href="https://facebook.com/vanicollection" 
-                target="_blank" 
+              <a
+                href="https://facebook.com/vanicollection"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
                 aria-label="Facebook"
               >
                 <span className="text-sm">👥</span>
               </a>
-              <a 
-                href="https://wa.me/?text=Hello%20Vani%20Collection!" 
-                target="_blank" 
+              <a
+                href="https://wa.me/?text=Hello%20Vani%20Collection!"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
                 aria-label="WhatsApp"
@@ -58,40 +72,40 @@ export default function Footer() {
             <h4 className="font-semibold text-white mb-4">Shop</h4>
             <ul className="space-y-3">
               <li>
-                <Link 
-                  href="/products?category=mul-cotton" 
+                <Link
+                  href="/products?category=mul-cotton"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Mul Cotton Collection
                 </Link>
               </li>
               <li>
-                <Link 
-                  href="/products?category=festive" 
+                <Link
+                  href="/products?category=festive"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Festive Edit
                 </Link>
               </li>
               <li>
-                <Link 
-                  href="/products?category=anarkalis" 
+                <Link
+                  href="/products?category=anarkalis"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Anarkali Suits
                 </Link>
               </li>
               <li>
-                <Link 
-                  href="/products?category=coord-sets" 
+                <Link
+                  href="/products?category=coord-sets"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Co-ord Sets
                 </Link>
               </li>
               <li>
-                <Link 
-                  href="/products" 
+                <Link
+                  href="/products"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   All Products
@@ -105,31 +119,31 @@ export default function Footer() {
             <h4 className="font-semibold text-white mb-4">Customer Care</h4>
             <ul className="space-y-3">
               <li>
-                <Link 
-                  href="/shipping" 
+                <Link
+                  href="/shipping"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Shipping Information
                 </Link>
               </li>
               <li>
-                <Link 
-                  href="/returns" 
+                <Link
+                  href="/returns"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Returns & Exchanges
                 </Link>
               </li>
               <li>
-                <Link 
-                  href="/size-guide" 
+                <Link
+                  href="/size-guide"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Size Guide
                 </Link>
               </li>
               <li>
-                <a 
+                <a
                   href="mailto:support@vanicollection.com"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
@@ -137,7 +151,7 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a 
+                <a
                   href="https://wa.me/?text=Hi, I need help"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -154,32 +168,32 @@ export default function Footer() {
             <h4 className="font-semibold text-white mb-4">About</h4>
             <ul className="space-y-3">
               <li>
-                <Link 
-                  href="/about" 
+                <Link
+                  href="/#stories"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Our Story
                 </Link>
               </li>
               <li>
-                <Link 
-                  href="/craftsmanship" 
+                <Link
+                  href="/#lookbook"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Craftsmanship
                 </Link>
               </li>
               <li>
-                <Link 
-                  href="/privacy" 
+                <Link
+                  href="/privacy"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Privacy Policy
                 </Link>
               </li>
               <li>
-                <Link 
-                  href="/terms" 
+                <Link
+                  href="/terms"
                   className="text-sm text-white/70 hover:text-[#dfc28c] transition"
                 >
                   Terms & Conditions
@@ -200,16 +214,40 @@ export default function Footer() {
                 Be the first to know about new collections and exclusive offers
               </p>
             </div>
-            <div className="flex gap-3 w-full md:w-auto">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 md:w-64 px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-[#dfc28c]/50 focus:border-[#dfc28c]"
-              />
-              <button className="px-6 py-2.5 bg-[#881337] hover:bg-[#701a35] text-white rounded-lg text-sm font-medium transition whitespace-nowrap">
-                Subscribe
-              </button>
-            </div>
+            <form onSubmit={handleSubscribe} className="w-full md:w-auto">
+              <div className="flex gap-3">
+                <label htmlFor="footer-email" className="sr-only">
+                  Email address
+                </label>
+                <input
+                  id="footer-email"
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    setSubscribed(false);
+                  }}
+                  placeholder="Enter your email"
+                  className="min-w-0 flex-1 md:w-64 px-4 py-2.5 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 text-sm focus:outline-none focus:ring-2 focus:ring-[#dfc28c]/50 focus:border-[#dfc28c]"
+                />
+                <button
+                  type="submit"
+                  className="px-5 sm:px-6 py-2.5 bg-[#881337] hover:bg-[#701a35] text-white rounded-lg text-sm font-medium transition whitespace-nowrap"
+                >
+                  Subscribe
+                </button>
+              </div>
+              <p
+                className="mt-2 min-h-5 text-sm text-emerald-300"
+                role="status"
+                aria-live="polite"
+              >
+                {subscribed ? "Thank you — you’re on the list!" : ""}
+              </p>
+            </form>
           </div>
         </div>
       </div>
@@ -250,7 +288,9 @@ export default function Footer() {
               © {currentYear} Vani Collection Atelier. All rights reserved.
             </p>
             <div className="flex gap-4">
-              <span className="text-xs text-white/40">Made with ♥ in Jaipur</span>
+              <span className="text-xs text-white/40">
+                Made with ♥ in Jaipur
+              </span>
             </div>
           </div>
         </div>

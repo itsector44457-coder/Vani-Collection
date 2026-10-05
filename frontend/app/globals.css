@@ -3,6 +3,8 @@
 :root {
   --background: #faf7f2;
   --foreground: #1c1917;
+  --font-playfair: Georgia, "Times New Roman", serif;
+  --font-sans: "Segoe UI", Inter, Arial, sans-serif;
 }
 
 @theme inline {
@@ -15,13 +17,6 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-}
-
-/* Native 90% view proportion as requested */
-@media (min-width: 640px) {
-  html {
-    zoom: 0.9;
-  }
 }
 
 body {
@@ -91,9 +86,12 @@ img, video {
 /* Focus styles for accessibility */
 button:focus-visible,
 a:focus-visible,
-input:focus-visible {
-  outline: 2px solid #881337;
-  outline-offset: 2px;
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #881337;
+  outline-offset: 3px;
 }
 
 /* Touch-friendly tap targets */
@@ -101,6 +99,26 @@ input:focus-visible {
   button, a {
     min-height: 44px;
     min-width: 44px;
+  }
+}
+
+/* Respect operating-system motion preferences across Framer/Tailwind/CSS motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  video {
+    display: none;
   }
 }
 

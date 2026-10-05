@@ -45,13 +45,18 @@ export interface BreadcrumbItem {
   href: string;
 }
 
-export function generateBreadcrumbs(product: any): BreadcrumbItem[] {
+export function generateBreadcrumbs(product: { category: string; title: string }): BreadcrumbItem[] {
+  const categoryLabel = product.category
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
   return [
     { label: "Home", href: "/" },
     { label: "Products", href: "/products" },
-    { 
-      label: product.category.charAt(0).toUpperCase() + product.category.slice(1), 
-      href: `/category/${product.category}` 
+    {
+      label: categoryLabel,
+      href: `/products?category=${encodeURIComponent(product.category)}`,
     },
     { label: product.title, href: "" },
   ];
@@ -112,14 +117,14 @@ export function generateId(): string {
 /**
  * Debounce function
  */
-export function debounce<T extends (...args: any[]) => any>(
-  func: T,
+export function debounce<Args extends unknown[]>(
+  func: (...args: Args) => void,
   wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
+): (...args: Args) => void {
+  let timeout: ReturnType<typeof setTimeout>;
+  return (...args: Args) => {
     clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(null, args), wait);
+    timeout = setTimeout(() => func(...args), wait);
   };
 }
 
