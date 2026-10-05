@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode, type ReactElement } from "react";
+import { useAdminSession } from "@/lib/use-admin-session";
 
 /* ---------------- Icons ---------------- */
 const s = 17;
@@ -128,7 +129,20 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
 /* ---------------- Layout ---------------- */
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [profileOpen, setProfileOpen] = useState(false);
+  const session = useAdminSession();
+  const displayName = [session.user?.firstName, session.user?.lastName].filter(Boolean).join(" ") || "Demo Workspace";
+  const displayEmail = session.user?.email || "demo@vanicollection.in";
+  const displayRole = session.user?.roles?.includes("super_admin")
+    ? "Super Admin"
+    : session.user?.roles?.includes("admin")
+    ? "Administrator"
+    : session.user
+    ? "Staff"
+    : "Demo data";
+  const initials = (displayName.match(/\b\w/g) || ["V"]).slice(0, 2).join("").toUpperCase();
+  const needsSignIn = session.configured && !session.loading && !session.isStaff;
 
   const isActive = (item: NavItem) => {
     if (item.href === "/admin") return pathname === "/admin";
@@ -221,13 +235,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <div className="border-t border-white/[0.06] p-3">
           <div className="flex items-center gap-3 rounded-xl bg-white/[0.03] p-2.5">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#881337] to-[#4c0a1f] text-[12px] font-bold text-white">
-              AK
+              {initials}
             </div>
             <div className="min-w-0 flex-1 leading-tight">
-              <p className="truncate text-[12px] font-semibold">Arjun Kumar</p>
-              <p className="truncate text-[10px] text-[#f5f1ea]/45">Store Manager</p>
+              <p className="truncate text-[12px] font-semibold">{displayName}</p>
+              <p className="truncate text-[10px] text-[#f5f1ea]/45">{displayRole}</p>
             </div>
-            <button className="rounded-lg p-1.5 text-[#f5f1ea]/40 transition hover:bg-white/[0.06] hover:text-[#f5f1ea]">
+            <button
+              onClick={() => { void session.signOut().then(() => { if (session.configured) router.push("/admin/login"); }); }}
+              aria-label="Sign out"
+              className="rounded-lg p-1.5 text-[#f5f1ea]/40 transition hover:bg-white/[0.06] hover:text-[#f5f1ea]"
+            >
               <LogoutIcon />
             </button>
           </div>
@@ -267,9 +285,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   className="flex items-center gap-2 rounded-xl border border-[#ebe6de] bg-white py-1.5 pl-1.5 pr-3 transition hover:border-[#dfc28c]"
                 >
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#881337] to-[#4c0a1f] text-[11px] font-bold text-white">
-                    AK
+                    {initials}
                   </span>
-                  <span className="hidden text-[12.5px] font-semibold sm:inline">Arjun</span>
+                  <span className="hidden text-[12.5px] font-semibold sm:inline">{displayName.split(" ")[0]}</span>
                   <svg width="10" height="10" viewBox="0 0 24 24" {...sp}>
                     <path d="m6 9 6 6 6-6" />
                   </svg>
@@ -278,8 +296,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 {profileOpen && (
                   <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-[#ebe6de] bg-white shadow-lg">
                     <div className="border-b border-[#f0ebe3] px-4 py-3">
-                      <p className="text-[12.5px] font-semibold">Arjun Kumar</p>
-                      <p className="text-[11px] text-stone-500">arjun@vanicollection.in</p>
+                      <p className="text-[12.5px] font-semibold">{displayName}</p>
+                      <p className="text-[11px] text-stone-500">{displayEmail}</p>
                     </div>
                     <ul className="p-1.5 text-[12.5px]">
                       <li>
@@ -293,7 +311,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         </Link>
                       </li>
                       <li className="mt-1 border-t border-[#f0ebe3] pt-1">
-                        <button className="block w-full rounded-lg px-3 py-2 text-left font-medium text-[#881337] hover:bg-rose-50">
+                        <button
+                          onClick={() => { void session.signOut().then(() => { if (session.configured) router.push("/admin/login"); }); }}
+                          className="block w-full rounded-lg px-3 py-2 text-left font-medium text-[#881337] hover:bg-rose-50"
+                        >
                           Sign out
                         </button>
                       </li>
@@ -306,7 +327,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </header>
 
         {/* Content */}
-        <main className="p-6">{children}</main>
+        <main className="p-6">
+          {needsSignIn && (
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-900">
+              <span>
+                <strong className="font-semibold">Live API connected.</strong> Sign in with a staff account to
+                load real orders, catalogue and customers.
+              </span>
+              <Link
+                href="/admin/login"
+                className="rounded-xl bg-[#881337] px-3.5 py-2 text-[12px] font-semibold text-white transition hover:bg-[#6b0f2b]"
+              >
+                Sign in
+              </Link>
+            </div>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );
