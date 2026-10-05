@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { z } = require('zod');
 const User = require('../../models/User');
@@ -45,5 +46,35 @@ module.exports = ({ config, auth }) => {
     res.clearCookie('accessToken', clearOptions); res.clearCookie('refreshToken', clearOptions); res.status(204).end();
   }));
   router.get('/me', auth, asyncHandler(async (req, res) => res.json({ data: req.user.toSafeJSON() })));
+
+  // Password reset. Email delivery is not wired yet, so in non-production the response includes the
+  // reset link to make the flow testable; in production the link is only written to the server log.
+  router.post('/forgot-password', validate(z.object({ email: z.email() })), asyncHandler(async (req, res) => {
+    const user = await User.findOne({ email: req.body.email.toLowerCase() }).select('+passwordResetTokenHash +passwordResetExpiresAt');
+    const meta = {};
+    if (user && user.status === 'active') {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      user.passwordResetTokenHash = hashToken(rawToken);
+      user.passwordResetExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      await user.save();
+      const resetUrl = `${config.corsOrigins[0] || 'http://localhost:3000'}/reset-password?token=${rawToken}`;
+      const log = typeof req.log?.warn === 'function' ? req.log : console;
+      log.warn({ email: user.email, resetUrl }, 'password reset requested but no email provider is configured');
+      if (config.NODE_ENV !== 'production') meta.resetUrl = resetUrl;
+    }
+    res.status(202).json({ message: 'If that email exists, a reset link has been sent.', meta });
+  }));
+
+  router.post('/reset-password', validate(z.object({ token: z.string().min(20).max(200), password: z.string().min(8).max(128) })), asyncHandler(async (req, res) => {
+    const user = await User.findOne({ passwordResetTokenHash: hashToken(req.body.token), passwordResetExpiresAt: { $gt: new Date() } }).select('+passwordResetTokenHash +passwordResetExpiresAt +passwordHash');
+    if (!user) throw new AppError(400, 'INVALID_RESET_TOKEN', 'This reset link is invalid or has expired');
+    user.passwordHash = await User.hashPassword(req.body.password);
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpiresAt = undefined;
+    user.refreshTokenHashes = [];
+    await user.save();
+    res.status(204).end();
+  }));
+
   return router;
 };

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { PRODUCTS } from "../../data/products";
+import { useCatalogue } from "../../lib/use-storefront";
 import LivingProductCard from "../../components/LivingProductCard";
 import { useCart } from "../../context/CartContext";
 import Link from "next/link";
@@ -45,6 +45,8 @@ function ProductsContent() {
   const { addToCart, toggleWishlist, isInWishlist, setQuickViewProduct } = useCart();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const catalogue = useCatalogue({ category: searchParams.get("category") || undefined, q: searchParams.get("search") || undefined });
+  const products = catalogue.data;
 
   // Initialize state from URL params
   const [activeCategory, setActiveCategory] = useState(() => 
@@ -93,12 +95,12 @@ function ProductsContent() {
       sort: sortBy,
       search: searchQuery,
     });
-  }, [activeCategory, activePriceRange, activeFabric, sortBy, searchQuery]);
+  }, [products, activeCategory, activePriceRange, activeFabric, sortBy, searchQuery]);
 
   const priceRange = PRICE_RANGES[activePriceRange];
 
   const filteredProducts = useMemo(() => {
-    let result = [...PRODUCTS];
+    let result = [...products];
 
     // Category filter
     if (activeCategory !== "all") {
@@ -170,7 +172,8 @@ function ProductsContent() {
             Our Collection
           </h1>
           <p className="text-white/60 text-sm max-w-md mx-auto">
-            Discover {PRODUCTS.length}+ handcrafted ethnic pieces, each telling the story of Indian artistry
+            Discover {products.length} handcrafted {products.length === 1 ? "piece" : "pieces"}
+            {catalogue.source === "demo" ? " · demo catalogue" : ", each telling the story of Indian artistry"}
           </p>
           {/* Breadcrumb */}
           <nav className="mt-6 flex items-center justify-center gap-2 text-xs text-white/50">

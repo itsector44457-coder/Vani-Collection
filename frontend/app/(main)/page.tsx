@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
-import { PRODUCTS, STORIES_CATEGORIES, EDITORIAL_LOOKBOOK, REVIEWS, CategoryStory } from "../../data/products";
+import { STORIES_CATEGORIES, EDITORIAL_LOOKBOOK, REVIEWS, CategoryStory } from "../../data/products";
+import { useCatalogue } from "../../lib/use-storefront";
 import StoryReelModal from "../../components/StoryReelModal";
 import LivingProductCard from "../../components/LivingProductCard";
 
@@ -36,8 +37,11 @@ export default function Home() {
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
 
+  const catalogue = useCatalogue();
+  const catalogueProducts = catalogue.data;
+
   // Filter products according to active tab
-  const filteredProducts = PRODUCTS.filter((p) => {
+  const filteredProducts = catalogueProducts.filter((p) => {
     if (activeTab === "all") return true;
     if (activeTab === "mul-cotton") return p.category === "mul-cotton";
     if (activeTab === "festive") return p.category === "festive";
@@ -580,7 +584,7 @@ export default function Home() {
                       <span className="text-xs font-bold text-[#881337]">{pin.price}</span>
                       <button
                         onClick={() => {
-                          const prod = PRODUCTS[0];
+                          const prod = catalogueProducts[0];
                           addToCart(prod, "M", 1);
                         }}
                         className="bg-[#1c1917] text-white px-2.5 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold hover:bg-[#881337] transition"

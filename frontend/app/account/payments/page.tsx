@@ -40,6 +40,11 @@ export default function PaymentsPage() {
         }
       />
 
+      <p className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-800">
+        <strong className="font-semibold">Payment methods are stored with the payment gateway, not in this prototype.</strong> Cards and UPI instruments will be listed here once the Razorpay vault is connected; until then this page shows sample data.
+      </p>
+
+
       {adding && (
         <Card title="Add a new card" className="mb-5">
           <div className="grid gap-4 sm:grid-cols-2">

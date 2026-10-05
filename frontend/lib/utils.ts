@@ -134,3 +134,9 @@ export function debounce<Args extends unknown[]>(
 export function cn(...classes: (string | undefined | null | false)[]): string {
   return classes.filter(Boolean).join(' ');
 }
+/**
+ * Canonical product URL. API products carry their own slug; demo products derive it from the title.
+ */
+export function productHref(product: { slug?: string; title: string }): string {
+  return `/product/${product.slug || generateProductSlug(product.title)}`;
+}

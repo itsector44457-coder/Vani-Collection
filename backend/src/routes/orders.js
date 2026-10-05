@@ -59,6 +59,25 @@ module.exports = ({ config, auth }) => {
     const filter = req.user.roles.some((r) => ['support','admin','super_admin'].includes(r)) ? { _id: req.params.id } : { _id: req.params.id, customerId: req.user.id };
     const order = await Order.findOne(filter); if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found'); res.json({ data: order });
   }));
+  // Customer-initiated cancellation: only before dispatch, and the reserved stock goes back.
+  router.post('/:id/cancel', auth, validate(z.object({ reason: z.string().max(300).optional() })), asyncHandler(async (req, res) => {
+    const order = await Order.findOne({ _id: req.params.id, customerId: req.user.id });
+    if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+    if (!['pending_payment', 'confirmed'].includes(order.status)) throw new AppError(409, 'CANNOT_CANCEL', 'This order can no longer be cancelled — contact support for a return');
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        for (const item of order.items) await Inventory.updateOne({ sku: item.sku }, { $inc: { reserved: -item.quantity } }, { session });
+        order.status = 'cancelled';
+        order.statusHistory.push({ status: 'cancelled', actor: req.user.email, note: req.body.reason || 'Cancelled by customer' });
+        await order.save({ session });
+      });
+    } finally {
+      await session.endSession();
+    }
+    res.json({ data: order });
+  }));
+
   router.get('/', auth, requireRoles('support', 'warehouse', 'finance', 'admin', 'super_admin'), asyncHandler(async (req, res) => {
     const page = Math.max(1, Number(req.query.page) || 1), limit = Math.min(100, Number(req.query.limit) || 25), filter = req.query.status ? { status: req.query.status } : {};
     const [data,total] = await Promise.all([Order.find(filter).sort({ createdAt: -1 }).skip((page-1)*limit).limit(limit).populate('customerId','email firstName lastName'), Order.countDocuments(filter)]); res.json({ data, meta: { page, limit, total } });

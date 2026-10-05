@@ -30,6 +30,11 @@ export default function RewardsPage() {
         subtitle="Earn points on every purchase and unlock exclusive perks."
       />
 
+      <p className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-800">
+        <strong className="font-semibold">Rewards programme is not live yet.</strong> Points and tiers will start tracking as soon as the loyalty module is enabled; the numbers below are illustrative.
+      </p>
+
+
       {/* Hero card */}
       <div className="mb-5 overflow-hidden rounded-2xl bg-gradient-to-br from-[#881337] via-[#6b0f2b] to-[#4c0a1f] p-6 text-white sm:p-8">
         <div className="flex items-start justify-between gap-4">

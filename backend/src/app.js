@@ -8,7 +8,7 @@ const pinoHttp = require('pino-http');
 const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { AppError } = require('./lib/errors');
-const { authMiddleware } = require('./middleware/auth');
+const { authMiddleware, optionalAuthMiddleware } = require('./middleware/auth');
 
 const buildApp = ({ config, logger }) => {
   const app = express();
@@ -28,6 +28,7 @@ const buildApp = ({ config, logger }) => {
   app.use('/api', apiLimiter);
 
   const auth = authMiddleware(config);
+  const optionalAuth = optionalAuthMiddleware(config);
   app.get('/health', (_req, res) => res.json({ status: 'ok', db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected', uptime: process.uptime(), version: '2.0.0' }));
   app.get('/health/ready', (_req, res) => (mongoose.connection.readyState === 1 ? res.json({ ready: true }) : res.status(503).json({ ready: false })));
 
@@ -40,6 +41,7 @@ const buildApp = ({ config, logger }) => {
   };
 
   mount('/api/auth', require('./routes/auth')({ config, auth }), authLimiter);
+  mount('/api/cart', require('./routes/cart')({ auth, optionalAuth }));
   mount('/api/products', require('./routes/products')({ auth }));
   mount('/api/orders', require('./routes/orders')({ config, auth }));
   mount('/api/inventory', require('./routes/inventory')({ auth }));

@@ -3,11 +3,15 @@
 import { useState, FormEvent } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { isApiConfigured } from "../../lib/api-client";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect");
   const { login, isLoading } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -28,9 +32,9 @@ export default function LoginPage() {
 
     try {
       await login(formData.email, formData.password);
-      router.push("/account");
-    } catch (err: any) {
-      setError(err?.message || "Invalid credentials. Please try again.");
+      router.push(redirectTo && redirectTo.startsWith("/") ? redirectTo : "/account");
+    } catch (err: unknown) {
+      setError((err as Error)?.message || "Invalid credentials. Please try again.");
     }
   };
 
@@ -151,19 +155,21 @@ export default function LoginPage() {
                   {isLoading ? "Signing in..." : "Sign In"}
                 </button>
 
-                {/* Demo Credentials */}
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 mb-1">Demo Account</p>
-                  <p className="text-xs text-amber-600">
-                    Email: <span className="font-mono">customer@vanicollection.com</span><br />
-                    Password: <span className="font-mono">customer123</span>
-                  </p>
-                </div>
+                {/* Demo credentials are only meaningful while the backend is not connected. */}
+                {!isApiConfigured() && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 mb-1">Demo Account</p>
+                    <p className="text-xs text-amber-600">
+                      Email: <span className="font-mono">customer@vanicollection.com</span><br />
+                      Password: <span className="font-mono">customer123</span>
+                    </p>
+                  </div>
+                )}
               </form>
 
               <div className="mt-6 text-center">
                 <p className="text-sm text-gray-600">
-                  Don't have an account?{" "}
+                  Don&apos;t have an account?{" "}
                   <Link href="/signup" className="font-semibold text-[#881337] hover:underline">
                     Create one here
                   </Link>
@@ -174,5 +180,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#faf7f2] flex items-center justify-center">
+          <p className="text-sm text-stone-500">Loading…</p>
+        </div>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

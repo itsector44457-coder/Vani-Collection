@@ -62,6 +62,11 @@ export default function ReviewsPage() {
         subtitle={`${REVIEWS.length} published · ${PENDING.length} pending`}
       />
 
+      <p className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-800">
+        <strong className="font-semibold">Reviews shown here are sample data.</strong> Your published reviews from the live catalogue will appear here once the reviews API is connected.
+      </p>
+
+
       {/* Pending */}
       {PENDING.length > 0 && (
         <Card

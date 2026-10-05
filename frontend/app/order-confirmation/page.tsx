@@ -3,25 +3,47 @@
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { isApiConfigured } from "../../lib/api-client";
+import { getOrder } from "../../lib/storefront-api";
+import { orderStatusLabel, type StoreOrder } from "../../lib/storefront-types";
 
 const STEPS = [
-  { label: "Order Confirmed", icon: "✓", done: true },
-  { label: "Processing", icon: "⚙", done: false },
-  { label: "Dispatched", icon: "📦", done: false },
-  { label: "Out for Delivery", icon: "🚚", done: false },
-  { label: "Delivered", icon: "🏠", done: false },
+  { label: "Order Confirmed", icon: "✓", statuses: ["pending_payment", "confirmed"] },
+  { label: "Processing", icon: "⚙", statuses: ["processing", "packed"] },
+  { label: "Dispatched", icon: "📦", statuses: ["shipped"] },
+  { label: "Out for Delivery", icon: "🚚", statuses: [] },
+  { label: "Delivered", icon: "🏠", statuses: ["delivered"] },
 ];
+
+const ORDER_FLOW = ["pending_payment", "confirmed", "processing", "packed", "shipped", "delivered"];
+const OBJECT_ID = /^[0-9a-f]{24}$/i;
 
 function ConfirmationContent() {
   const params = useSearchParams();
-  const orderId = params.get("orderId") ?? "VC" + Date.now().toString().slice(-6);
+  const orderId = params.get("orderId") ?? "VC-DEMO";
+  const [order, setOrder] = useState<StoreOrder | null>(null);
+  const [lookupNote, setLookupNote] = useState<string | null>(null);
 
-  const estimatedDate = new Date();
-  estimatedDate.setDate(estimatedDate.getDate() + 6);
-  const dateStr = estimatedDate.toLocaleDateString("en-IN", {
-    weekday: "long", day: "numeric", month: "long",
-  });
+  /* Real orders are looked up by their Mongo id; demo ids simply skip the lookup. */
+  useEffect(() => {
+    if (!isApiConfigured() || !OBJECT_ID.test(orderId)) return;
+    const controller = new AbortController();
+    getOrder(orderId, controller.signal)
+      .then(setOrder)
+      .catch((cause: unknown) => {
+        if ((cause as Error)?.name === "AbortError") return;
+        setLookupNote("Sign in to see the full details of this order — we have emailed your confirmation too.");
+      });
+    return () => controller.abort();
+  }, [orderId]);
+
+  const estimatedDate = order?.shipment?.estimatedDelivery ? new Date(order.shipment.estimatedDelivery) : null;
+  const dateStr = estimatedDate
+    ? estimatedDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })
+    : "5–7 business days";
+  const reachedIndex = order ? Math.max(0, ORDER_FLOW.indexOf(order.status)) : 0;
+  const isCancelled = order?.status === "cancelled" || order?.status === "refunded";
 
   return (
     <div className="min-h-screen bg-[#faf7f2] px-4 py-12">
@@ -62,7 +84,7 @@ function ConfirmationContent() {
           <div className="bg-gradient-to-r from-[#1c1917] to-[#3d2012] px-6 py-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] uppercase tracking-[0.3em] text-[#dfc28c] font-semibold">Order ID</p>
-              <p className="text-white font-mono text-lg font-bold mt-0.5">#{orderId}</p>
+              <p className="text-white font-mono text-lg font-bold mt-0.5">#{order?.orderNumber ?? orderId}</p>
             </div>
             <div className="text-right">
               <p className="text-[10px] uppercase tracking-[0.3em] text-white/50 font-semibold">Estimated Delivery</p>
@@ -71,6 +93,62 @@ function ConfirmationContent() {
           </div>
 
           <div className="p-6 space-y-5">
+            {isCancelled && (
+              <p className="rounded-xl bg-rose-50 px-4 py-3 text-xs text-rose-700 ring-1 ring-rose-200">
+                This order was {orderStatusLabel(order?.status ?? "cancelled").toLowerCase()}. Refunds for prepaid orders
+                reach your account in 5–7 working days.
+              </p>
+            )}
+
+            {lookupNote && (
+              <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-800 ring-1 ring-amber-200">{lookupNote}</p>
+            )}
+
+            {order && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Your pieces</h3>
+                <ul className="divide-y divide-gray-100">
+                  {order.items.map((item) => (
+                    <li key={item.sku} className="flex items-center gap-3 py-3 first:pt-0">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900">{item.name ?? item.sku}</p>
+                        <p className="text-xs text-gray-500">
+                          {[item.size, `Qty ${item.quantity}`, item.sku].filter(Boolean).join(" · ")}
+                        </p>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900">₹{item.lineTotal.toLocaleString("en-IN")}</p>
+                    </li>
+                  ))}
+                </ul>
+                <dl className="mt-3 space-y-1.5 border-t border-gray-100 pt-3 text-xs text-gray-600">
+                  <div className="flex justify-between">
+                    <dt>Subtotal</dt>
+                    <dd>₹{order.amounts.subtotal.toLocaleString("en-IN")}</dd>
+                  </div>
+                  {order.amounts.discount > 0 && (
+                    <div className="flex justify-between text-emerald-700">
+                      <dt>Discount{order.couponCode ? ` (${order.couponCode})` : ""}</dt>
+                      <dd>−₹{order.amounts.discount.toLocaleString("en-IN")}</dd>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <dt>Shipping</dt>
+                    <dd>{order.amounts.shipping === 0 ? "Free" : `₹${order.amounts.shipping.toLocaleString("en-IN")}`}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-100 pt-1.5 text-sm font-semibold text-gray-900">
+                    <dt>Total</dt>
+                    <dd>₹{order.amounts.total.toLocaleString("en-IN")}</dd>
+                  </div>
+                  <div className="flex justify-between pt-1">
+                    <dt>Payment</dt>
+                    <dd>
+                      {order.payment.method === "cod" ? "Cash on Delivery" : "Paid online"} · {order.payment.status}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+
             {/* What happens next */}
             <div>
               <h3 className="text-sm font-semibold text-gray-900 mb-4">Order Journey</h3>
@@ -78,31 +156,32 @@ function ConfirmationContent() {
                 {/* Connector line */}
                 <div className="absolute left-[15px] top-4 bottom-4 w-0.5 bg-gray-200" />
                 <div className="space-y-5">
-                  {STEPS.map((s, i) => (
-                    <div key={s.label} className="flex items-center gap-4 relative">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm z-10 flex-shrink-0 ${
-                        i === 0
-                          ? "bg-emerald-500 text-white shadow-md"
-                          : "bg-gray-100 text-gray-400"
-                      }`}>
-                        {s.icon}
+                  {STEPS.map((step, i) => {
+                    const reached = order
+                      ? step.statuses.some((status) => ORDER_FLOW.indexOf(status) <= reachedIndex && ORDER_FLOW.indexOf(status) >= 0)
+                      : i === 0;
+                    return (
+                      <div key={step.label} className="flex items-center gap-4 relative">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm z-10 flex-shrink-0 ${
+                          reached ? "bg-emerald-500 text-white shadow-md" : "bg-gray-100 text-gray-400"
+                        }`}>
+                          {step.icon}
+                        </div>
+                        <div>
+                          <p className={`text-sm font-medium ${reached ? "text-emerald-700" : "text-gray-500"}`}>
+                            {step.label}
+                          </p>
+                          {i === 0 && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {order ? orderStatusLabel(order.status) : "Just now — confirmation email sent"}
+                            </p>
+                          )}
+                          {i === 1 && <p className="text-xs text-gray-400 mt-0.5">Within 24 hours</p>}
+                          {i === 2 && <p className="text-xs text-gray-400 mt-0.5">2–3 business days</p>}
+                        </div>
                       </div>
-                      <div>
-                        <p className={`text-sm font-medium ${i === 0 ? "text-emerald-700" : "text-gray-500"}`}>
-                          {s.label}
-                        </p>
-                        {i === 0 && (
-                          <p className="text-xs text-gray-400 mt-0.5">Just now — confirmation email sent</p>
-                        )}
-                        {i === 1 && (
-                          <p className="text-xs text-gray-400 mt-0.5">Within 24 hours</p>
-                        )}
-                        {i === 2 && (
-                          <p className="text-xs text-gray-400 mt-0.5">2–3 business days</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -127,7 +206,7 @@ function ConfirmationContent() {
               <p className="text-amber-800 text-xs leading-relaxed">
                 For queries about your order, call us at{" "}
                 <a href="tel:+919001234567" className="font-semibold underline">+91 90012 34567</a>{" "}
-                or WhatsApp us. We're available Mon–Sat, 10am–7pm IST.
+                or WhatsApp us. We&apos;re available Mon–Sat, 10am–7pm IST.
               </p>
             </div>
           </div>
@@ -156,7 +235,7 @@ function ConfirmationContent() {
             Continue Shopping
           </Link>
           <a
-            href={`https://wa.me/?text=My%20Vani%20Collection%20order%20%23${orderId}%20is%20confirmed!%20Check%20it%20out.`}
+            href={`https://wa.me/?text=My%20Vani%20Collection%20order%20%23${order?.orderNumber ?? orderId}%20is%20confirmed!%20Check%20it%20out.`}
             target="_blank"
             rel="noreferrer"
             className="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition"

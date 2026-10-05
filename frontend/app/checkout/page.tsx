@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
+import { useAuth } from "../../context/AuthContext";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { isApiConfigured } from "../../lib/api-client";
+import { checkServiceability, loadRazorpay, placeOrder, validateCoupon, verifyRazorpayPayment } from "../../lib/storefront-api";
 
 /* ─── Types ─── */
 interface Address {
@@ -272,8 +275,10 @@ function OrderSummary({
    MAIN PAGE
 ══════════════════════════════════════════════ */
 export default function CheckoutPage() {
-  const { cart, subtotal, clearCart } = useCart();
+  const { cart, subtotal, clearCart, hasLocalOnlyItems } = useCart();
+  const { user, isAuthenticated } = useAuth();
   const router = useRouter();
+  const live = isApiConfigured();
 
   const [step, setStep] = useState(0);
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
@@ -282,8 +287,11 @@ export default function CheckoutPage() {
   const [upiId, setUpiId] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
+  const [promoDiscount, setPromoDiscount] = useState(0);
   const [promoError, setPromoError] = useState("");
   const [paymentError, setPaymentError] = useState("");
+  const [placing, setPlacing] = useState(false);
+  const [serviceability, setServiceability] = useState<{ etaDays: number; cod: boolean; shippingFee: number } | null>(null);
   const [cardDetails, setCardDetails] = useState({
     number: "",
     expiry: "",
@@ -291,8 +299,30 @@ export default function CheckoutPage() {
     name: "",
   });
 
-  const shipping = subtotal >= 1999 ? 0 : 99;
-  const discount = promoApplied ? Math.round(subtotal * 0.1) : 0;
+  /* Prefill from the signed-in customer's default address. */
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    const preferred = user.addresses?.find((item) => item.isDefault) ?? user.addresses?.[0];
+    const fill = async () => {
+      await Promise.resolve();
+      setAddress((previous) => ({
+        ...previous,
+        fullName: previous.fullName || preferred?.fullName || `${user.firstName} ${user.lastName}`.trim(),
+        phone: previous.phone || preferred?.phone || user.phone || "",
+        email: previous.email || user.email,
+        address: previous.address || preferred?.address || "",
+        city: previous.city || preferred?.city || "",
+        state: previous.state || preferred?.state || "",
+        pincode: previous.pincode || preferred?.pincode || "",
+        landmark: previous.landmark || preferred?.landmark || "",
+        addressType: preferred?.type ?? previous.addressType,
+      }));
+    };
+    void fill();
+  }, [isAuthenticated, user]);
+
+  const shipping = subtotal - promoDiscount >= 1999 ? 0 : serviceability ? serviceability.shippingFee : 99;
+  const discount = promoDiscount;
   const total = subtotal + shipping - discount;
 
   /* Empty cart redirect */
@@ -342,40 +372,144 @@ export default function CheckoutPage() {
   };
 
   const handlePincodeLookup = async (pin: string) => {
-    if (pin.length === 6) {
-      // Simulate pincode lookup
-      const cityMap: Record<string, { city: string; state: string }> = {
-        "302001": { city: "Jaipur", state: "Rajasthan" },
-        "400001": { city: "Mumbai", state: "Maharashtra" },
-        "110001": { city: "New Delhi", state: "Delhi" },
-        "560001": { city: "Bengaluru", state: "Karnataka" },
-      };
-      if (cityMap[pin]) {
-        setAddress((prev) => ({
-          ...prev,
-          city: cityMap[pin].city,
-          state: cityMap[pin].state,
-        }));
+    if (pin.length !== 6) return;
+    if (live) {
+      try {
+        const result = await checkServiceability(pin);
+        setServiceability({ etaDays: result.etaDays, cod: result.cod, shippingFee: result.shippingFee });
+        setAddressErrors((previous) => ({ ...previous, pincode: undefined }));
+        if (!result.cod && paymentMethod === "cod") setPaymentMethod("upi");
+      } catch {
+        setServiceability(null);
+        setAddressErrors((previous) => ({ ...previous, pincode: "We do not deliver to this pincode yet" }));
       }
+      return;
+    }
+    const cityMap: Record<string, { city: string; state: string }> = {
+      "302001": { city: "Jaipur", state: "Rajasthan" },
+      "400001": { city: "Mumbai", state: "Maharashtra" },
+      "110001": { city: "New Delhi", state: "Delhi" },
+      "560001": { city: "Bengaluru", state: "Karnataka" },
+    };
+    if (cityMap[pin]) {
+      setAddress((prev) => ({
+        ...prev,
+        city: cityMap[pin].city,
+        state: cityMap[pin].state,
+      }));
     }
   };
 
-  const handleApplyPromo = () => {
-    if (promoCode.toUpperCase() === "FIRST10") {
+  const handleApplyPromo = async () => {
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
+    if (live) {
+      try {
+        const result = await validateCoupon(code, subtotal);
+        setPromoDiscount(result.discount);
+        setPromoApplied(true);
+        setPromoError("");
+      } catch (cause) {
+        setPromoApplied(false);
+        setPromoDiscount(0);
+        setPromoError((cause as Error)?.message || "That code is not valid");
+      }
+      return;
+    }
+    if (code === "FIRST10") {
+      setPromoDiscount(Math.round(subtotal * 0.1));
       setPromoApplied(true);
       setPromoError("");
     } else {
-      setPromoError("Invalid promo code");
+      setPromoError("Invalid promo code (demo mode accepts FIRST10)");
       setPromoApplied(false);
+      setPromoDiscount(0);
     }
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     setPaymentError("");
 
+    /* ── Real order through the backend ── */
+    if (live) {
+      if (!isAuthenticated) {
+        setPaymentError("Please sign in to place your order — your bag is saved.");
+        router.push("/login?redirect=/checkout");
+        return;
+      }
+      if (hasLocalOnlyItems || cart.some((item) => !item.sku || !item.productId)) {
+        setPaymentError("Some pieces in your bag come from the demo catalogue. Please remove them and add them again from the live store.");
+        return;
+      }
+      setPlacing(true);
+      try {
+        const { order, payment } = await placeOrder({
+          items: cart.map((item) => ({ productId: item.productId as string, sku: item.sku as string, quantity: item.quantity })),
+          shippingAddress: {
+            fullName: address.fullName,
+            phone: address.phone,
+            email: address.email,
+            line1: address.address,
+            landmark: address.landmark || undefined,
+            city: address.city,
+            state: address.state,
+            pincode: address.pincode,
+          },
+          couponCode: promoApplied ? promoCode.trim().toUpperCase() : undefined,
+          paymentMethod: paymentMethod === "cod" ? "cod" : "razorpay",
+        });
+
+        if (paymentMethod === "cod") {
+          clearCart();
+          router.push(`/order-confirmation?orderId=${order._id}`);
+          return;
+        }
+
+        if (!payment) {
+          setPaymentError("Online payment is not available right now. Please choose Cash on Delivery.");
+          return;
+        }
+        const ready = await loadRazorpay();
+        if (!ready || !window.Razorpay) {
+          setPaymentError("Could not load the payment window. Check your connection or choose Cash on Delivery.");
+          return;
+        }
+        const checkout = new window.Razorpay({
+          key: payment.keyId,
+          amount: payment.amount,
+          currency: payment.currency,
+          name: "Vani Collection",
+          description: `Order ${order.orderNumber}`,
+          order_id: payment.id,
+          prefill: { name: address.fullName, email: address.email, contact: address.phone },
+          notes: { orderNumber: order.orderNumber },
+          theme: { color: "#881337" },
+          handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+            try {
+              await verifyRazorpayPayment({ orderId: order._id, ...response });
+              clearCart();
+              router.push(`/order-confirmation?orderId=${order._id}`);
+            } catch {
+              setPaymentError("Payment went through but we could not confirm it. Our team will contact you shortly.");
+            }
+          },
+          modal: {
+            ondismiss: () => setPaymentError("Payment cancelled — your order is saved with payment pending."),
+          },
+        });
+        checkout.open();
+      } catch (cause) {
+        setPaymentError((cause as Error)?.message || "We could not place your order. Please try again.");
+      } finally {
+        setPlacing(false);
+      }
+      return;
+    }
+
+    /* ── Demo mode: original simulated flow ── */
     if (
       paymentMethod === "upi" &&
-      !/^[\w.-]{2,}@[\w.-]{2,}$/.test(upiId.trim())
+      !/[\w.-]{2,}@[\w.-]{2,}/.test(upiId.trim())
     ) {
       setPaymentError("Enter a valid UPI ID, for example name@bank.");
       return;
@@ -838,8 +972,25 @@ export default function CheckoutPage() {
         ))}
       </div>
 
-      {/* UPI input */}
-      {paymentMethod === "upi" && (
+      {/* Live mode: the gateway collects the instrument details, so no card data touches our form. */}
+      {live && paymentMethod !== "cod" && (
+        <div className="rounded-2xl border border-[#881337]/20 bg-[#881337]/5 p-4 text-sm text-stone-700">
+          <p className="font-semibold text-[#881337]">Secure payment window</p>
+          <p className="mt-1 leading-relaxed">
+            UPI, credit/debit cards, net banking and EMI are handled inside the Razorpay window on the next step.
+            We never see or store your card or UPI credentials.
+          </p>
+          {serviceability && (
+            <p className="mt-2 text-xs text-stone-500">
+              Delivering to {address.pincode} in about {serviceability.etaDays} day{serviceability.etaDays === 1 ? "" : "s"}
+              {serviceability.cod ? " · Cash on Delivery available" : " · Cash on Delivery not available for this pincode"}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Demo mode keeps the simulated UPI / card forms so the flow can be reviewed without a gateway. */}
+      {!live && paymentMethod === "upi" && (
         <div>
           <label
             htmlFor="upi-id"
@@ -866,8 +1017,7 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* Card fields */}
-      {paymentMethod === "card" && (
+      {!live && paymentMethod === "card" && (
         <div className="space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-200">
           <div>
             <label
@@ -1005,10 +1155,11 @@ export default function CheckoutPage() {
           ← Back
         </button>
         <button
-          onClick={handlePlaceOrder}
-          className="flex-grow py-3 bg-[#881337] text-white rounded-xl font-bold text-base hover:bg-[#701a35] transition"
+          onClick={() => void handlePlaceOrder()}
+          disabled={placing}
+          className="flex-grow py-3 bg-[#881337] text-white rounded-xl font-bold text-base hover:bg-[#701a35] transition disabled:cursor-not-allowed disabled:bg-stone-400"
         >
-          Place Order →
+          {placing ? "Placing order…" : paymentMethod === "cod" || !live ? "Place Order →" : `Pay ₹${total.toLocaleString()} →`}
         </button>
       </div>
 
@@ -1018,6 +1169,22 @@ export default function CheckoutPage() {
       </p>
     </div>
   );
+
+  const sessionNotice = !live ? (
+    <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-900">
+      <strong className="font-semibold">Demo checkout.</strong> Set <code className="font-semibold">NEXT_PUBLIC_API_URL</code> to
+      place real orders through the backend; right now this flow is a simulation.
+    </div>
+  ) : !isAuthenticated ? (
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#881337]/20 bg-[#881337]/5 px-4 py-3 text-[12.5px] text-stone-700">
+      <span>
+        <strong className="font-semibold">Signed out.</strong> Sign in so we can save your bag, addresses and order history.
+      </span>
+      <Link href="/login?redirect=/checkout" className="rounded-xl bg-[#881337] px-3.5 py-2 text-[12px] font-semibold text-white hover:bg-[#6b0f2b]">
+        Sign in
+      </Link>
+    </div>
+  ) : null;
 
   const stepContent =
     step === 0
@@ -1043,6 +1210,7 @@ export default function CheckoutPage() {
 
       <div className="max-w-6xl mx-auto px-4 py-8">
         <StepIndicator current={step} />
+        {sessionNotice}
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8">
           {/* Main Step Content */}

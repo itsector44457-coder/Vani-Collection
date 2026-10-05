@@ -236,3 +236,93 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
   const forbidden = await api('/api/returns', { method: 'PATCH', token: customerToken, body: {} });
   assert.equal(forbidden.status, 405);
 });
+
+maybeTest('cart persists per browser, rejects oversell and merges into the customer cart on login', async () => {
+  const product = await Product.findOne({ slug: 'gulab-bagh-anarkali' });
+  const inventory = await Inventory.findOne({ sku: 'VC-AN-01-M' });
+  await Inventory.updateOne({ _id: inventory._id }, { $set: { onHand: 4, reserved: 0 } });
+
+  const guestHeaders = { 'x-cart-token': 'guest-token-test-1234' };
+  const added = await api('/api/cart/items', { method: 'POST', body: { sku: 'VC-AN-01-M', quantity: 2 }, headers: guestHeaders });
+  assert.equal(added.status, 200, JSON.stringify(added.body));
+  assert.equal(added.body.data.count, 2);
+  assert.equal(added.body.data.subtotal, product.variants[0].price * 2);
+  assert.equal(added.body.data.lines[0].inStock, true);
+  assert.equal(added.body.meta.persisted, false);
+
+  const tooMany = await api('/api/cart/items', { method: 'POST', body: { sku: 'VC-AN-01-M', quantity: 9 }, headers: guestHeaders });
+  assert.equal(tooMany.status, 409);
+  assert.equal(tooMany.body.error.code, 'OUT_OF_STOCK');
+
+  const fetched = await api('/api/cart', { headers: guestHeaders });
+  assert.equal(fetched.body.data.count, 2, 'guest cart is restored from the token alone');
+  const lineId = fetched.body.data.lines[0].lineId;
+  const patched = await api(`/api/cart/items/${lineId}`, { method: 'PATCH', body: { quantity: 1 }, headers: guestHeaders });
+  assert.equal(patched.body.data.count, 1);
+  const removed = await api(`/api/cart/items/${lineId}`, { method: 'DELETE', headers: guestHeaders });
+  assert.equal(removed.body.data.count, 0);
+
+  const unknownSku = await api('/api/cart/items', { method: 'POST', body: { sku: 'VC-NOPE-M', quantity: 1 }, headers: guestHeaders });
+  assert.equal(unknownSku.status, 404);
+
+  // guest cart -> customer cart merge on login
+  await api('/api/cart/items', { method: 'POST', body: { sku: 'VC-AN-01-M', quantity: 3 }, headers: guestHeaders });
+  const token = await signup('cart-merge@example.com');
+  const merged = await api('/api/cart', { token, headers: guestHeaders });
+  assert.equal(merged.body.meta.persisted, true);
+  assert.equal(merged.body.data.count, 3, 'guest lines move into the signed-in cart');
+  const afterMerge = await api('/api/cart', { headers: guestHeaders });
+  assert.equal(afterMerge.body.data.count, 0, 'guest cart is emptied after the merge');
+  const cleared = await api('/api/cart', { method: 'DELETE', token, headers: guestHeaders });
+  assert.equal(cleared.body.data.count, 0);
+});
+
+maybeTest('password reset issues a single-use token and revokes old sessions', async () => {
+  await signup('reset-flow@example.com');
+  const requested = await api('/api/auth/forgot-password', { method: 'POST', body: { email: 'reset-flow@example.com' } });
+  assert.equal(requested.status, 202);
+  const resetUrl = requested.body.meta.resetUrl;
+  assert.ok(resetUrl && resetUrl.includes('token='), 'non-production responses expose the reset link for testing');
+  const token = new URL(resetUrl).searchParams.get('token');
+
+  const unknown = await api('/api/auth/forgot-password', { method: 'POST', body: { email: 'nobody@example.com' } });
+  assert.equal(unknown.status, 202, 'unknown emails do not leak account existence');
+
+  const weak = await api('/api/auth/reset-password', { method: 'POST', body: { token, password: 'short' } });
+  assert.equal(weak.status, 422);
+  const wrongToken = await api('/api/auth/reset-password', { method: 'POST', body: { token: 'x'.repeat(40), password: 'BrandNewPass123' } });
+  assert.equal(wrongToken.status, 400);
+  assert.equal(wrongToken.body.error.code, 'INVALID_RESET_TOKEN');
+
+  const reset = await api('/api/auth/reset-password', { method: 'POST', body: { token, password: 'BrandNewPass123' } });
+  assert.equal(reset.status, 204);
+  const reuse = await api('/api/auth/reset-password', { method: 'POST', body: { token, password: 'AnotherPass123' } });
+  assert.equal(reuse.status, 400, 'reset tokens are single use');
+
+  const oldPassword = await api('/api/auth/login', { method: 'POST', body: { email: 'reset-flow@example.com', password: 'StrongPass123' } });
+  assert.equal(oldPassword.status, 401);
+  const newPassword = await api('/api/auth/login', { method: 'POST', body: { email: 'reset-flow@example.com', password: 'BrandNewPass123' } });
+  assert.equal(newPassword.status, 200);
+});
+
+maybeTest('customers can cancel their own pending order and reserved stock is released', async () => {
+  const product = await Product.findOne({ slug: 'gulab-bagh-anarkali' });
+  await Inventory.updateOne({ sku: 'VC-AN-01-M' }, { $set: { onHand: 5, reserved: 0 } });
+  const token = await signup('cancel-order@example.com');
+  const address = { fullName: 'Cancel Tester', phone: '9876543210', email: 'cancel-order@example.com', line1: '5 Freeganj Road', city: 'Ujjain', state: 'Madhya Pradesh', pincode: '456010' };
+  const order = await api('/api/orders', { method: 'POST', token, body: { items: [{ productId: product.id, sku: 'VC-AN-01-M', quantity: 2 }], shippingAddress: address, paymentMethod: 'cod' } });
+  assert.equal(order.status, 201);
+  assert.equal((await Inventory.findOne({ sku: 'VC-AN-01-M' })).reserved, 2);
+
+  const cancelled = await api(`/api/orders/${order.body.data.id}/cancel`, { method: 'POST', token, body: { reason: 'Ordered the wrong size' } });
+  assert.equal(cancelled.status, 200);
+  assert.equal(cancelled.body.data.status, 'cancelled');
+  assert.equal((await Inventory.findOne({ sku: 'VC-AN-01-M' })).reserved, 0, 'cancelling releases the reservation');
+
+  const again = await api(`/api/orders/${order.body.data.id}/cancel`, { method: 'POST', token, body: {} });
+  assert.equal(again.status, 409);
+
+  const stranger = await signup('stranger@example.com');
+  const notMine = await api(`/api/orders/${order.body.data.id}/cancel`, { method: 'POST', token: stranger, body: {} });
+  assert.equal(notMine.status, 404);
+});

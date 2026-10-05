@@ -39,6 +39,8 @@ interface RequestOptions {
   signal?: AbortSignal;
   /** Set to false to skip the browser cache for admin reads. */
   cache?: RequestCache;
+  /** Extra headers, e.g. the guest cart token for anonymous shoppers. */
+  headers?: Record<string, string>;
 }
 
 export interface Paginated<T> {
@@ -49,7 +51,7 @@ export interface Paginated<T> {
 /** Performs an authenticated JSON request against the backend. */
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   if (!isApiConfigured()) throw new ApiError(503, "API_NOT_CONFIGURED", "NEXT_PUBLIC_API_URL is not configured");
-  const { method = "GET", body, signal, cache = "no-store" } = options;
+  const { method = "GET", body, signal, cache = "no-store", headers } = options;
 
   let response: Response;
   try {
@@ -58,7 +60,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       credentials: "include",
       cache,
       signal,
-      headers: body ? { "content-type": "application/json" } : undefined,
+      headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (error) {

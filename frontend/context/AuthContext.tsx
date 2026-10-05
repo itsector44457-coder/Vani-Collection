@@ -1,6 +1,17 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { apiFetch, ApiError, isApiConfigured } from "../lib/api-client";
+import {
+  createAddress,
+  deleteAddress as deleteAddressRequest,
+  fetchAddresses,
+  requestPasswordReset,
+  resetPassword as resetPasswordRequest,
+  updateAddress as updateAddressRequest,
+  updateProfile as updateProfileRequest,
+  type ApiAddress,
+} from "../lib/storefront-api";
 
 export interface User {
   id: string;
@@ -11,6 +22,7 @@ export interface User {
   addresses?: Address[];
   preferences?: UserPreferences;
   createdAt: string;
+  roles?: string[];
 }
 
 export interface Address {
@@ -42,12 +54,17 @@ interface AuthContextType {
   signup: (userData: SignupData) => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
-  addAddress: (address: Omit<Address, 'id'>) => Promise<void>;
+  addAddress: (address: Omit<Address, "id">) => Promise<void>;
   updateAddress: (id: string, address: Partial<Address>) => Promise<void>;
   deleteAddress: (id: string) => Promise<void>;
   setDefaultAddress: (id: string) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
+  /** "live" when the real backend is handling sessions, "demo" for the local preview accounts. */
+  mode: "live" | "demo";
+  /** Reset link returned by the API in non-production (no email provider connected yet). */
+  lastResetUrl: string | null;
+  refresh: () => void;
 }
 
 export interface SignupData {
@@ -61,287 +78,327 @@ export interface SignupData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+const USER_KEY = "vani_user";
+const PREFERENCES_KEY = "vani_preferences";
+const DEMO_EMAIL = "customer@vanicollection.com";
+const DEMO_PASSWORD = "customer123";
 
-  // Initialize auth state from localStorage on mount
+const readJson = <T,>(key: string, fallback: T): T => {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const raw = window.localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const writeJson = (key: string, value: unknown) => {
+  if (typeof window === "undefined") return;
+  try {
+    if (value === null) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* storage can be unavailable in private mode */
+  }
+};
+
+interface ApiUser {
+  _id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  roles?: string[];
+  createdAt?: string;
+  addresses?: ApiAddress[];
+}
+
+const toUiAddress = (address: ApiAddress): Address => ({
+  id: address._id,
+  type: (address.label as Address["type"]) || "home",
+  fullName: address.fullName ?? "",
+  phone: address.phone ?? "",
+  address: [address.line1, address.line2].filter(Boolean).join(", "),
+  city: address.city ?? "",
+  state: address.state ?? "",
+  pincode: address.pincode ?? "",
+  landmark: address.landmark,
+  isDefault: Boolean(address.isDefault),
+});
+
+const toApiAddress = (address: Partial<Address>) => ({
+  label: address.type ?? "home",
+  fullName: address.fullName ?? "",
+  phone: address.phone ?? "",
+  line1: address.address ?? "",
+  landmark: address.landmark,
+  city: address.city ?? "",
+  state: address.state ?? "",
+  pincode: address.pincode ?? "",
+  isDefault: address.isDefault,
+});
+
+const toUiUser = (user: ApiUser): User => ({
+  id: user._id,
+  email: user.email,
+  firstName: user.firstName ?? "",
+  lastName: user.lastName ?? "",
+  phone: user.phone,
+  addresses: (user.addresses ?? []).map(toUiAddress),
+  preferences: readJson<UserPreferences | undefined>(PREFERENCES_KEY, undefined),
+  createdAt: user.createdAt ?? new Date().toISOString(),
+  roles: user.roles,
+});
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const configured = isApiConfigured();
+  /* In demo mode the visitor is restored from localStorage before paint, so nothing flashes. */
+  const [user, setUser] = useState<User | null>(() => (configured ? null : readJson<User | null>(USER_KEY, null)));
+  const [isLoading, setIsLoading] = useState(configured);
+  const [lastResetUrl, setLastResetUrl] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  const refresh = useCallback(() => setNonce((value) => value + 1), []);
+
+  /* --------------------------------------------------------------- session load */
+
   useEffect(() => {
-    const initAuth = () => {
+    if (!configured) return;
+    const controller = new AbortController();
+    let cancelled = false;
+    const load = async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setIsLoading(true);
       try {
-        const storedUser = localStorage.getItem('vani_user');
-        const storedToken = localStorage.getItem('vani_token');
-        
-        if (storedUser && storedToken) {
-          setUser(JSON.parse(storedUser));
+        const response = await apiFetch<{ data: ApiUser }>("/api/auth/me", { signal: controller.signal });
+        if (!cancelled) setUser(toUiUser(response.data));
+      } catch (cause) {
+        if ((cause as Error)?.name === "AbortError") return;
+        // 401 simply means "not signed in"; anything else keeps the visitor as a guest too.
+        if (!cancelled) setUser(null);
+        if (cause instanceof ApiError && cause.status !== 401) console.warn("Session check failed:", cause.message);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [configured, nonce]);
+
+  const loadAddresses = useCallback(async () => {
+    if (!configured) return;
+    const addresses = await fetchAddresses().catch(() => [] as ApiAddress[]);
+    setUser((previous) => (previous ? { ...previous, addresses: addresses.map(toUiAddress) } : previous));
+  }, [configured]);
+
+  /* ------------------------------------------------------------------- actions */
+
+  const login = useCallback(
+    async (email: string, password: string): Promise<void> => {
+      setIsLoading(true);
+      try {
+        if (configured) {
+          const response = await apiFetch<{ data: ApiUser }>("/api/auth/login", { method: "POST", body: { email: email.trim(), password } });
+          const nextUser = toUiUser(response.data);
+          setUser(nextUser);
+          await loadAddresses();
+          return;
         }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-        // Clear invalid data
-        localStorage.removeItem('vani_user');
-        localStorage.removeItem('vani_token');
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
+          const demoUser: User = {
+            id: "demo_user_1",
+            email: DEMO_EMAIL,
+            firstName: "Priya",
+            lastName: "Sharma",
+            phone: "9876543210",
+            addresses: [],
+            preferences: readJson<UserPreferences | undefined>(PREFERENCES_KEY, undefined),
+            createdAt: "2023-06-15T10:30:00Z",
+          };
+          setUser(demoUser);
+          writeJson(USER_KEY, demoUser);
+        } else {
+          throw new Error("Invalid email or password. Demo account: customer@vanicollection.com / customer123");
+        }
       } finally {
         setIsLoading(false);
       }
-    };
+    },
+    [configured, loadAddresses]
+  );
 
-    initAuth();
-  }, []);
-
-  const login = async (email: string, password: string): Promise<void> => {
-    setIsLoading(true);
-    try {
-      // Simulate API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Demo user for testing
-      if (email === "customer@vanicollection.com" && password === "customer123") {
-        const demoUser: User = {
-          id: "demo_user_1",
-          email: "customer@vanicollection.com",
-          firstName: "Priya",
-          lastName: "Sharma",
-          phone: "+91 98765 43210",
-          addresses: [
-            {
-              id: "addr_1",
-              type: "home",
-              fullName: "Priya Sharma",
-              phone: "+91 98765 43210",
-              address: "123, Rose Garden Society, Malviya Nagar",
-              city: "Jaipur",
-              state: "Rajasthan",
-              pincode: "302017",
-              landmark: "Near City Mall",
-              isDefault: true,
-            }
-          ],
-          preferences: {
-            newsletter: true,
-            smsUpdates: true,
-            whatsappUpdates: true,
-            preferredSize: "M",
-            favoriteCategories: ["mul-cotton", "festive"],
-          },
-          createdAt: "2023-06-15T10:30:00Z",
+  const signup = useCallback(
+    async (userData: SignupData): Promise<void> => {
+      setIsLoading(true);
+      try {
+        if (configured) {
+          const response = await apiFetch<{ data: ApiUser }>("/api/auth/register", {
+            method: "POST",
+            body: {
+              email: userData.email.trim(),
+              password: userData.password,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              phone: userData.phone ? userData.phone.replace(/\D/g, "").slice(-10) : undefined,
+            },
+          });
+          setUser(toUiUser(response.data));
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        const newUser: User = {
+          id: `user_${Date.now()}`,
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          phone: userData.phone,
+          addresses: [],
+          preferences: { newsletter: userData.newsletter ?? false, smsUpdates: true, whatsappUpdates: true, preferredSize: "M", favoriteCategories: [] },
+          createdAt: new Date().toISOString(),
         };
-
-        setUser(demoUser);
-        localStorage.setItem('vani_user', JSON.stringify(demoUser));
-        localStorage.setItem('vani_token', 'demo_token_123');
-      } else {
-        throw new Error('Invalid credentials');
+        setUser(newUser);
+        writeJson(USER_KEY, newUser);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [configured]
+  );
 
-  const signup = async (userData: SignupData): Promise<void> => {
-    setIsLoading(true);
-    try {
-      // Simulate API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      
-      const newUser: User = {
-        id: `user_${Date.now()}`,
-        email: userData.email,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        phone: userData.phone,
-        addresses: [],
-        preferences: {
-          newsletter: userData.newsletter || false,
-          smsUpdates: true,
-          whatsappUpdates: true,
-          preferredSize: "M",
-          favoriteCategories: [],
-        },
-        createdAt: new Date().toISOString(),
-      };
-
-      setUser(newUser);
-      localStorage.setItem('vani_user', JSON.stringify(newUser));
-      localStorage.setItem('vani_token', `token_${Date.now()}`);
-    } catch (error) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
-    localStorage.removeItem('vani_user');
-    localStorage.removeItem('vani_token');
-  };
+    writeJson(USER_KEY, null);
+    if (configured) apiFetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+  }, [configured]);
 
-  const updateProfile = async (data: Partial<User>): Promise<void> => {
-    if (!user) throw new Error('Not authenticated');
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      const updatedUser = { ...user, ...data };
-      setUser(updatedUser);
-      localStorage.setItem('vani_user', JSON.stringify(updatedUser));
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const addAddress = async (address: Omit<Address, 'id'>): Promise<void> => {
-    if (!user) throw new Error('Not authenticated');
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      const newAddress: Address = {
-        ...address,
-        id: `addr_${Date.now()}`,
-      };
-
-      // If this is the first address or marked as default, make it default
-      if (!user.addresses?.length || address.isDefault) {
-        // Unset other default addresses
-        const updatedAddresses = (user.addresses || []).map(addr => ({
-          ...addr,
-          isDefault: false
-        }));
-        newAddress.isDefault = true;
-        
-        const updatedUser = {
-          ...user,
-          addresses: [...updatedAddresses, newAddress]
-        };
-        
-        setUser(updatedUser);
-        localStorage.setItem('vani_user', JSON.stringify(updatedUser));
-      } else {
-        const updatedUser = {
-          ...user,
-          addresses: [...(user.addresses || []), newAddress]
-        };
-        
-        setUser(updatedUser);
-        localStorage.setItem('vani_user', JSON.stringify(updatedUser));
+  const updateProfile = useCallback(
+    async (data: Partial<User>): Promise<void> => {
+      if (!user) throw new Error("Not authenticated");
+      if (configured) {
+        await updateProfileRequest({ firstName: data.firstName, lastName: data.lastName, phone: data.phone });
       }
-    } catch (error) {
-      throw error;
-    }
-  };
+      const nextUser = { ...user, ...data };
+      setUser(nextUser);
+      if (data.preferences) writeJson(PREFERENCES_KEY, data.preferences);
+      if (!configured) writeJson(USER_KEY, nextUser);
+    },
+    [configured, user]
+  );
 
-  const updateAddress = async (id: string, addressData: Partial<Address>): Promise<void> => {
-    if (!user) throw new Error('Not authenticated');
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
-      const updatedAddresses = (user.addresses || []).map(addr =>
-        addr.id === id ? { ...addr, ...addressData } : addr
-      );
-      
-      const updatedUser = {
-        ...user,
-        addresses: updatedAddresses
-      };
-      
-      setUser(updatedUser);
-      localStorage.setItem('vani_user', JSON.stringify(updatedUser));
-    } catch (error) {
-      throw error;
-    }
-  };
+  const addAddress = useCallback(
+    async (address: Omit<Address, "id">): Promise<void> => {
+      if (!user) throw new Error("Not authenticated");
+      if (configured) {
+        const addresses = await createAddress(toApiAddress(address));
+        setUser((previous) => (previous ? { ...previous, addresses: addresses.map(toUiAddress) } : previous));
+        return;
+      }
+      const newAddress: Address = { ...address, id: `addr_${Date.now()}` };
+      const existing = user.addresses ?? [];
+      const shouldDefault = existing.length === 0 || address.isDefault;
+      const nextAddresses = shouldDefault ? [...existing.map((item) => ({ ...item, isDefault: false })), { ...newAddress, isDefault: true }] : [...existing, newAddress];
+      const nextUser = { ...user, addresses: nextAddresses };
+      setUser(nextUser);
+      writeJson(USER_KEY, nextUser);
+    },
+    [configured, user]
+  );
 
-  const deleteAddress = async (id: string): Promise<void> => {
-    if (!user) throw new Error('Not authenticated');
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const updatedAddresses = (user.addresses || []).filter(addr => addr.id !== id);
-      
-      const updatedUser = {
-        ...user,
-        addresses: updatedAddresses
-      };
-      
-      setUser(updatedUser);
-      localStorage.setItem('vani_user', JSON.stringify(updatedUser));
-    } catch (error) {
-      throw error;
-    }
-  };
+  const updateAddress = useCallback(
+    async (id: string, addressData: Partial<Address>): Promise<void> => {
+      if (!user) throw new Error("Not authenticated");
+      if (configured) {
+        const addresses = await updateAddressRequest(id, toApiAddress(addressData));
+        setUser((previous) => (previous ? { ...previous, addresses: addresses.map(toUiAddress) } : previous));
+        return;
+      }
+      const nextUser = { ...user, addresses: (user.addresses ?? []).map((item) => (item.id === id ? { ...item, ...addressData } : item)) };
+      setUser(nextUser);
+      writeJson(USER_KEY, nextUser);
+    },
+    [configured, user]
+  );
 
-  const setDefaultAddress = async (id: string): Promise<void> => {
-    if (!user) throw new Error('Not authenticated');
-    
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 400));
-      
-      const updatedAddresses = (user.addresses || []).map(addr => ({
-        ...addr,
-        isDefault: addr.id === id
-      }));
-      
-      const updatedUser = {
-        ...user,
-        addresses: updatedAddresses
-      };
-      
-      setUser(updatedUser);
-      localStorage.setItem('vani_user', JSON.stringify(updatedUser));
-    } catch (error) {
-      throw error;
-    }
-  };
+  const deleteAddress = useCallback(
+    async (id: string): Promise<void> => {
+      if (!user) throw new Error("Not authenticated");
+      if (configured) {
+        await deleteAddressRequest(id);
+        await loadAddresses();
+        return;
+      }
+      const nextUser = { ...user, addresses: (user.addresses ?? []).filter((item) => item.id !== id) };
+      setUser(nextUser);
+      writeJson(USER_KEY, nextUser);
+    },
+    [configured, loadAddresses, user]
+  );
 
-  const forgotPassword = async (email: string): Promise<void> => {
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // In a real app, this would send a reset email
-      console.log(`Password reset email sent to ${email}`);
-    } catch (error) {
-      throw error;
-    }
-  };
+  const setDefaultAddress = useCallback(
+    async (id: string): Promise<void> => {
+      if (!user) throw new Error("Not authenticated");
+      if (configured) {
+        const addresses = await updateAddressRequest(id, { isDefault: true });
+        setUser((previous) => (previous ? { ...previous, addresses: addresses.map(toUiAddress) } : previous));
+        return;
+      }
+      const nextUser = { ...user, addresses: (user.addresses ?? []).map((item) => ({ ...item, isDefault: item.id === id })) };
+      setUser(nextUser);
+      writeJson(USER_KEY, nextUser);
+    },
+    [configured, user]
+  );
 
-  const resetPassword = async (token: string, newPassword: string): Promise<void> => {
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // In a real app, this would validate the token and update password
-      console.log(`Password reset successful for token: ${token}`);
-    } catch (error) {
-      throw error;
-    }
-  };
+  const forgotPassword = useCallback(
+    async (email: string): Promise<void> => {
+      if (!configured) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        return;
+      }
+      const { resetUrl } = await requestPasswordReset(email.trim());
+      setLastResetUrl(resetUrl ?? null);
+    },
+    [configured]
+  );
 
-  const value = {
-    user,
-    isLoading,
-    isAuthenticated: !!user,
-    login,
-    signup,
-    logout,
-    updateProfile,
-    addAddress,
-    updateAddress,
-    deleteAddress,
-    setDefaultAddress,
-    forgotPassword,
-    resetPassword,
-  };
+  const resetPassword = useCallback(
+    async (token: string, newPassword: string): Promise<void> => {
+      if (!configured) {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        return;
+      }
+      await resetPasswordRequest(token, newPassword);
+    },
+    [configured]
+  );
+
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      isLoading,
+      isAuthenticated: Boolean(user),
+      login,
+      signup,
+      logout,
+      updateProfile,
+      addAddress,
+      updateAddress,
+      deleteAddress,
+      setDefaultAddress,
+      forgotPassword,
+      resetPassword,
+      mode: configured ? "live" : "demo",
+      lastResetUrl,
+      refresh,
+    }),
+    [user, isLoading, login, signup, logout, updateProfile, addAddress, updateAddress, deleteAddress, setDefaultAddress, forgotPassword, resetPassword, configured, lastResetUrl, refresh]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -349,7 +406,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

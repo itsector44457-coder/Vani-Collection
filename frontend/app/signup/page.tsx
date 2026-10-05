@@ -54,8 +54,8 @@ export default function SignupPage() {
     try {
       await signup(formData);
       router.push("/account");
-    } catch (err: any) {
-      setError(err?.message || "Something went wrong. Please try again.");
+    } catch (err: unknown) {
+      setError((err as Error)?.message || "Something went wrong. Please try again.");
     }
   };
 
@@ -242,7 +242,7 @@ export default function SignupPage() {
                           className="mt-1 h-4 w-4 text-[#881337] focus:ring-[#881337] border-gray-300 rounded"
                         />
                         <label className="text-sm text-gray-600">
-                          I'd like to receive emails about new collections, exclusive offers, and styling tips
+                          I&apos;d like to receive emails about new collections, exclusive offers, and styling tips
                         </label>
                       </div>
 
