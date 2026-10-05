@@ -29,6 +29,7 @@ export default function LivingProductCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
   const [addedAnimation, setAddedAnimation] = useState(false);
 
   // Fallback video if product has none
@@ -36,7 +37,8 @@ export default function LivingProductCard({
     product.videoUrl ||
     "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4";
 
-  // Check device type & set up IntersectionObserver for Mobile
+  // Product motion is desktop-only and opt-in on hover. Avoiding viewport
+  // autoplay saves substantial bandwidth and battery on mobile devices.
   useEffect(() => {
     const checkMobile = () => {
       const mobileQuery =
@@ -45,59 +47,24 @@ export default function LivingProductCard({
     };
 
     checkMobile();
-    window.addEventListener("resize", checkMobile);
-
-    const currentCard = cardRef.current;
-    if (!currentCard) {
-      return () => window.removeEventListener("resize", checkMobile);
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const isTouch =
-            window.innerWidth < 768 ||
-            window.matchMedia("(hover: none)").matches;
-          if (!isTouch) return;
-
-          const video = videoRef.current;
-          if (!video) return;
-
-          // When card is >= 45% in view on mobile scroll
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.45) {
-            video
-              .play()
-              .then(() => setIsPlaying(true))
-              .catch(() => {});
-          } else {
-            video.pause();
-            setIsPlaying(false);
-          }
-        });
-      },
-      {
-        threshold: [0, 0.45, 0.8],
-      }
-    );
-
-    observer.observe(currentCard);
-
-    return () => {
-      window.removeEventListener("resize", checkMobile);
-      observer.disconnect();
-    };
+    window.addEventListener("resize", checkMobile, { passive: true });
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   // Desktop Hover Handlers
   const handleMouseEnter = () => {
     if (isMobile) return;
-    if (videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current
-        .play()
-        .then(() => setIsPlaying(true))
-        .catch(() => {});
-    }
+    setShouldLoadVideo(true);
+    // Wait for the opt-in video element to mount before playback.
+    requestAnimationFrame(() => {
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+        videoRef.current
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch(() => {});
+      }
+    });
   };
 
   const handleMouseLeave = () => {
@@ -140,20 +107,22 @@ export default function LivingProductCard({
           }`}
         />
 
-        {/* Looping Boomerang Video ("Living" fabric flow) */}
-        <video
-          ref={videoRef}
-          src={videoSrc}
-          loop
-          muted
-          playsInline
-          preload="metadata"
-          className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 ease-out pointer-events-none ${
-            showVideo
-              ? "opacity-100 scale-105"
-              : "opacity-0 scale-100"
-          }`}
-        />
+        {/* Motion preview is created only after a desktop hover. */}
+        {shouldLoadVideo && (
+          <video
+            ref={videoRef}
+            src={videoSrc}
+            loop
+            muted
+            playsInline
+            preload="none"
+            className={`absolute inset-0 w-full h-full object-cover object-top transition-all duration-700 ease-out pointer-events-none ${
+              showVideo
+                ? "opacity-100 scale-105"
+                : "opacity-0 scale-100"
+            }`}
+          />
+        )}
 
         {/* Live Motion Status Pill (visible when video plays) */}
         {showVideo && (
@@ -179,7 +148,8 @@ export default function LivingProductCard({
           className={`absolute top-2 sm:top-3 right-2 sm:right-3 z-10 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center transition shadow-xs text-xs sm:text-sm active:scale-90 ${
             isWish ? "text-rose-600" : "text-stone-600 hover:text-rose-600"
           }`}
-          aria-label="Add to wishlist"
+          aria-label={isWish ? `Remove ${product.title} from wishlist` : `Add ${product.title} to wishlist`}
+          aria-pressed={isWish}
         >
           {isWish ? "♥" : "♡"}
         </button>
@@ -190,7 +160,8 @@ export default function LivingProductCard({
             e.stopPropagation();
             onQuickView(product);
           }}
-          className="hidden sm:block absolute bottom-3 inset-x-3 z-10 bg-white/95 hover:bg-white text-stone-900 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-md transform translate-y-2 group-hover:translate-y-0"
+          className="hidden sm:block absolute bottom-3 inset-x-3 z-10 bg-white/95 hover:bg-white text-stone-900 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-md transform translate-y-2 group-hover:translate-y-0 focus:opacity-100 focus:translate-y-0"
+          aria-label={`Quick view ${product.title}`}
         >
           Quick View
         </button>
@@ -226,7 +197,9 @@ export default function LivingProductCard({
               <button
                 key={size}
                 onClick={() => onSelectSize(product.id, size)}
-                className={`px-1.5 sm:px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-medium border transition ${
+                aria-label={`Select size ${size} for ${product.title}`}
+                aria-pressed={selectedSize === size}
+                className={`min-h-8 min-w-8 px-2 py-1 rounded text-[11px] font-medium border transition ${
                   selectedSize === size
                     ? "bg-[#1c1917] text-white border-[#1c1917]"
                     : "bg-white text-stone-700 border-stone-300 hover:border-stone-400"

@@ -44,6 +44,9 @@ export default function QuickViewModal() {
 
         {/* Modal Window */}
         <motion.div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="quick-view-title"
           initial={{ scale: 0.95, opacity: 0, y: 20 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -54,6 +57,7 @@ export default function QuickViewModal() {
           <button
             onClick={() => setQuickViewProduct(null)}
             className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-stone-700 flex items-center justify-center transition shadow-md"
+            aria-label="Close quick view"
           >
             ✕
           </button>
@@ -103,7 +107,7 @@ export default function QuickViewModal() {
               </div>
 
               {/* Title */}
-              <h2 className="font-serif text-2xl md:text-3xl text-stone-900 leading-tight mb-2">
+              <h2 id="quick-view-title" className="font-serif text-2xl md:text-3xl text-stone-900 leading-tight mb-2">
                 {quickViewProduct.title}
               </h2>
 

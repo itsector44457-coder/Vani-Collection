@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { use, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../../context/CartContext";
 import { PRODUCTS } from "../../../data/products";
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import { generateProductSlug, calculateDiscount, generateBreadcrumbs } from "../../../lib/utils";
 import ProductImageGallery from "../../../components/ProductImageGallery";
@@ -13,11 +13,11 @@ import ProductReviews from "../../../components/ProductReviews";
 import RelatedProducts from "../../../components/RelatedProducts";
 
 interface ProductPageProps {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 export default function ProductPage({ params }: ProductPageProps) {
-  const { slug } = params;
+  const { slug } = use(params);
   
   // Find product by slug (using utility function)
   const product = PRODUCTS.find(p => generateProductSlug(p.title) === slug);
@@ -27,16 +27,14 @@ export default function ProductPage({ params }: ProductPageProps) {
   }
 
   const { addToCart, toggleWishlist, isInWishlist } = useCart();
+  const router = useRouter();
   const [selectedSize, setSelectedSize] = useState(product.sizes[0]);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<'description' | 'details' | 'reviews'>('description');
+  type ProductTab = "description" | "details" | "reviews";
+  const [activeTab, setActiveTab] = useState<ProductTab>("description");
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showAddedToast, setShowAddedToast] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
-
-  useEffect(() => {
-    setIsWishlisted(isInWishlist(product.id));
-  }, [isInWishlist, product.id]);
+  const isWishlisted = isInWishlist(product.id);
 
   const handleAddToCart = () => {
     addToCart(product, selectedSize, quantity);
@@ -47,13 +45,11 @@ export default function ProductPage({ params }: ProductPageProps) {
   const handleBuyNow = () => {
     // Add to cart and redirect to checkout
     addToCart(product, selectedSize, quantity);
-    // Use window.location to navigate to checkout immediately
-    window.location.href = "/checkout";
+    router.push("/checkout");
   };
 
   const handleWishlistToggle = () => {
     toggleWishlist(product.id);
-    setIsWishlisted(!isWishlisted);
   };
 
   const discountPercentage = calculateDiscount(product.originalPrice, product.price);
@@ -107,6 +103,8 @@ export default function ProductPage({ params }: ProductPageProps) {
                 <button
                   onClick={handleWishlistToggle}
                   className="p-2 rounded-full hover:bg-gray-100 transition"
+                  aria-label={isWishlisted ? `Remove ${product.title} from wishlist` : `Add ${product.title} to wishlist`}
+                  aria-pressed={isWishlisted}
                 >
                   <svg 
                     width="24" 
@@ -202,6 +200,8 @@ export default function ProductPage({ params }: ProductPageProps) {
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition"
+                  aria-label="Decrease quantity"
+                  disabled={quantity === 1}
                 >
                   −
                 </button>
@@ -209,6 +209,7 @@ export default function ProductPage({ params }: ProductPageProps) {
                 <button
                   onClick={() => setQuantity(quantity + 1)}
                   className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition"
+                  aria-label="Increase quantity"
                 >
                   +
                 </button>
@@ -276,7 +277,9 @@ export default function ProductPage({ params }: ProductPageProps) {
             ].map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as any)}
+                onClick={() => setActiveTab(tab.key as ProductTab)}
+                role="tab"
+                aria-selected={activeTab === tab.key}
                 className={`pb-4 text-sm font-medium border-b-2 transition ${
                   activeTab === tab.key
                     ? 'border-[#881337] text-[#881337]'

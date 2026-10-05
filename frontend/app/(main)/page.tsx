@@ -17,8 +17,8 @@ export default function Home() {
   const [activeStory, setActiveStory] = useState<CategoryStory | null>(null);
   // Active Hero Slide
   const [heroSlide, setHeroSlide] = useState<number>(0);
-  // Hero display mode: "slides" | "video" (default: "video")
-  const [heroMode, setHeroMode] = useState<"slides" | "video">("video");
+  // Start with the lightweight image experience; video remains an explicit opt-in.
+  const [heroMode, setHeroMode] = useState<"slides" | "video">("slides");
   // Active hotspot pin
   const [activePin, setActivePin] = useState<string | null>("pin-1");
   // Quick size selection per product card
@@ -95,7 +95,8 @@ export default function Home() {
                 ? "bg-gradient-to-r from-[#b91c1c] to-[#881337] text-white shadow-[0_2px_12px_rgba(185,28,28,0.5)] border border-[#dfc28c]/40"
                 : "text-white/75 hover:text-white"
             }`}
-            aria-label="Image Slideshow mode"
+            aria-label="Use image slideshow"
+            aria-pressed={heroMode === "slides"}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -111,7 +112,8 @@ export default function Home() {
                 ? "bg-gradient-to-r from-[#b91c1c] to-[#881337] text-white shadow-[0_2px_12px_rgba(185,28,28,0.5)] border border-[#dfc28c]/40"
                 : "text-white/75 hover:text-white"
             }`}
-            aria-label="Atelier Video mode"
+            aria-label="Play atelier video"
+            aria-pressed={heroMode === "video"}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M23 7l-7 5 7 5V7z" />
@@ -173,7 +175,7 @@ export default function Home() {
                 loop
                 muted
                 playsInline
-                preload="auto"
+                preload="metadata"
                 className="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.88]"
                 poster="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1800&q=85"
               >
@@ -206,61 +208,24 @@ export default function Home() {
 
         {/* ---- SHARED HERO CONTENT OVERLAY ---- */}
         <div
-          className={`relative z-10 h-full max-w-[1440px] mx-auto px-3.5 sm:px-8 lg:px-14 flex flex-col ${
-            heroMode === "video"
-              ? "justify-between sm:justify-end pt-[210px] sm:pt-0 pb-4 sm:pb-14 lg:pb-16"
-              : "justify-end pb-8 sm:pb-14 lg:pb-16"
-          }`}
+          className="relative z-10 mx-auto flex h-full max-w-[1440px] flex-col justify-end px-5 pb-14 sm:px-8 sm:pb-16 lg:px-14 lg:pb-20"
         >
-          {/* ============================================================ */}
-          {/* MOBILE ONLY (sm:hidden) & ONLY IN VIDEO MODE: 4 Products 2x2 Grid */}
-          {/* ============================================================ */}
-          {heroMode === "video" && (
-            <div className="sm:hidden w-full flex-1 flex flex-col justify-between mb-3">
-              <div className="flex items-center justify-between mb-1.5 px-0.5">
-                <span className="text-[10.5px] uppercase tracking-[0.22em] text-[#dfc28c] font-bold flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#dfc28c] animate-pulse" />
-                  Featured Atelier Edit (4)
-                </span>
-                <span className="text-[8.5px] text-stone-300 font-light tracking-wider">Tap to View</span>
-              </div>
-
-              {/* 4 Products in 2x2 Luxury Grid — Taller cards filling the space */}
-              <div className="grid grid-cols-2 gap-2 flex-1">
-                {PRODUCTS.slice(0, 4).map((item) => (
-                  <div
-                    key={`hero-mob-grid-${item.id}`}
-                    onClick={() => setQuickViewProduct(item)}
-                    className="bg-black/80 backdrop-blur-md border border-[#dfc28c]/40 rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.6)] p-1.5 cursor-pointer active:scale-95 transition-transform flex flex-col justify-between"
-                  >
-                    <div className="relative h-[115px] xs:h-[125px] w-full rounded-lg overflow-hidden mb-1.5 bg-stone-900">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full h-full object-cover object-top"
-                      />
-                      <span className="absolute top-1 left-1 bg-[#881337] text-white text-[7.5px] font-bold px-1.5 py-0.5 rounded-full tracking-wide">
-                        {item.badge}
-                      </span>
-                      <span className="absolute bottom-1 right-1 bg-black/80 backdrop-blur-xs text-[#dfc28c] text-[8px] font-bold px-1.5 py-0.5 rounded">
-                        ★ {item.rating}
-                      </span>
-                    </div>
-                    <div>
-                      <h4 className="text-[10.5px] text-white font-medium line-clamp-1 leading-snug">
-                        {item.title}
-                      </h4>
-                      <div className="flex items-center justify-between mt-1 pt-1 border-t border-white/15">
-                        <span className="text-[12px] font-bold text-[#dfc28c]">₹{item.price}</span>
-                        <span className="text-[9px] text-stone-400 line-through">₹{item.originalPrice}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          <motion.div
+            initial={{ y: 16, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.55 }}
+            className="mb-5 max-w-xl text-white sm:mb-7"
+          >
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#dfc28c]">
+              Jaipur Atelier · Summer 2026
+            </p>
+            <h1 className="font-serif text-4xl font-medium leading-[1.08] sm:text-5xl lg:text-6xl">
+              Poetry in pure Mul Cotton
+            </h1>
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/80 sm:text-base">
+              Handcrafted Bagru prints in featherlight cotton, made for everyday grace.
+            </p>
+          </motion.div>
 
           <motion.div
             initial={{ y: 20, opacity: 0 }}
