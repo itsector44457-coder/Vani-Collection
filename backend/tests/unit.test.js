@@ -119,7 +119,7 @@ test('route surface is complete and free of duplicate registrations', () => {
       }
     }
   }
-  for (const required of ['POST /api/orders', 'POST /api/integrations/erp/webhook', 'POST /api/webhooks/razorpay', 'GET /api/admin/dashboard', 'PATCH /api/inventory/:sku', 'POST /api/payments/razorpay/verify', 'POST /api/returns', 'POST /api/uploads/images']) {
+  for (const required of ['POST /api/orders', 'POST /api/integrations/erp/webhook', 'POST /api/webhooks/razorpay', 'GET /api/admin/dashboard', 'PATCH /api/inventory/:sku', 'POST /api/payments/razorpay/verify', 'POST /api/returns', 'POST /api/uploads/images', 'GET /api/cart', 'POST /api/cart/items', 'PATCH /api/cart/items/:lineId', 'DELETE /api/cart/items/:lineId', 'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/orders/:id/cancel']) {
     assert.ok(seen.has(required), `missing route ${required}`);
   }
   assert.ok(seen.size >= 60, `expected a broad API surface, saw ${seen.size} routes`);

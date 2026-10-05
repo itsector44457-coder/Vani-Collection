@@ -18,6 +18,8 @@ const userSchema = new mongoose.Schema({
   addresses: [addressSchema],
   refreshTokenHashes: [{ hash: String, expiresAt: Date, userAgent: String, createdAt: { type: Date, default: Date.now } }],
   lastLoginAt: Date,
+  passwordResetTokenHash: { type: String, select: false },
+  passwordResetExpiresAt: { type: Date, select: false },
   erpCustomerId: { type: String, sparse: true, index: true },
 }, { timestamps: true });
 

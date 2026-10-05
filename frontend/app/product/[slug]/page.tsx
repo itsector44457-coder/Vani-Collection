@@ -3,10 +3,10 @@
 import { use, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../../context/CartContext";
-import { PRODUCTS } from "../../../data/products";
 import { notFound, useRouter } from "next/navigation";
 import Link from "next/link";
-import { generateProductSlug, calculateDiscount, generateBreadcrumbs } from "../../../lib/utils";
+import { calculateDiscount, generateBreadcrumbs } from "../../../lib/utils";
+import { useStoreProduct } from "../../../lib/use-storefront";
 import ProductImageGallery from "../../../components/ProductImageGallery";
 import SizeGuide from "../../../components/SizeGuide";
 import ProductReviews from "../../../components/ProductReviews";
@@ -16,35 +16,46 @@ interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
 
+type ProductTab = "description" | "details" | "reviews";
+
 export default function ProductPage({ params }: ProductPageProps) {
   const { slug } = use(params);
-  
-  // Find product by slug (using utility function)
-  const product = PRODUCTS.find(p => generateProductSlug(p.title) === slug);
-
-  if (!product) {
-    notFound();
-  }
-
-  const { addToCart, toggleWishlist, isInWishlist } = useCart();
+  const storeProduct = useStoreProduct(slug);
+  const { addToCart, toggleWishlist, isInWishlist, error: cartError } = useCart();
   const router = useRouter();
-  const [selectedSize, setSelectedSize] = useState(product.sizes[0]);
+
+  const product = storeProduct.data;
+  const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
-  type ProductTab = "description" | "details" | "reviews";
   const [activeTab, setActiveTab] = useState<ProductTab>("description");
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showAddedToast, setShowAddedToast] = useState(false);
-  const isWishlisted = isInWishlist(product.id);
 
-  const handleAddToCart = () => {
-    addToCart(product, selectedSize, quantity);
+  /* The first available size is the default; the visitor's explicit pick always wins. */
+  const activeSize = product && !product.sizes.includes(selectedSize) ? (product.sizes[0] ?? "") : selectedSize;
+
+  if (!product) {
+    if (storeProduct.loading) {
+      return (
+        <div className="min-h-screen bg-[#faf7f2] flex items-center justify-center">
+          <p className="text-sm text-stone-500">Loading this piece…</p>
+        </div>
+      );
+    }
+    notFound();
+  }
+
+  const isWishlisted = isInWishlist(product.id);
+  const sizeStock = new Map((product.variants ?? []).map((variant) => [variant.size ?? "", variant.available]));
+
+  const handleAddToCart = async () => {
+    await addToCart(product, activeSize, quantity);
     setShowAddedToast(true);
     setTimeout(() => setShowAddedToast(false), 3000);
   };
 
-  const handleBuyNow = () => {
-    // Add to cart and redirect to checkout
-    addToCart(product, selectedSize, quantity);
+  const handleBuyNow = async () => {
+    await addToCart(product, activeSize, quantity);
     router.push("/checkout");
   };
 
@@ -177,20 +188,31 @@ export default function ProductPage({ params }: ProductPageProps) {
                 </button>
               </div>
               <div className="grid grid-cols-6 gap-2">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`py-3 px-4 border rounded-lg text-sm font-medium transition ${
-                      selectedSize === size
-                        ? 'border-[#881337] bg-[#881337] text-white'
-                        : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
+                {product.sizes.map((size) => {
+                  const available = sizeStock.get(size);
+                  const soldOut = available !== undefined && available <= 0;
+                  return (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      disabled={soldOut}
+                      title={soldOut ? `${size} is sold out` : available !== undefined ? `${available} left in ${size}` : undefined}
+                      className={`relative py-3 px-4 border rounded-lg text-sm font-medium transition ${
+                        activeSize === size
+                          ? 'border-[#881337] bg-[#881337] text-white'
+                          : soldOut
+                          ? 'border-gray-200 text-gray-300 cursor-not-allowed line-through'
+                          : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  );
+                })}
               </div>
+              {product.sizes.length === 0 && (
+                <p className="text-sm text-stone-500">This piece is available on request — please contact the atelier.</p>
+              )}
             </div>
 
             {/* Quantity Selection */}
@@ -215,6 +237,12 @@ export default function ProductPage({ params }: ProductPageProps) {
                 </button>
               </div>
             </div>
+
+            {cartError && (
+              <p role="alert" className="rounded-xl bg-rose-50 px-3.5 py-2.5 text-[12.5px] text-rose-700 ring-1 ring-rose-200">
+                {cartError}
+              </p>
+            )}
 
             {/* Add to Cart & Buy Now */}
             <div className="grid grid-cols-2 gap-4">
@@ -310,7 +338,7 @@ export default function ProductPage({ params }: ProductPageProps) {
               </div>
             )}
             {activeTab === 'reviews' && (
-              <ProductReviews productId={product.id} />
+              <ProductReviews productId={product.id} apiProductId={product.productId} />
             )}
           </div>
         </div>

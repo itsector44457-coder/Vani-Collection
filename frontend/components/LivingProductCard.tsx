@@ -4,7 +4,7 @@ import React, { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Product } from "../context/CartContext";
-import { generateProductSlug } from "../lib/utils";
+import { productHref } from "../lib/utils";
 
 interface LivingProductCardProps {
   product: Product;
@@ -177,7 +177,7 @@ export default function LivingProductCard({
 
           {/* Title - Link to Product Page */}
           <Link 
-            href={`/product/${generateProductSlug(product.title)}`}
+            href={productHref(product)}
             className="block"
           >
             <h3 className="font-serif text-xs sm:text-sm md:text-base font-medium text-stone-900 line-clamp-2 cursor-pointer hover:text-[#881337] transition leading-snug mb-1 sm:mb-2 min-h-[32px] sm:min-h-[40px]">

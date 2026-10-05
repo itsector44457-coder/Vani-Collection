@@ -11,8 +11,11 @@ import {
   PrimaryButton,
   SpinnerIcon,
 } from "@/lib/auth-shell";
+import { useAuth } from "@/context/AuthContext";
+import { isApiConfigured } from "@/lib/api-client";
 
 export default function ForgotPasswordPage() {
+  const { forgotPassword, lastResetUrl } = useAuth();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -27,10 +30,11 @@ export default function ForgotPasswordPage() {
     }
     setLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 900));
+      if (!isApiConfigured()) await new Promise((r) => setTimeout(r, 400));
+      await forgotPassword(email.trim());
       setSent(true);
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (cause) {
+      setError((cause as Error)?.message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -58,8 +62,16 @@ export default function ForgotPasswordPage() {
             Reset link sent to
           </p>
           <p className="mt-1 break-all text-[13px] text-emerald-800">{email}</p>
+          {lastResetUrl && (
+            <p className="mt-3 text-[12px] text-emerald-700">
+              No email provider is connected yet, so use this link directly:{" "}
+              <Link href={lastResetUrl.replace(/^https?:\/\/[^/]+/, "")} className="break-all font-semibold underline">
+                open reset link
+              </Link>
+            </p>
+          )}
           <p className="mt-3 text-[12px] text-emerald-700">
-            Didn't receive it? Check spam or{" "}
+            Didn&apos;t receive it? Check spam or{" "}
             <button
               onClick={() => setSent(false)}
               className="font-semibold underline"

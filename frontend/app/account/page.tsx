@@ -7,7 +7,10 @@ import { useRouter } from "next/navigation";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
 import { PRODUCTS } from "../../data/products";
-import { generateProductSlug } from "../../lib/utils";
+import { productHref } from "../../lib/utils";
+import { isApiConfigured } from "../../lib/api-client";
+import { orderStatusLabel, type StoreOrder } from "../../lib/storefront-types";
+import { useMyOrders } from "../../lib/use-storefront";
 
 /* ── Mock data ── */
 const MOCK_ORDERS = [
@@ -71,6 +74,33 @@ const STATUS_COLORS: Record<string, string> = {
   red: "bg-red-100 text-red-700",
 };
 
+const statusColour = (status: string) =>
+  status === "delivered"
+    ? "emerald"
+    : ["shipped", "packed", "processing"].includes(status)
+      ? "blue"
+      : ["cancelled", "returned", "refunded"].includes(status)
+        ? "red"
+        : "amber";
+
+/** Adapt an API order to the card layout used on this dashboard. */
+const toDashboardOrder = (order: StoreOrder) => ({
+  id: order.orderNumber,
+  href: `/account/orders/${order._id}`,
+  date: new Date(order.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+  status: orderStatusLabel(order.status),
+  statusColor: statusColour(order.status),
+  total: order.amounts.total,
+  items: order.items.map((item) => ({
+    title: item.name ?? item.sku,
+    size: item.size ?? "Free Size",
+    qty: item.quantity,
+    price: item.lineTotal,
+    image: item.image ?? "",
+    slug: null as string | null,
+  })),
+});
+
 type Tab = "orders" | "wishlist" | "profile" | "address";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
@@ -92,6 +122,9 @@ const PROFILE_DEFAULT = {
 export default function AccountPage() {
   const { wishlist, toggleWishlist } = useCart();
   const { user, isAuthenticated, logout, updateProfile } = useAuth();
+  const liveCatalogue = isApiConfigured();
+  const { data: liveOrders } = useMyOrders(isAuthenticated);
+  const ORDERS = liveCatalogue && liveOrders.length > 0 ? liveOrders.map(toDashboardOrder) : MOCK_ORDERS;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("orders");
   const [profile, setProfile] = useState({
@@ -238,7 +271,7 @@ export default function AccountPage() {
                 {activeTab === "orders" && (
                   <div className="space-y-4">
                     <h2 className="text-lg font-serif text-gray-900">Order History</h2>
-                    {MOCK_ORDERS.map((order) => (
+                    {ORDERS.map((order) => (
                       <div key={order.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                         {/* Order header */}
                         <div
@@ -280,7 +313,7 @@ export default function AccountPage() {
                                     <img src={item.image} alt={item.title}
                                       className="w-14 h-16 object-cover rounded-xl flex-shrink-0 border border-gray-100" />
                                     <div className="flex-1 min-w-0">
-                                      <Link href={`/product/${item.slug}`}
+                                      <Link href={item.slug ? `/product/${item.slug}` : ("href" in order ? order.href : "/account/orders")}
                                         className="text-sm font-medium text-gray-900 hover:text-[#881337] transition line-clamp-2 block">
                                         {item.title}
                                       </Link>
@@ -336,13 +369,13 @@ export default function AccountPage() {
                               </button>
                             </div>
                             <div className="p-3">
-                              <Link href={`/product/${generateProductSlug(product.title)}`}
+                              <Link href={productHref(product)}
                                 className="text-xs font-medium text-gray-900 hover:text-[#881337] transition line-clamp-2 block">
                                 {product.title}
                               </Link>
                               <div className="flex items-center justify-between mt-2">
                                 <span className="text-sm font-bold text-[#881337]">₹{product.price.toLocaleString()}</span>
-                                <Link href={`/product/${generateProductSlug(product.title)}`}
+                                <Link href={productHref(product)}
                                   className="text-[10px] bg-[#881337] text-white px-2 py-1 rounded-lg hover:bg-[#701a35] transition">
                                   View
                                 </Link>

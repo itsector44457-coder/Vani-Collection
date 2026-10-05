@@ -6,7 +6,7 @@ import { useCart } from "../../context/CartContext";
 import { PRODUCTS } from "../../data/products";
 import ReelsSidebar from "../../components/ReelsSidebar";
 import Link from "next/link";
-import { generateProductSlug } from "../../lib/utils";
+import { productHref } from "../../lib/utils";
 
 /* ─────────────────────────────────────────────────────────────
   ROOT CAUSE ANALYSIS (why things broke):
@@ -227,7 +227,7 @@ function ReelCard({
         </button>
 
         {/* Product thumb → product page */}
-        <Link href={`/product/${generateProductSlug(product.title)}`}>
+        <Link href={productHref(product)}>
           <img
             src={product.image}
             alt={product.title}
@@ -257,7 +257,7 @@ function ReelCard({
             <p style={{ color: "#dfc28c", fontWeight: 700, fontSize: 22, marginTop: 2 }}>{reel.price}</p>
           </div>
           <Link
-            href={`/product/${generateProductSlug(product.title)}`}
+            href={productHref(product)}
             style={{ flexShrink: 0, fontSize: 11, color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 100, padding: "6px 14px", backdropFilter: "blur(4px)", whiteSpace: "nowrap" }}
           >
             View →
