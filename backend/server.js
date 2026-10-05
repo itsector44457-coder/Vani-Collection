@@ -1,26 +1,29 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
 require('dotenv').config();
+const mongoose = require('mongoose');
+const pino = require('pino');
+const { loadConfig } = require('./src/config');
+const { buildApp } = require('./src/app');
+const { startIntegrationWorker } = require('./src/workers/integration-worker');
 
-const app = express();
+const logger = pino({ level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'), redact: ['req.headers.authorization', 'req.headers.cookie', 'req.body.password'] });
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+async function main() {
+  const config = loadConfig();
+  mongoose.set('strictQuery', true);
+  await mongoose.connect(config.MONGO_URI, { serverSelectionTimeoutMS: 10_000, maxPoolSize: 20, autoIndex: config.NODE_ENV !== 'production' });
+  logger.info('MongoDB connected');
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB Connected Successfully!'))
-  .catch((err) => console.log('❌ MongoDB Connection Error:', err));
+  const app = buildApp({ config, logger });
+  const server = app.listen(config.PORT, '0.0.0.0', () => logger.info({ port: config.PORT }, 'Vani Collection API listening'));
+  const stopWorker = startIntegrationWorker({ log: logger });
 
-// Basic Route to check if server is running
-app.get('/', (req, res) => {
-  res.send('Vani Collection Backend API is running!');
-});
+  const shutdown = async (signal) => {
+    logger.info({ signal }, 'shutting down');
+    stopWorker();
+    server.close(async () => { await mongoose.connection.close(); process.exit(0); });
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  ['SIGTERM', 'SIGINT'].forEach((signal) => process.on(signal, () => shutdown(signal)));
+}
 
-// Start Server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+main().catch((error) => { logger.error({ err: error }, 'startup failed'); process.exit(1); });

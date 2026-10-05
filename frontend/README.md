@@ -1,3 +1,26 @@
+# Vani Collection — Storefront (Next.js 16)
+
+> **Status:** the shopping experience is still the presentation demo (bundled product data, simulated
+> cart/checkout). The **real backend lives in [`../backend`](../backend)** — commerce APIs, admin APIs,
+> payments, shipping and the Rishabh (Ujjain) ERP integration.
+
+## Connecting to the backend
+
+```bash
+cp .env.example .env.local     # set NEXT_PUBLIC_API_URL=http://localhost:5000
+npm run dev                    # http://localhost:3000  ·  admin console at /admin
+```
+
+- With `NEXT_PUBLIC_API_URL` set, the **admin console** (`/admin`) reads live dashboard metrics,
+  orders, catalogue/inventory and customers from the backend and shows a `Live API` badge.
+  Every panel falls back to demo data with a `Demo data` badge when the API is unreachable.
+- Staff sign in at `/admin/login` (accounts are created with `npm run seed:admin` in the backend).
+- `lib/api-client.ts` is the single API entry point; `lib/use-api.ts` provides the loading/fallback
+  behaviour. Use them when wiring the storefront to the same API.
+- Roles enforced by the backend: support, warehouse, catalog_manager, finance, admin, super_admin.
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
@@ -18,7 +41,8 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Fonts are declared locally in `app/globals.css` (system serif/sans stacks) so the build never depends
+on Google Fonts network access.
 
 ## Learn More
 
