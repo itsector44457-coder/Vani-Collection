@@ -19,6 +19,43 @@ npm run dev                    # http://localhost:3000  ·  admin console at /ad
   behaviour. Use them when wiring the storefront to the same API.
 - Roles enforced by the backend: support, warehouse, catalog_manager, finance, admin, super_admin.
 
+## SEO
+
+Everything a crawler reads is generated server-side from the live catalogue, and **degrades rather
+than guesses** when the backend is unreachable.
+
+| Path | What it produces |
+| --- | --- |
+| `app/sitemap.ts` | Static pages + one entry per category + every active product, with real `lastmod`, `changefreq`, `priority` and image entries. Regenerates hourly (`revalidate = 3600`). |
+| `app/robots.ts` | Storefront allowed; `/admin`, `/account`, `/checkout`, `/api`, `/order-confirmation` and the auth routes disallowed; points at the sitemap. |
+| `app/opengraph-image.tsx` | Branded 1200×630 site card. |
+| `app/product/[slug]/opengraph-image.tsx` | Per-product card with the real photo, price and discount, cached for an hour. |
+| `components/seo/` | `SiteSchema` (Organization + WebSite/SearchAction), `ProductSchema` (ItemPage + BreadcrumbList + Product/Offer), `BreadcrumbSchema`, `FaqSchema`, plus the pure builders in `schema.ts` and the `<JsonLd>` primitive. |
+| `lib/seo.ts` | Canonical origin, taxonomy, the catalogue fetchers and the price/availability helpers. |
+
+`generateMetadata` lives on `app/product/[slug]/page.tsx` and `app/products/page.tsx`. Both were
+`"use client"`, which cannot export metadata, so the interactive body of each moved to
+`product-view.tsx` / `products-view.tsx` and the `page.tsx` files are now thin Server Components.
+The same split applies to `app/admin/` and `app/account/`, whose layouts are `noindex, nofollow`.
+
+Two rules worth knowing before editing this:
+
+- **Never set `alternates.canonical` in a layout.** It is inherited by every route that does not
+  declare its own, which silently marks private pages as duplicates of the homepage. Each indexable
+  page sets its canonical itself.
+- **Never set `openGraph.images` where an `opengraph-image.tsx` exists.** The explicit value wins and
+  replaces the generated card (and its `:width`/`:height`/`:alt` tags) with a raw photo of unknown
+  aspect ratio.
+
+`Product` structured data is emitted only when the catalogue actually returned the product, and
+`availability` only when `GET /api/products/:slug` reported real inventory for that SKU. A product
+with no inventory rows gets an Offer with **no** `availability` — forfeiting the rich result beats
+asserting stock nobody verified. `priceValidUntil` is derived from the product's own `updatedAt` so
+the value is stable across crawls instead of moving on every request.
+
+Set `NEXT_PUBLIC_SITE_URL` (see `.env.example`) before deploying: canonicals, the sitemap and all
+JSON-LD are absolute URLs built from it.
+
 ---
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
