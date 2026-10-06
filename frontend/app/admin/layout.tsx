@@ -62,6 +62,12 @@ const CollectionIcon = () => (
     <rect x="14" y="14" width="7" height="7" rx="1.5" />
   </svg>
 );
+const MailIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" />
+    <path d="m3.5 7 8.5 6 8.5-6" />
+  </svg>
+);
 const SettingsIcon = () => (
   <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
     <circle cx="12" cy="12" r="3" />
@@ -122,7 +128,10 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
   },
   {
     label: "System",
-    items: [{ name: "Settings", href: "/admin/settings", icon: SettingsIcon, matchPrefix: true }],
+    items: [
+      { name: "Emails", href: "/admin/emails", icon: MailIcon, matchPrefix: true },
+      { name: "Settings", href: "/admin/settings", icon: SettingsIcon, matchPrefix: true },
+    ],
   },
 ];
 

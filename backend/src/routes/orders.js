@@ -11,6 +11,28 @@ const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { shippingFeeFor, checkCouponValidity, computeDiscount } = require('../services/pricing');
+const { queueEmail, orderEmailData, orderRecipient } = require('../services/email');
+
+/**
+ * Every order lifecycle email in one place so the trigger, the recipient rule and the "never fail
+ * the request" contract stay identical across create / status / cancel.
+ *
+ * `actor` is the *customer* whose name should appear in the greeting — only the checkout route has
+ * it, because staff-triggered transitions run under a warehouse or support session. `dedupeKey`
+ * makes the outbox row idempotent: a double-submitted form or a replayed webhook cannot send the
+ * shopper the same confirmation twice.
+ */
+const notifyOrder = (req, template, order, { data: extra = {}, dedupeKey, tags = ['orders', template], actor = null } = {}) =>
+  queueEmail({
+    to: orderRecipient(order, actor),
+    template,
+    data: orderEmailData(order, { firstName: actor?.firstName || order.shippingAddress?.fullName?.split(' ')[0] || '', ...extra }),
+    orderId: order.id || order._id,
+    userId: order.customerId?.toString?.() || undefined,
+    dedupeKey: dedupeKey || `${template}:${order.id || order._id}`,
+    tags,
+    log: req.log,
+  });
 
 const address = z.object({ fullName: z.string().min(2), phone: z.string().regex(/^[6-9]\d{9}$/), email: z.email(), line1: z.string().min(5), line2: z.string().optional(), landmark: z.string().optional(), city: z.string().min(2), state: z.string().min(2), pincode: z.string().regex(/^\d{6}$/), country: z.string().default('IN') });
 const orderInput = z.object({ items: z.array(z.object({ productId: z.string(), sku: z.string(), quantity: z.number().int().min(1).max(10) })).min(1), shippingAddress: address, billingAddress: address.optional(), couponCode: z.string().optional(), paymentMethod: z.enum(['razorpay', 'cod']) });
@@ -52,6 +74,7 @@ module.exports = ({ config, auth }) => {
       paymentOrder = await razorpay.orders.create({ amount: Math.round(order.amounts.total * 100), currency: 'INR', receipt: order.orderNumber, notes: { internalOrderId: order.id } });
       order.payment.providerOrderId = paymentOrder.id; await order.save();
     }
+    await notifyOrder(req, 'order-confirmation', order, { actor: req.user });
     res.status(201).json({ data: order, payment: paymentOrder && { id: paymentOrder.id, amount: paymentOrder.amount, currency: paymentOrder.currency, keyId: config.RAZORPAY_KEY_ID } });
   }));
   router.get('/mine', auth, asyncHandler(async (req, res) => res.json({ data: await Order.find({ customerId: req.user.id }).sort({ createdAt: -1 }) })));
@@ -75,6 +98,7 @@ module.exports = ({ config, auth }) => {
     } finally {
       await session.endSession();
     }
+    await notifyOrder(req, 'order-cancelled', order, { data: { reason: req.body.reason }, actor: req.user });
     res.json({ data: order });
   }));
 
@@ -84,7 +108,16 @@ module.exports = ({ config, auth }) => {
   }));
   router.patch('/:id/status', auth, requireRoles('warehouse', 'support', 'admin', 'super_admin'), validate(z.object({ status: z.enum(['confirmed','processing','packed','shipped','delivered','cancelled']), note: z.string().optional() })), audit('order.status', 'Order'), asyncHandler(async (req, res) => {
     const order = await Order.findById(req.params.id); if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
-    order.status = req.body.status; order.statusHistory.push({ status: req.body.status, actor: req.user.email, note: req.body.note }); await order.save(); res.json({ data: order });
+    const previousStatus = order.status;
+    order.status = req.body.status; order.statusHistory.push({ status: req.body.status, actor: req.user.email, note: req.body.note }); await order.save();
+
+    // Status emails carry the shipment block when the AWB is already known (Shiprocket fills it in
+    // at pickup, so `shipped` almost always has a tracking link by the time this runs).
+    await notifyOrder(req, 'order-status', order, {
+      data: { status: req.body.status, note: req.body.note, previousStatus },
+      dedupeKey: `order-status:${order.id}:${req.body.status}`,
+    });
+    res.json({ data: order });
   }));
   return router;
 };

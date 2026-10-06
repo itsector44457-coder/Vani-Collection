@@ -7,10 +7,12 @@ const Inventory = require('../../models/Inventory');
 const Review = require('../../models/Review');
 const AuditLog = require('../../models/AuditLog');
 const ReturnRequest = require('../../models/ReturnRequest');
+const EmailLog = require('../../models/EmailLog');
 const { validate } = require('../middleware/validate');
 const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
+const { resendEmail } = require('../services/email');
 
 module.exports = ({ auth }) => {
   const router = express.Router();
@@ -89,6 +91,45 @@ module.exports = ({ auth }) => {
   router.get('/audit-logs', requireRoles('admin','super_admin'), asyncHandler(async (req, res) => {
     const filter = req.query.action ? { action: req.query.action } : {};
     res.json({ data: await AuditLog.find(filter).sort({ createdAt: -1 }).limit(Math.min(500, Number(req.query.limit) || 100)) });
+  }));
+
+  // ---------------------------------------------------------------- email outbox
+  // Delivery is asynchronous, so this is the only place anyone can see whether a shopper actually
+  // got their order confirmation — and the only way to replay one that did not go out.
+  router.get('/emails', requireRoles('support','admin','super_admin'), asyncHandler(async (req, res) => {
+    const page = Math.max(1, Number(req.query.page) || 1), limit = Math.min(100, Number(req.query.limit) || 25);
+    const filter = {};
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.template) filter.template = req.query.template;
+    if (req.query.to) filter.to = new RegExp(String(req.query.to).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    if (req.query.orderId) filter.orderId = req.query.orderId;
+    const [data, total, statusRows, templateRows] = await Promise.all([
+      EmailLog.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).select('-data'),
+      EmailLog.countDocuments(filter),
+      EmailLog.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      EmailLog.aggregate([{ $group: { _id: '$template', count: { $sum: 1 } } }, { $sort: { count: -1 } }]),
+    ]);
+    res.json({
+      data,
+      meta: {
+        page, limit, total, pages: Math.ceil(total / limit),
+        counts: {
+          byStatus: Object.fromEntries(statusRows.map((row) => [row._id, row.count])),
+          byTemplate: Object.fromEntries(templateRows.map((row) => [row._id, row.count])),
+        },
+      },
+    });
+  }));
+
+  router.get('/emails/:id', requireRoles('support','admin','super_admin'), asyncHandler(async (req, res) => {
+    const entry = await EmailLog.findById(req.params.id);
+    if (!entry) throw new AppError(404, 'EMAIL_NOT_FOUND', 'Email log entry not found');
+    res.json({ data: entry });
+  }));
+
+  router.post('/emails/:id/resend', requireRoles('support','admin','super_admin'), audit('email.resend','EmailLog'), asyncHandler(async (req, res) => {
+    const result = await resendEmail(req.params.id, { log: req.log });
+    res.json({ data: result });
   }));
 
   router.get('/reports/sales', requireRoles('finance','admin','super_admin'), asyncHandler(async (req, res) => {

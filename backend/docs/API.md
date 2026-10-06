@@ -91,6 +91,41 @@ Order response for online payments includes:
 | GET | `/admin/audit-logs?action&limit` | admin, super_admin |
 | GET | `/admin/reports/sales?days=` | finance, admin, super_admin |
 | GET | `/admin/reports/gst?month=YYYY-MM` | finance, admin, super_admin |
+| GET | `/admin/emails?status&template&to&page&limit` | support, admin, super_admin — outbound email log with status/template counts |
+| GET | `/admin/emails/:id` | support, admin, super_admin — one entry including the stored template input |
+| POST | `/admin/emails/:id/resend` | support, admin, super_admin — re-renders and re-enqueues a failed/skipped email (audited) |
+| GET | `/refunds/pending?status&page&limit` | finance, admin, super_admin — paid orders that were cancelled or returned |
+
+## Transactional email
+
+Email is the **only** notification channel. There is no WhatsApp, SMS or push integration anywhere in
+this codebase, by design.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| POST | `/auth/register` | queues `welcome` |
+| POST | `/auth/forgot-password` | queues `password-reset`; 202 with an identical body whether or not the address exists |
+| POST | `/auth/reset-password` | queues `password-changed` |
+| POST | `/orders` | queues `order-confirmation` to the account email or the order's guest email |
+| PATCH | `/orders/:id/status` | queues `order-status` (confirmed / processing / packed / shipped / delivered / cancelled) |
+| POST | `/orders/:id/cancel` | queues `order-cancelled` |
+| POST | `/shipments/:orderId/create` | queues `order-status` — the shipped variant when Shiprocket returned an AWB |
+| POST/PATCH | `/returns`, `/returns/:id` | queues `return-status` for every step of the ladder |
+| POST | `/refunds/:orderId` | queues `refund-processed` |
+
+Delivery is asynchronous: a trigger renders the message, writes an `EmailLog` row and an
+`IntegrationEvent` (`provider: "email"`, `eventType: "email.send"`), then returns. The mail worker
+drains that outbox every 15 s with the same backoff ladder as the ERP events
+(30 s → 2 m → 10 m → 1 h → 6 h) and dead-letters what it cannot deliver.
+
+Consequences worth remembering:
+
+- **An email failure can never fail an HTTP request.** If SMTP is down the shopper still gets a 201.
+- With `EMAIL_ENABLED=false` (or no `SMTP_HOST`) every trigger logs the intent and stores a
+  `skipped` EmailLog, so the API runs with zero email configuration.
+- `EMAIL_DEV_CAPTURE=true` renders the message and writes it to the log instead of sending it.
+- Triggers are idempotent: the outbox key is `email.send:<template>:<to>:<dedupeKey>`, so a
+  double-submitted checkout cannot send two confirmations.
 
 ## Integrations
 

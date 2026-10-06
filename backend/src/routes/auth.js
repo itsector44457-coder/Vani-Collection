@@ -6,6 +6,7 @@ const User = require('../../models/User');
 const { validate } = require('../middleware/validate');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { issueTokens, setAuthCookies, hashToken } = require('../services/tokens');
+const { queueEmail } = require('../services/email');
 
 module.exports = ({ config, auth }) => {
   const router = express.Router();
@@ -16,6 +17,8 @@ module.exports = ({ config, auth }) => {
     const tokens = issueTokens(user, config);
     user.refreshTokenHashes.push({ hash: hashToken(tokens.refreshToken), expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_TTL_DAYS * 86400000), userAgent: req.get('user-agent') });
     await user.save(); setAuthCookies(res, tokens, config);
+    // Email is enqueued (never sent inline) so a broken SMTP provider cannot fail sign-up.
+    await queueEmail({ to: user.email, template: 'welcome', data: { firstName: user.firstName, lastName: user.lastName, email: user.email }, userId: user.id, tags: ['onboarding'], log: req.log });
     res.status(201).json({ data: user.toSafeJSON() });
   }));
   router.post('/login', validate(credentials), asyncHandler(async (req, res) => {
@@ -47,19 +50,27 @@ module.exports = ({ config, auth }) => {
   }));
   router.get('/me', auth, asyncHandler(async (req, res) => res.json({ data: req.user.toSafeJSON() })));
 
-  // Password reset. Email delivery is not wired yet, so in non-production the response includes the
-  // reset link to make the flow testable; in production the link is only written to the server log.
+  // Password reset. The link goes out by email through the outbox; in non-production the response
+  // also carries it so the flow stays testable without a mail provider. The response is identical
+  // whether or not the address exists — never leak which emails are registered.
+  const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
   router.post('/forgot-password', validate(z.object({ email: z.email() })), asyncHandler(async (req, res) => {
     const user = await User.findOne({ email: req.body.email.toLowerCase() }).select('+passwordResetTokenHash +passwordResetExpiresAt');
     const meta = {};
     if (user && user.status === 'active') {
       const rawToken = crypto.randomBytes(32).toString('hex');
       user.passwordResetTokenHash = hashToken(rawToken);
-      user.passwordResetExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      user.passwordResetExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
       await user.save();
-      const resetUrl = `${config.corsOrigins[0] || 'http://localhost:3000'}/reset-password?token=${rawToken}`;
-      const log = typeof req.log?.warn === 'function' ? req.log : console;
-      log.warn({ email: user.email, resetUrl }, 'password reset requested but no email provider is configured');
+      const resetUrl = `${config.storefrontUrl}/reset-password?token=${rawToken}`;
+      await queueEmail({
+        to: user.email,
+        template: 'password-reset',
+        data: { firstName: user.firstName, resetUrl, expiresInMinutes: RESET_TOKEN_TTL_MS / 60000 },
+        userId: user.id,
+        tags: ['security'],
+        log: req.log,
+      });
       if (config.NODE_ENV !== 'production') meta.resetUrl = resetUrl;
     }
     res.status(202).json({ message: 'If that email exists, a reset link has been sent.', meta });
@@ -73,6 +84,7 @@ module.exports = ({ config, auth }) => {
     user.passwordResetExpiresAt = undefined;
     user.refreshTokenHashes = [];
     await user.save();
+    await queueEmail({ to: user.email, template: 'password-changed', data: { firstName: user.firstName, changedAt: new Date(), ip: req.ip }, userId: user.id, tags: ['security'], log: req.log });
     res.status(204).end();
   }));
 

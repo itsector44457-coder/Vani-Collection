@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const schema = new mongoose.Schema({
-  provider: { type: String, enum: ['rishabh_erp', 'razorpay', 'shiprocket'], required: true, index: true },
+  provider: { type: String, enum: ['rishabh_erp', 'razorpay', 'shiprocket', 'email'], required: true, index: true },
   direction: { type: String, enum: ['inbound', 'outbound'], required: true }, eventType: { type: String, required: true },
   idempotencyKey: { type: String, required: true, unique: true }, entityType: String, entityId: String,
   status: { type: String, enum: ['pending', 'processing', 'succeeded', 'failed', 'dead_letter'], default: 'pending', index: true },

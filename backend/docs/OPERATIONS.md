@@ -28,6 +28,40 @@ long-running process alive (the integration worker).
 - Rotate `ERP_WEBHOOK_SECRET` and `RAZORPAY_WEBHOOK_SECRET` with the vendor at the same time.
 - Razorpay/Shiprocket/Cloudinary credentials are never sent to the browser; the frontend only sees
   `RAZORPAY_KEY_ID`.
+- `SMTP_PASS` is a credential like any other. Rotate it with the provider and redeploy; queued
+  messages pick the new value up on their next attempt.
+
+### 3a. Email provider
+
+Email is the only outbound notification channel — no WhatsApp, SMS or push is wired anywhere.
+
+The service speaks plain SMTP through `nodemailer`, so any provider works by changing env vars
+only. Nothing in the code is coupled to a vendor SDK.
+
+| Provider | `SMTP_HOST` | `SMTP_PORT` / `SMTP_SECURE` | Auth |
+| --- | --- | --- | --- |
+| Amazon SES | `email-smtp.<region>.amazonaws.com` | 587 / `false` (STARTTLS) or 465 / `true` | SMTP username + password from IAM |
+| Resend | `smtp.resend.com` | 587 / `false` | user `resend`, password = API key |
+| Postmark | `smtp.postmarkapp.com` | 587 / `false` | server API token as both user and pass |
+| Gmail / Workspace | `smtp.gmail.com` | 587 / `false` | App Password (never the account password) |
+| Zoho | `smtp.zoho.in` | 587 / `false` | address + App Password |
+
+Rollout:
+
+1. Set `EMAIL_ENABLED=true`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`.
+2. Set `EMAIL_FROM` to a verified sender on that domain, e.g.
+   `EMAIL_FROM="Vani Collection <care@vanicollection.com>"`. An unverified From address is the
+   single most common cause of silent drops.
+3. Set `STOREFRONT_URL` to the canonical storefront origin — every link in every template is built
+   from it, and so is the password-reset URL.
+4. Keep `EMAIL_DEV_CAPTURE=true` for the first deploy, place a test order, read the fully rendered
+   email out of the logs, then flip it to `false`.
+5. Publish SPF, DKIM and DMARC for the sending domain before going live, or the mail lands in spam.
+
+`DNS_SERVERS` in `backend/server.js` is a **local-development-only** workaround for ISP resolvers
+that refuse the SRV lookups a `mongodb+srv://` URI needs. It is opt-in (nothing happens when the
+variable is unset) and must **never** be set in production — the host resolver is already correct
+there, and overriding it would route DNS through a third party.
 
 ## 4. Backups
 
@@ -43,6 +77,7 @@ long-running process alive (the integration worker).
 | `/health` liveness, `/health/ready` readiness | uptime monitor (1 min) | page on 2 consecutive failures |
 | 5xx rate, p95 latency | logs (pino JSON) / host metrics | investigate `requestId` in logs |
 | `IntegrationEvent` dead letters | `GET /integrations/events` | fix mapping, reset status to `pending` |
+| Failed / skipped email | `GET /admin/emails?status=failed`, `/admin/emails` page | fix the provider, then **Resend** from the console |
 | Low stock | `GET /inventory?low=true`, admin dashboard | replenish or hide SKU |
 | Pending reviews/returns | admin dashboard counters | work the queue daily |
 | Failed payments | order `payment.status=failed` | contact customer, never mark paid manually |
@@ -58,6 +93,16 @@ long-running process alive (the integration worker).
 1. `GET /api/integrations/events` — filter `status=dead_letter`.
 2. Compare one ERP payload against the mapping table in `docs/RISHABH-ERP-INTEGRATION.md`.
 3. Fix mapping/config, set the row back to `pending`, let the worker replay.
+
+**Customers not receiving emails**
+1. `GET /api/admin/emails?status=failed` — read `error` and `attempts`. A provider auth error says
+   `SMTP_USER`/`SMTP_PASS`; a timeout says the host or port is wrong or egress 587 is blocked.
+2. `GET /api/admin/emails?status=skipped` — `EMAIL_NOT_CONFIGURED` means `EMAIL_ENABLED`/`SMTP_HOST`
+   are unset; `DEV_CAPTURE` means `EMAIL_DEV_CAPTURE=true` is still on.
+3. Fix the config, redeploy, then replay from `/admin/emails` → **Resend** (or
+   `POST /api/admin/emails/:id/resend`). Resending re-renders from the stored template input, so a
+   template fix applies to the replay too.
+4. Orders keep flowing the whole time — email delivery is asynchronous and cannot fail a request.
 
 **Suspected account takeover**
 1. `PATCH /api/admin/customers/:id` → `status: blocked`.

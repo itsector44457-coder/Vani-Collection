@@ -9,8 +9,11 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { AppError } = require('./lib/errors');
 const { authMiddleware, optionalAuthMiddleware } = require('./middleware/auth');
+const { configureEmail } = require('./services/email');
 
 const buildApp = ({ config, logger }) => {
+  // Give the email service the parsed config before any route can trigger a send.
+  configureEmail(config);
   const app = express();
   app.set('trust proxy', 1);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));

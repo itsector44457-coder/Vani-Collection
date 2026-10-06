@@ -174,6 +174,33 @@ export interface AdminCustomer {
   createdAt: string;
 }
 
+/** One row of the outbound email log (`GET /api/admin/emails`). */
+export interface EmailLogEntry {
+  _id: string;
+  to: string;
+  template: string;
+  subject: string;
+  status: "queued" | "sent" | "failed" | "skipped" | string;
+  providerMessageId?: string;
+  error?: string;
+  attempts: number;
+  orderId?: string;
+  userId?: string;
+  tags?: string[];
+  replyTo?: string;
+  createdAt: string;
+  updatedAt?: string;
+  sentAt?: string;
+}
+
+export interface EmailLogMeta {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+  counts?: { byStatus?: Record<string, number>; byTemplate?: Record<string, number> };
+}
+
 /* ------------------------------------------------------------------ calls */
 
 export const api = {
@@ -202,6 +229,18 @@ export const api = {
   },
   events: (signal?: AbortSignal) => apiFetch<{ data: { _id: string; provider: string; eventType: string; status: string; attempts: number; lastError?: string; createdAt: string }[] }>("/api/integrations/events", { signal }),
   lowStock: (signal?: AbortSignal) => apiFetch<{ data: { sku: string; onHand: number; reserved: number; reorderLevel: number }[] }>("/api/inventory?low=true", { signal }),
+
+  /* ------------------------------------------------- transactional email log */
+  emails: (params: { status?: string; template?: string; to?: string; page?: number; limit?: number } = {}, signal?: AbortSignal) => {
+    const query = new URLSearchParams();
+    if (params.status && params.status !== "all") query.set("status", params.status);
+    if (params.template && params.template !== "all") query.set("template", params.template);
+    if (params.to) query.set("to", params.to);
+    query.set("page", String(params.page ?? 1));
+    query.set("limit", String(params.limit ?? 25));
+    return apiFetch<{ data: EmailLogEntry[]; meta: EmailLogMeta }>(`/api/admin/emails?${query.toString()}`, { signal });
+  },
+  resendEmail: (id: string) => apiFetch<{ data: { queued?: boolean; skipped?: boolean; reason?: string; id: string; status: string } }>(`/api/admin/emails/${id}/resend`, { method: "POST" }),
 };
 
 /** The UI groups orders into friendly buckets; the API uses lifecycle statuses. */
@@ -237,6 +276,50 @@ const STATUS_LABELS: Record<string, string> = {
 
 /** Human label for an order status coming from the API. */
 export const orderStatusLabel = (status: string): string => STATUS_LABELS[status] ?? status;
+
+/** Every template the backend can render — kept in sync with `backend/src/services/email-templates`. */
+export const EMAIL_TEMPLATES = [
+  "welcome",
+  "password-reset",
+  "password-changed",
+  "order-confirmation",
+  "order-status",
+  "order-cancelled",
+  "refund-processed",
+  "return-status",
+  "email-verification",
+] as const;
+
+export const EMAIL_TEMPLATE_LABELS: Record<string, string> = {
+  welcome: "Welcome",
+  "password-reset": "Password reset",
+  "password-changed": "Password changed",
+  "order-confirmation": "Order confirmation",
+  "order-status": "Order status",
+  "order-cancelled": "Order cancelled",
+  "refund-processed": "Refund processed",
+  "return-status": "Return status",
+  "email-verification": "Email verification",
+  raw: "One-off",
+};
+
+export const EMAIL_STATUSES = ["queued", "sent", "failed", "skipped"] as const;
+
+/** Badge tone for an email delivery state. */
+export const emailStatusTone = (status: string): "success" | "warning" | "danger" | "info" | "neutral" => {
+  switch (status) {
+    case "sent":
+      return "success";
+    case "queued":
+      return "info";
+    case "failed":
+      return "danger";
+    case "skipped":
+      return "warning";
+    default:
+      return "neutral";
+  }
+};
 
 /** Staff roles allowed into the admin console. */
 export const STAFF_ROLES = ["support", "warehouse", "catalog_manager", "finance", "admin", "super_admin"] as const;
