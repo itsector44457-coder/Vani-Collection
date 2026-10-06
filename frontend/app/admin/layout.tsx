@@ -68,6 +68,68 @@ const MailIcon = () => (
     <path d="m3.5 7 8.5 6 8.5-6" />
   </svg>
 );
+const CouponIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <path d="M3 8.5V6a1.5 1.5 0 0 1 1.5-1.5h15A1.5 1.5 0 0 1 21 6v2.5a2.6 2.6 0 0 0 0 7V18a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18v-2.5a2.6 2.6 0 0 0 0-7Z" />
+    <path d="M14 4.5v15" strokeDasharray="2 2" />
+    <path d="M7 12h2.5" />
+  </svg>
+);
+const ReviewIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <path d="M12 3.2 14.5 8.6l5.9.7-4.4 4 1.2 5.8L12 16.2 6.8 19.1 8 13.3l-4.4-4 5.9-.7Z" />
+  </svg>
+);
+const ReturnsIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <path d="M4 9.5A8 8 0 0 1 19.5 8" />
+    <path d="M4 9.5V4M4 9.5h5.5" />
+    <path d="M20 14.5A8 8 0 0 1 4.5 16" />
+    <path d="M20 14.5V20M20 14.5h-5.5" />
+  </svg>
+);
+const InventoryIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <path d="M3.5 7.5 12 3.5l8.5 4v9L12 20.5l-8.5-4Z" />
+    <path d="M3.5 7.5 12 11.5l8.5-4M12 11.5v9" />
+    <path d="M7.75 5.5 16.25 9.5" />
+  </svg>
+);
+const RefundIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <rect x="2.5" y="5.5" width="19" height="13" rx="2" />
+    <circle cx="12" cy="12" r="2.8" />
+    <path d="M6 12h.01M18 12h.01" />
+  </svg>
+);
+const AuditIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <path d="M14 3H7a1.8 1.8 0 0 0-1.8 1.8v14.4A1.8 1.8 0 0 0 7 21h10a1.8 1.8 0 0 0 1.8-1.8V7.8Z" />
+    <path d="M14 3v4.8h4.8" />
+    <path d="m9 14.2 1.9 1.9L15.4 11" />
+  </svg>
+);
+const ReportsIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <path d="M4.5 19.5h15" />
+    <path d="M7 19.5v-6M12 19.5V5.5M17 19.5v-9" />
+  </svg>
+);
+const IntegrationIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <circle cx="6" cy="6.5" r="2.5" />
+    <circle cx="18" cy="6.5" r="2.5" />
+    <circle cx="12" cy="18" r="2.5" />
+    <path d="M8 8.2 10.6 16M16 8.2 13.4 16M8.5 6.5h7" />
+  </svg>
+);
+const StaffIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <path d="M8 11.5h8a2 2 0 0 1 2 2v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V13.5a2 2 0 0 1 2-2Z" />
+    <circle cx="12" cy="6" r="2.8" />
+    <path d="M10.5 15h3v2.2a1.5 1.5 0 0 1-3 0Z" />
+  </svg>
+);
 const SettingsIcon = () => (
   <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
     <circle cx="12" cy="12" r="3" />
@@ -109,6 +171,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
     items: [
       { name: "Dashboard", href: "/admin", icon: DashboardIcon },
       { name: "Analytics", href: "/admin/analytics", icon: AnalyticsIcon, matchPrefix: true },
+      { name: "Reports", href: "/admin/reports", icon: ReportsIcon, matchPrefix: true },
     ],
   },
   {
@@ -117,6 +180,10 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
       { name: "Products", href: "/admin/products", icon: ProductsIcon, badge: "142", matchPrefix: true },
       { name: "Orders", href: "/admin/orders", icon: OrdersIcon, badge: "8", matchPrefix: true },
       { name: "Customers", href: "/admin/customers", icon: CustomersIcon, matchPrefix: true },
+      { name: "Inventory", href: "/admin/inventory", icon: InventoryIcon, matchPrefix: true },
+      { name: "Returns", href: "/admin/returns", icon: ReturnsIcon, matchPrefix: true },
+      { name: "Refunds", href: "/admin/refunds", icon: RefundIcon, matchPrefix: true },
+      { name: "Coupons", href: "/admin/coupons", icon: CouponIcon, matchPrefix: true },
     ],
   },
   {
@@ -124,12 +191,16 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
     items: [
       { name: "Reels", href: "/admin/reels", icon: ReelsIcon, matchPrefix: true },
       { name: "Collections", href: "/admin/collections", icon: CollectionIcon, matchPrefix: true },
+      { name: "Reviews", href: "/admin/reviews", icon: ReviewIcon, matchPrefix: true },
     ],
   },
   {
     label: "System",
     items: [
       { name: "Emails", href: "/admin/emails", icon: MailIcon, matchPrefix: true },
+      { name: "Integrations", href: "/admin/integrations", icon: IntegrationIcon, matchPrefix: true },
+      { name: "Audit log", href: "/admin/audit-logs", icon: AuditIcon, matchPrefix: true },
+      { name: "Staff", href: "/admin/staff", icon: StaffIcon, matchPrefix: true },
       { name: "Settings", href: "/admin/settings", icon: SettingsIcon, matchPrefix: true },
     ],
   },

@@ -6,6 +6,7 @@ const Inventory = require('../../models/Inventory');
 const Order = require('../../models/Order');
 const IntegrationEvent = require('../../models/IntegrationEvent');
 const { requireRoles } = require('../middleware/auth');
+const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { RishabhErpClient } = require('../services/rishabh-erp');
 
@@ -29,6 +30,26 @@ module.exports = ({ config, auth }) => {
     const key = req.get('x-event-id') || crypto.createHash('sha256').update(raw).digest('hex');
     await IntegrationEvent.updateOne({ idempotencyKey: key }, { $setOnInsert: { provider: 'rishabh_erp', direction: 'inbound', eventType: payload.type || 'unknown', idempotencyKey: key, payload, status: 'pending' } }, { upsert: true }); res.status(202).json({ accepted: true });
   }));
-  router.get('/events', auth, requireRoles('admin','super_admin'), asyncHandler(async (_req, res) => res.json({ data: await IntegrationEvent.find().sort({ createdAt: -1 }).limit(200) })));
+  router.get('/events', auth, requireRoles('admin','super_admin'), asyncHandler(async (req, res) => {
+    const filter = {};
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.provider) filter.provider = req.query.provider;
+    const limit = Math.min(500, Number(req.query.limit) || 200);
+    const [data, statusRows] = await Promise.all([
+      IntegrationEvent.find(filter).sort({ createdAt: -1 }).limit(limit),
+      IntegrationEvent.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+    ]);
+    res.json({ data, meta: { total: data.length, counts: Object.fromEntries(statusRows.map((row) => [row._id, row.count])) } });
+  }));
+  // Manual replay for a dead letter or a stuck failure. Attempts are reset so the row gets the
+  // full backoff ladder again instead of being dead-lettered on the very next tick.
+  router.post('/events/:id/retry', auth, requireRoles('admin','super_admin'), audit('integration.retry', 'IntegrationEvent'), asyncHandler(async (req, res) => {
+    const event = await IntegrationEvent.findById(req.params.id);
+    if (!event) throw new AppError(404, 'EVENT_NOT_FOUND', 'Integration event not found');
+    if (event.status === 'processing') throw new AppError(409, 'EVENT_IN_FLIGHT', 'This event is being processed right now');
+    event.status = 'pending'; event.attempts = 0; event.nextAttemptAt = new Date(); event.lastError = undefined;
+    await event.save();
+    res.json({ data: event });
+  }));
   return router;
 };

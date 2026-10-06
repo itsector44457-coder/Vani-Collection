@@ -201,6 +201,168 @@ export interface EmailLogMeta {
   counts?: { byStatus?: Record<string, number>; byTemplate?: Record<string, number> };
 }
 
+/* ------------------------------------------------------- admin console shapes */
+
+export interface AdminCoupon {
+  _id: string;
+  code: string;
+  type: "percentage" | "fixed";
+  value: number;
+  minOrderValue: number;
+  maxDiscount?: number;
+  startsAt?: string;
+  endsAt?: string;
+  usageLimit?: number;
+  perCustomerLimit: number;
+  usedCount: number;
+  active: boolean;
+  applicableCategories: string[];
+  excludedSkus: string[];
+  createdAt: string;
+}
+
+export interface AdminReview {
+  _id: string;
+  productId: string | { _id: string; name?: string; slug?: string };
+  /** Present when the admin list populates the product ref. */
+  productTitle?: string;
+  orderId?: string;
+  userId?: string;
+  customerName: string;
+  rating: number;
+  title?: string;
+  body: string;
+  images?: string[];
+  verifiedPurchase: boolean;
+  status: "pending" | "published" | "rejected";
+  helpfulCount: number;
+  adminReply?: string;
+  createdAt: string;
+}
+
+export interface AdminReturnItem {
+  sku?: string;
+  quantity?: number;
+  reason?: string;
+  condition?: string;
+  images?: string[];
+}
+
+export interface AdminReturn {
+  _id: string;
+  returnNumber: string;
+  orderId: string | { _id: string; orderNumber?: string; status?: string; createdAt?: string; amounts?: { total?: number }; payment?: { method?: string; status?: string }; shippingAddress?: { fullName?: string; city?: string; state?: string; pincode?: string }; items?: { sku: string; name?: string; unitPrice?: number; quantity?: number }[] };
+  customerId?: string | { _id: string; email?: string; firstName?: string; lastName?: string; phone?: string };
+  items: AdminReturnItem[];
+  type: "return" | "exchange";
+  status: string;
+  refundAmount?: number;
+  refundId?: string;
+  adminNote?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InventoryRow {
+  _id: string;
+  sku: string;
+  warehouseId: string;
+  onHand: number;
+  reserved: number;
+  reorderLevel: number;
+  location?: string;
+  version: number;
+  lastErpSyncAt?: string;
+  available: number;
+  updatedAt: string;
+}
+
+export interface RefundCandidate {
+  _id: string;
+  orderNumber: string;
+  createdAt: string;
+  status: string;
+  reason: string;
+  payment: { method: string; status: string; providerPaymentId?: string; paidAt?: string };
+  amounts: { subtotal?: number; discount?: number; shipping?: number; tax?: number; total: number };
+  refundable: number;
+  customer: { email?: string; firstName?: string; lastName?: string; phone?: string; name?: string };
+  returnRequest: { id: string; returnNumber: string; status: string; refundAmount?: number; refundId?: string } | null;
+}
+
+export interface AuditLogRow {
+  _id: string;
+  actorId?: string;
+  actorEmail?: string;
+  action: string;
+  entity?: string;
+  entityId?: string;
+  ip?: string;
+  userAgent?: string;
+  requestId?: string;
+  createdAt: string;
+}
+
+export interface SalesReport {
+  from: string;
+  to: string;
+  byDay: { _id: string; orders: number; gross: number; discounts: number; tax: number }[];
+  byStatus: { _id: string; count: number }[];
+  byPayment: { _id: string; count: number; collected: number }[];
+  topProducts: { _id: string; units: number; revenue: number }[];
+}
+
+export interface GstReport {
+  month: string;
+  invoices: number;
+  gstByRate: { rate: number; taxableValue: number; tax: number }[];
+  totalTax: number;
+}
+
+export interface IntegrationEventRow {
+  _id: string;
+  provider: string;
+  direction: string;
+  eventType: string;
+  idempotencyKey: string;
+  entityType?: string;
+  entityId?: string;
+  status: "pending" | "processing" | "succeeded" | "failed" | "dead_letter" | string;
+  attempts: number;
+  nextAttemptAt?: string;
+  lastError?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StaffUser {
+  _id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  roles: string[];
+  status: string;
+  lastLoginAt?: string;
+  createdAt: string;
+}
+
+/** Coupon payload accepted by `POST`/`PATCH /api/coupons`. */
+export interface CouponInput {
+  code?: string;
+  type?: "percentage" | "fixed";
+  value?: number;
+  minOrderValue?: number;
+  maxDiscount?: number;
+  startsAt?: string;
+  endsAt?: string;
+  usageLimit?: number;
+  perCustomerLimit?: number;
+  active?: boolean;
+  applicableCategories?: string[];
+  excludedSkus?: string[];
+}
+
 /* ------------------------------------------------------------------ calls */
 
 export const api = {
@@ -241,6 +403,60 @@ export const api = {
     return apiFetch<{ data: EmailLogEntry[]; meta: EmailLogMeta }>(`/api/admin/emails?${query.toString()}`, { signal });
   },
   resendEmail: (id: string) => apiFetch<{ data: { queued?: boolean; skipped?: boolean; reason?: string; id: string; status: string } }>(`/api/admin/emails/${id}/resend`, { method: "POST" }),
+
+  /* --------------------------------------------------------------- coupons */
+  coupons: (signal?: AbortSignal) => apiFetch<{ data: AdminCoupon[] }>("/api/coupons", { signal }),
+  createCoupon: (body: CouponInput) => apiFetch<{ data: AdminCoupon }>("/api/coupons", { method: "POST", body }),
+  updateCoupon: (id: string, body: CouponInput) => apiFetch<{ data: AdminCoupon }>(`/api/coupons/${id}`, { method: "PATCH", body }),
+  deleteCoupon: (id: string) => apiFetch<void>(`/api/coupons/${id}`, { method: "DELETE" }),
+  validateCoupon: (code: string, subtotal: number) => apiFetch<{ data: { code: string; discount: number; type: string } }>("/api/coupons/validate", { method: "POST", body: { code, subtotal } }),
+
+  /* ---------------------------------------------------------------- reviews */
+  reviews: (status?: string, signal?: AbortSignal) => apiFetch<{ data: AdminReview[] }>(`/api/reviews${status && status !== "all" ? `?status=${status}` : ""}`, { signal }),
+  moderateReview: (id: string, body: { status?: string; adminReply?: string }) => apiFetch<{ data: AdminReview }>(`/api/reviews/${id}`, { method: "PATCH", body }),
+  reviewSummary: (productId: string, signal?: AbortSignal) => apiFetch<{ data: ReviewSummary }>(`/api/reviews/summary/${productId}`, { signal }),
+
+  /* ---------------------------------------------------------------- returns */
+  returns: (params: { status?: string } = {}, signal?: AbortSignal) => apiFetch<{ data: AdminReturn[] }>(`/api/returns${params.status && params.status !== "all" ? `?status=${params.status}` : ""}`, { signal }),
+  updateReturn: (id: string, body: { status: string; adminNote?: string; refundAmount?: number; refundId?: string }) => apiFetch<{ data: AdminReturn }>(`/api/returns/${id}`, { method: "PATCH", body }),
+
+  /* -------------------------------------------------------------- inventory */
+  // `GET /api/inventory` filters on `sku` and `low` only — the warehouse filter is applied in the
+  // browser so one fetch keeps every warehouse's numbers for the summary cards.
+  inventory: (params: { low?: boolean; sku?: string } = {}, signal?: AbortSignal) => {
+    const query = new URLSearchParams();
+    if (params.low) query.set("low", "true");
+    if (params.sku) query.set("sku", params.sku);
+    const suffix = query.toString();
+    return apiFetch<{ data: InventoryRow[] }>(`/api/inventory${suffix ? `?${suffix}` : ""}`, { signal });
+  },
+  adjustInventory: (sku: string, body: { adjustment?: number; onHand?: number; reorderLevel?: number; location?: string; reason: string; warehouseId?: string }) => {
+    const { warehouseId, ...payload } = body;
+    const suffix = warehouseId ? `?warehouseId=${encodeURIComponent(warehouseId)}` : "";
+    return apiFetch<{ data: InventoryRow }>(`/api/inventory/${encodeURIComponent(sku)}${suffix}`, { method: "PATCH", body: payload });
+  },
+
+  /* ---------------------------------------------------------------- refunds */
+  refundsPending: (signal?: AbortSignal) => apiFetch<Paginated<RefundCandidate>>("/api/refunds/pending?limit=100", { signal }),
+  processRefund: (orderId: string, body: { amount?: number; reason: string }) =>
+    apiFetch<{ data: AdminOrder; refund: { id: string; amount: number; status: string } }>(`/api/refunds/${orderId}`, { method: "POST", body }),
+
+  /* ------------------------------------------------------------ audit + reports */
+  auditLogs: (params: { action?: string; limit?: number } = {}, signal?: AbortSignal) => {
+    const query = new URLSearchParams();
+    if (params.action && params.action !== "all") query.set("action", params.action);
+    query.set("limit", String(params.limit ?? 200));
+    return apiFetch<{ data: AuditLogRow[] }>(`/api/admin/audit-logs?${query.toString()}`, { signal });
+  },
+  salesReport: (days: number, signal?: AbortSignal) => apiFetch<{ data: SalesReport }>(`/api/admin/reports/sales?days=${days}`, { signal }),
+  gstReport: (month: string, signal?: AbortSignal) => apiFetch<{ data: GstReport }>(`/api/admin/reports/gst?month=${encodeURIComponent(month)}`, { signal }),
+
+  /* ------------------------------------------------------ integrations + staff */
+  integrationEvents: (signal?: AbortSignal) => apiFetch<{ data: IntegrationEventRow[] }>("/api/integrations/events", { signal }),
+  retryIntegrationEvent: (id: string) => apiFetch<{ data: IntegrationEventRow }>(`/api/integrations/events/${id}/retry`, { method: "POST" }),
+  staff: (signal?: AbortSignal) => apiFetch<{ data: StaffUser[] }>("/api/admin/staff", { signal }),
+  createStaff: (body: { email: string; firstName: string; lastName?: string; password: string; roles: string[] }) =>
+    apiFetch<{ data: StaffUser }>("/api/admin/staff", { method: "POST", body }),
 };
 
 /** The UI groups orders into friendly buckets; the API uses lifecycle statuses. */
@@ -305,6 +521,121 @@ export const EMAIL_TEMPLATE_LABELS: Record<string, string> = {
 
 export const EMAIL_STATUSES = ["queued", "sent", "failed", "skipped"] as const;
 
+/** The return ladder, in the order support drives it (`rejected` short-circuits the rest). */
+export const RETURN_LADDER = [
+  "requested",
+  "approved",
+  "pickup_scheduled",
+  "received",
+  "quality_check",
+  "refund_pending",
+  "completed",
+] as const;
+
+export const RETURN_STATUS_LABELS: Record<string, string> = {
+  requested: "Requested",
+  approved: "Approved",
+  rejected: "Rejected",
+  pickup_scheduled: "Pickup scheduled",
+  received: "Received",
+  quality_check: "Quality check",
+  refund_pending: "Refund pending",
+  completed: "Completed",
+};
+
+/** The next states support can move a return to, per the backend's status ladder. */
+export const RETURN_NEXT_STATES: Record<string, { value: string; label: string; tone?: "danger" }[]> = {
+  requested: [
+    { value: "approved", label: "Approve" },
+    { value: "rejected", label: "Reject", tone: "danger" },
+  ],
+  approved: [
+    { value: "pickup_scheduled", label: "Schedule pickup" },
+    { value: "rejected", label: "Reject", tone: "danger" },
+  ],
+  pickup_scheduled: [{ value: "received", label: "Mark received" }],
+  received: [{ value: "quality_check", label: "Start quality check" }],
+  quality_check: [
+    { value: "refund_pending", label: "Pass — queue refund" },
+    { value: "rejected", label: "Fail inspection", tone: "danger" },
+  ],
+  refund_pending: [{ value: "completed", label: "Mark completed" }],
+  completed: [],
+  rejected: [],
+};
+
+export const returnStatusLabel = (status: string): string => RETURN_STATUS_LABELS[status] ?? status;
+
+/** Shape of `GET /api/reviews/summary/:productId` — also what the product JSON-LD uses. */
+export interface ReviewSummary {
+  average: number;
+  count: number;
+  distribution: Record<number, number>;
+}
+
+/** Resolves a populated-or-raw product ref to something printable. */
+export function reviewProductLabel(review: AdminReview): string {
+  if (review.productTitle) return review.productTitle;
+  const ref = review.productId;
+  if (typeof ref === "string") return "Product";
+  return ref?.name || "Product";
+}
+
+export const REVIEW_STATUSES = ["pending", "published", "rejected"] as const;
+export const reviewStatusLabel = (status: string): string =>
+  status === "published" ? "Published" : status === "rejected" ? "Rejected" : "Pending review";
+
+export const EVENT_STATUS_LABELS: Record<string, string> = {
+  pending: "Pending",
+  processing: "Processing",
+  succeeded: "Succeeded",
+  failed: "Failed — retrying",
+  dead_letter: "Dead letter",
+};
+
+/** Staff roles an admin can grant (`super_admin` is deliberately not in this list). */
+export const ASSIGNABLE_STAFF_ROLES = ["support", "warehouse", "catalog_manager", "finance", "admin"] as const;
+
+export const ROLE_LABELS: Record<string, string> = {
+  customer: "Customer",
+  support: "Support",
+  warehouse: "Warehouse",
+  catalog_manager: "Catalogue manager",
+  finance: "Finance",
+  admin: "Admin",
+  super_admin: "Super admin",
+};
+
+/** Turns a CSV-ish array of strings into a clean list, used by the coupon editor. */
+export const parseList = (raw: string): string[] =>
+  raw
+    .split(/[,\n]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+/** Downloads a string as a file — used by the client-side CSV exports. */
+export function downloadFile(filename: string, contents: string, mime = "text/csv;charset=utf-8"): void {
+  if (typeof window === "undefined") return;
+  const blob = new Blob([contents], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
+/** Minimal CSV encoder: quotes anything containing a comma, quote or newline. */
+export function toCsv(rows: (string | number | null | undefined)[][]): string {
+  const cell = (value: string | number | null | undefined) => {
+    const text = value === null || value === undefined ? "" : String(value);
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  return rows.map((row) => row.map(cell).join(",")).join("\n");
+}
+
 /** Badge tone for an email delivery state. */
 export const emailStatusTone = (status: string): "success" | "warning" | "danger" | "info" | "neutral" => {
   switch (status) {
@@ -326,6 +657,18 @@ export const STAFF_ROLES = ["support", "warehouse", "catalog_manager", "finance"
 export const hasStaffAccess = (user: SessionUser | null): boolean => Boolean(user?.roles?.some((role) => (STAFF_ROLES as readonly string[]).includes(role)));
 
 export const formatCurrency = (value: number): string => `₹${Math.round(value || 0).toLocaleString("en-IN")}`;
+
+/**
+ * Age of an ISO timestamp in whole days. Kept here (rather than inlined into a `useMemo`) because
+ * the React Compiler treats `Date.now()` inside a memo as an impure render call; an imported helper
+ * is opaque to it, and this also gives every screen the same rounding.
+ */
+export const ageInDays = (iso?: string): number => {
+  if (!iso) return Number.POSITIVE_INFINITY;
+  const timestamp = new Date(iso).getTime();
+  if (Number.isNaN(timestamp)) return Number.POSITIVE_INFINITY;
+  return Math.floor((Date.now() - timestamp) / 86400000);
+};
 
 export const formatRelativeTime = (iso: string): string => {
   const timestamp = new Date(iso).getTime();

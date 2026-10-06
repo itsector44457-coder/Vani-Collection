@@ -119,8 +119,11 @@ test('route surface is complete and free of duplicate registrations', () => {
       }
     }
   }
-  for (const required of ['POST /api/orders', 'POST /api/integrations/erp/webhook', 'POST /api/webhooks/razorpay', 'GET /api/admin/dashboard', 'PATCH /api/inventory/:sku', 'POST /api/payments/razorpay/verify', 'POST /api/returns', 'POST /api/uploads/images', 'GET /api/cart', 'POST /api/cart/items', 'PATCH /api/cart/items/:lineId', 'DELETE /api/cart/items/:lineId', 'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/orders/:id/cancel']) {
+  for (const required of ['POST /api/orders', 'POST /api/integrations/erp/webhook', 'POST /api/webhooks/razorpay', 'GET /api/admin/dashboard', 'PATCH /api/inventory/:sku', 'POST /api/payments/razorpay/verify', 'POST /api/returns', 'POST /api/uploads/images', 'GET /api/cart', 'POST /api/cart/items', 'PATCH /api/cart/items/:lineId', 'DELETE /api/cart/items/:lineId', 'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/orders/:id/cancel',
+    // The screens the admin console drives — a silently unmounted router would leave a blank page
+    // rather than a failing request, so the surface is asserted explicitly.
+    'GET /api/integrations/events', 'POST /api/integrations/events/:id/retry', 'GET /api/admin/audit-logs', 'GET /api/admin/reports/sales', 'GET /api/admin/reports/gst', 'GET /api/admin/staff', 'POST /api/admin/staff', 'GET /api/refunds/pending', 'POST /api/refunds/:orderId', 'GET /api/inventory', 'GET /api/returns', 'PATCH /api/returns/:id', 'GET /api/coupons', 'POST /api/coupons', 'PATCH /api/coupons/:id', 'DELETE /api/coupons/:id', 'GET /api/reviews', 'PATCH /api/reviews/:id']) {
     assert.ok(seen.has(required), `missing route ${required}`);
   }
-  assert.ok(seen.size >= 60, `expected a broad API surface, saw ${seen.size} routes`);
+  assert.ok(seen.size >= 80, `expected a broad API surface, saw ${seen.size} routes`);
 });

@@ -19,7 +19,19 @@ module.exports = ({ auth }) => {
     const review = await Review.create({ ...req.body, userId: req.user.id, customerName: `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || 'Verified Buyer', verifiedPurchase: Boolean(purchased) });
     res.status(201).json({ data: review, meta: { moderation: 'pending', message: 'Review submitted for moderation' } });
   }));
-  router.get('/', auth, requireRoles('support','admin','super_admin'), asyncHandler(async (req, res) => res.json({ data: await Review.find(req.query.status ? { status: req.query.status } : {}).sort({ createdAt: -1 }).limit(200) })));
+  // Moderation queue. The product ref is populated so support can see what is being reviewed
+  // without a second lookup; `productTitle` is projected alongside for convenience.
+  router.get('/', auth, requireRoles('support','admin','super_admin'), asyncHandler(async (req, res) => {
+    const filter = {};
+    if (req.query.status) filter.status = req.query.status;
+    if (req.query.rating) filter.rating = Number(req.query.rating);
+    if (req.query.productId) filter.productId = req.query.productId;
+    const limit = Math.min(500, Number(req.query.limit) || 200);
+    const rows = await Review.find(filter).populate('productId', 'name slug').sort({ createdAt: -1 }).limit(limit).lean();
+    const data = rows.map((row) => ({ ...row, productTitle: row.productId?.name || undefined }));
+    const counts = await Review.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]);
+    res.json({ data, meta: { total: data.length, counts: Object.fromEntries(counts.map((row) => [row._id, row.count])) } });
+  }));
   router.patch('/:id', auth, requireRoles('support','admin','super_admin'), validate(z.object({ status: z.enum(['pending','published','rejected']).optional(), adminReply: z.string().max(2000).optional() })), asyncHandler(async (req, res) => {
     const review = await Review.findByIdAndUpdate(req.params.id, req.body, { new: true }); if (!review) throw new AppError(404, 'REVIEW_NOT_FOUND', 'Review not found'); res.json({ data: review });
   }));
