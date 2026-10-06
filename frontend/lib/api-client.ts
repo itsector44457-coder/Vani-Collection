@@ -353,6 +353,126 @@ export interface StaffUser {
   createdAt: string;
 }
 
+/* ------------------------------------------------------------------ loyalty */
+
+export type LoyaltyTierName = "silver" | "gold" | "platinum";
+
+export interface LoyaltyTier {
+  name: LoyaltyTierName;
+  label: string;
+  minLifetimePoints: number;
+  /** Null at the top tier. */
+  next: { name: LoyaltyTierName; label: string; pointsNeeded: number } | null;
+}
+
+export type LoyaltyReason =
+  | "order_earned"
+  | "referral_made"
+  | "referral_received"
+  | "redeemed"
+  | "expired"
+  | "admin_adjustment";
+
+export interface LoyaltyTransaction {
+  _id: string;
+  userId?: string;
+  delta: number;
+  reason: LoyaltyReason | string;
+  orderId?: string;
+  couponCode?: string;
+  referredUserId?: string;
+  remaining?: number;
+  expiresAt?: string;
+  balanceAfter?: number;
+  note?: string;
+  createdAt: string;
+}
+
+/** Everything the rewards screen needs, from `GET /api/loyalty/me`. */
+export interface LoyaltySummary {
+  enabled: boolean;
+  points: number;
+  valueRupees: number;
+  lifetimePoints: number;
+  tier: LoyaltyTier;
+  memberSince?: string;
+  expiringSoon: { points: number; earliest: string | null };
+  redemption: {
+    minPoints: number;
+    pointValueRupees: number;
+    maxPercentOfOrder: number;
+    couponValidDays: number;
+    canRedeem: boolean;
+  };
+  earning: { rupeesPerPoint: number; expiryMonths: number };
+  referral: { code: string | null; bonusPoints: number; referredCount: number };
+  totals: { earned: number; referrals: number; redeemed: number; expired: number };
+}
+
+export interface RedemptionResult {
+  duplicate?: boolean;
+  points: number;
+  requestedPoints?: number;
+  capped?: boolean;
+  discountRupees: number;
+  couponCode: string;
+  minOrderValue?: number;
+  expiresAt?: string;
+  balance: number;
+}
+
+export interface AdminLoyaltyMember {
+  _id: string;
+  userId: string;
+  email?: string;
+  name?: string;
+  phone?: string;
+  points: number;
+  lifetimePoints: number;
+  tier: LoyaltyTierName;
+  tierLabel: string;
+  nextTier: LoyaltyTier["next"];
+  valueRupees: number;
+  lastEarnedAt?: string;
+  memberSince?: string;
+}
+
+export interface AdminLoyaltyMeta {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+  config: {
+    enabled: boolean;
+    rupeesPerPoint: number;
+    pointValueRupees: number;
+    minRedemptionPoints: number;
+    maxRedemptionPercent: number;
+    expiryMonths: number;
+    referralBonusPoints: number;
+    tiers: { name: string; label: string; minLifetimePoints: number }[];
+  };
+  totals: Record<string, { points: number; count: number }>;
+  byTier: Record<string, { members: number; points: number; lifetime: number }>;
+  expiringSoon: { points: number; members: number };
+  liabilityRupees: number;
+}
+
+export const LOYALTY_REASON_LABELS: Record<string, string> = {
+  order_earned: "Earned on an order",
+  referral_made: "Referral bonus — you referred someone",
+  referral_received: "Welcome bonus — someone referred you",
+  redeemed: "Redeemed for a discount",
+  expired: "Points expired",
+  admin_adjustment: "Adjusted by our team",
+};
+
+export const LOYALTY_TIERS: { name: LoyaltyTierName; label: string }[] = [
+  { name: "silver", label: "Silver" },
+  { name: "gold", label: "Gold" },
+  { name: "platinum", label: "Platinum" },
+];
+
 /**
  * Payload accepted by `POST /api/content` and `PUT /api/content/:key`.
  *
@@ -495,6 +615,39 @@ export const api = {
   upsertContent: (key: string, body: ContentInput) => apiFetch<{ data: ContentDoc }>(`/api/content/${encodeURIComponent(key)}`, { method: "PUT", body }),
   createContent: (body: ContentInput & { key: string }) => apiFetch<{ data: ContentDoc }>("/api/content", { method: "POST", body }),
   deleteContent: (key: string) => apiFetch<void>(`/api/content/${encodeURIComponent(key)}`, { method: "DELETE" }),
+
+  /* ------------------------------------------------------------------ loyalty */
+  loyaltyMe: (signal?: AbortSignal) => apiFetch<{ data: LoyaltySummary }>("/api/loyalty/me", { signal }),
+  loyaltyTransactions: (limit = 50, signal?: AbortSignal) =>
+    apiFetch<{ data: LoyaltyTransaction[]; meta?: { total: number } }>(`/api/loyalty/transactions?limit=${limit}`, { signal }),
+  /**
+   * Spends points for a single-use discount code.
+   *
+   * `requestId` makes a retry safe: the backend keys the ledger row on it, so a dropped response
+   * followed by a second click returns the original coupon instead of spending twice.
+   */
+  loyaltyRedeem: (body: { points: number; orderValue?: number; requestId: string }) =>
+    apiFetch<{ data: RedemptionResult; meta?: { duplicate?: boolean } }>("/api/loyalty/redeem", {
+      method: "POST",
+      body,
+      headers: { "idempotency-key": body.requestId },
+    }),
+  loyaltyReferral: (signal?: AbortSignal) => apiFetch<{ data: { code: string | null; bonusPoints: number } }>("/api/loyalty/referral", { signal }),
+  loyaltyApplyReferral: (code: string) => apiFetch<{ data: { bonus: number; referrerName: string; awarded: boolean } }>("/api/loyalty/referral", { method: "POST", body: { code } }),
+
+  adminLoyalty: (params: { page?: number; tier?: string; q?: string; refresh?: boolean; limit?: number } = {}, signal?: AbortSignal) => {
+    const query = new URLSearchParams();
+    query.set("limit", String(params.limit ?? 25));
+    if (params.page) query.set("page", String(params.page));
+    if (params.tier && params.tier !== "all") query.set("tier", params.tier);
+    if (params.q) query.set("q", params.q);
+    if (params.refresh) query.set("refresh", "true");
+    return apiFetch<{ data: AdminLoyaltyMember[]; meta: AdminLoyaltyMeta }>(`/api/admin/loyalty?${query.toString()}`, { signal });
+  },
+  adminLoyaltyMember: (userId: string, signal?: AbortSignal) =>
+    apiFetch<{ data: { summary: LoyaltySummary; transactions: LoyaltyTransaction[] } }>(`/api/admin/loyalty/${encodeURIComponent(userId)}`, { signal }),
+  adminLoyaltyAdjust: (userId: string, body: { delta: number; note: string }) =>
+    apiFetch<{ data: { transaction: LoyaltyTransaction; balance: number } }>(`/api/admin/loyalty/${encodeURIComponent(userId)}/adjust`, { method: "POST", body }),
 };
 
 /** The UI groups orders into friendly buckets; the API uses lifecycle statuses. */

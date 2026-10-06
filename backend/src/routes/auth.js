@@ -7,19 +7,33 @@ const { validate } = require('../middleware/validate');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { issueTokens, setAuthCookies, hashToken } = require('../services/tokens');
 const { queueEmail } = require('../services/email');
+const { applyReferralCode, ensureReferralCode, getLoyaltyConfig } = require('../services/loyalty');
 
 module.exports = ({ config, auth }) => {
   const router = express.Router();
   const credentials = z.object({ email: z.email(), password: z.string().min(8).max(128) });
-  router.post('/register', validate(credentials.extend({ firstName: z.string().min(1), lastName: z.string().optional(), phone: z.string().regex(/^[6-9]\d{9}$/).optional() })), asyncHandler(async (req, res) => {
+  router.post('/register', validate(credentials.extend({ firstName: z.string().min(1), lastName: z.string().optional(), phone: z.string().regex(/^[6-9]\d{9}$/).optional(), referralCode: z.string().max(24).optional() })), asyncHandler(async (req, res) => {
     if (await User.exists({ email: req.body.email })) throw new AppError(409, 'EMAIL_EXISTS', 'Email is already registered');
-    const user = await User.create({ ...req.body, passwordHash: await User.hashPassword(req.body.password), password: undefined, roles: ['customer'] });
+    const { referralCode, ...profile } = req.body;
+    const user = await User.create({ ...profile, passwordHash: await User.hashPassword(req.body.password), password: undefined, roles: ['customer'] });
+
+    // A referral is a bonus, not a precondition for having an account: an expired, mistyped or
+    // self-referential code is reported back but must never fail sign-up. The code can still be
+    // claimed later from POST /api/loyalty/referral while `referredBy` is unset.
+    let referral = null;
+    if (referralCode) {
+      referral = await applyReferralCode({ userId: user.id, code: referralCode }, { log: req.log })
+        .then((data) => ({ applied: true, ...data }))
+        .catch((error) => ({ applied: false, reason: error.code || 'REFERRAL_FAILED', message: error.message }));
+    }
+    // Every member gets a shareable code from day one, so "refer a friend" works before their first order.
+    const ownReferralCode = await ensureReferralCode(user.id).catch(() => null);
     const tokens = issueTokens(user, config);
     user.refreshTokenHashes.push({ hash: hashToken(tokens.refreshToken), expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_TTL_DAYS * 86400000), userAgent: req.get('user-agent') });
     await user.save(); setAuthCookies(res, tokens, config);
     // Email is enqueued (never sent inline) so a broken SMTP provider cannot fail sign-up.
-    await queueEmail({ to: user.email, template: 'welcome', data: { firstName: user.firstName, lastName: user.lastName, email: user.email }, userId: user.id, tags: ['onboarding'], log: req.log });
-    res.status(201).json({ data: user.toSafeJSON() });
+    await queueEmail({ to: user.email, template: 'welcome', data: { firstName: user.firstName, lastName: user.lastName, email: user.email, referralCode: ownReferralCode || undefined, referralBonusPoints: referral?.applied ? referral.bonus : getLoyaltyConfig().referralBonusPoints }, userId: user.id, tags: ['onboarding'], log: req.log });
+    res.status(201).json({ data: user.toSafeJSON(), meta: { referral: referral || undefined, referralCode: ownReferralCode || undefined } });
   }));
   router.post('/login', validate(credentials), asyncHandler(async (req, res) => {
     const user = await User.findOne({ email: req.body.email }).select('+passwordHash');

@@ -123,6 +123,11 @@ const IntegrationIcon = () => (
     <path d="M8 8.2 10.6 16M16 8.2 13.4 16M8.5 6.5h7" />
   </svg>
 );
+const LoyaltyIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <path d="M12 3.5 14.2 8l4.8.6-3.5 3.3.9 4.8L12 14.4 7.6 16.7l.9-4.8L5 8.6 9.8 8Z" />
+  </svg>
+);
 const ContentIcon = () => (
   <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
     <path d="M5 4.5h9.5L19 9v10.5a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 19.5v-13A1.5 1.5 0 0 1 5.5 5Z" />
@@ -191,6 +196,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
       { name: "Returns", href: "/admin/returns", icon: ReturnsIcon, matchPrefix: true },
       { name: "Refunds", href: "/admin/refunds", icon: RefundIcon, matchPrefix: true },
       { name: "Coupons", href: "/admin/coupons", icon: CouponIcon, matchPrefix: true },
+      { name: "Loyalty", href: "/admin/loyalty", icon: LoyaltyIcon, matchPrefix: true },
     ],
   },
   {

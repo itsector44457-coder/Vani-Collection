@@ -5,12 +5,20 @@ function shippingFeeFor(subtotalAfterDiscount, { threshold = FREE_SHIPPING_THRES
   return subtotalAfterDiscount >= threshold ? 0 : fee;
 }
 
-function checkCouponValidity(coupon, subtotal, now = new Date()) {
+/**
+ * @param {{ userId?: string }} [options] when a coupon is bound to one account (a loyalty
+ *   redemption), the signed-in customer must be that account. A bound coupon is never valid
+ *   anonymously, so a guest cannot spend someone's points.
+ */
+function checkCouponValidity(coupon, subtotal, now = new Date(), { userId } = {}) {
   if (!coupon || coupon.active === false) return { valid: false, reason: 'Coupon is invalid' };
   if (coupon.startsAt && new Date(coupon.startsAt) > now) return { valid: false, reason: 'Coupon is not active yet' };
   if (coupon.endsAt && new Date(coupon.endsAt) < now) return { valid: false, reason: 'Coupon has expired' };
   if (subtotal < (coupon.minOrderValue || 0)) return { valid: false, reason: `Minimum order value is ₹${coupon.minOrderValue}` };
   if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) return { valid: false, reason: 'Coupon usage limit reached' };
+  if (coupon.issuedTo && String(coupon.issuedTo._id || coupon.issuedTo) !== String(userId || '')) {
+    return { valid: false, reason: 'This code was issued to a specific account' };
+  }
   return { valid: true };
 }
 

@@ -81,6 +81,8 @@ there, and overriding it would route DNS through a third party.
 | Low stock | `GET /inventory?low=true`, admin dashboard | replenish or hide SKU |
 | Pending reviews/returns | admin dashboard counters | work the queue daily |
 | Failed payments | order `payment.status=failed` | contact customer, never mark paid manually |
+| Loyalty points liability | `GET /admin/loyalty` → `meta.liabilityRupees` | this is money the business has promised; a sudden jump means a rate misconfiguration |
+| Points expiring within 30 days | `GET /admin/loyalty` → `meta.expiringSoon` | worth a win-back email before members lose value |
 
 ## 6. Incident runbook
 
@@ -103,6 +105,27 @@ there, and overriding it would route DNS through a third party.
    `POST /api/admin/emails/:id/resend`). Resending re-renders from the stored template input, so a
    template fix applies to the replay too.
 4. Orders keep flowing the whole time — email delivery is asynchronous and cannot fail a request.
+
+**"My points are wrong" / loyalty balances look off**
+1. `GET /api/admin/loyalty/:userId` — this returns the reconciled summary. The cached balance on
+   `LoyaltyAccount` is always recomputed from the ledger here, so if the two disagreed you are now
+   looking at the corrected number.
+2. Read the ledger rows. `order_earned` with no matching delivered order, or a missing
+   `order_earned` for one that was delivered, points at the trigger rather than the arithmetic.
+3. Check the earning base: points come from `amounts.subtotal − amounts.discount` only. Delivery and
+   GST never earn, so a member comparing their points against the order **total** will always see a
+   smaller number than they expect — that is correct, and worth explaining.
+4. `/admin/loyalty` → **Reconcile balances** re-lapses anything due and rebuilds every cached balance.
+   Run it before quoting a figure to a member.
+5. Fix a genuine mistake with `POST /api/admin/loyalty/:userId/adjust`. A reason is mandatory, the
+   entry is visible to the member and audited against your account, and it cannot take a balance below
+   zero — reverse an error with an explicit compensating adjustment so the ledger still reads honestly.
+
+**Loyalty disabled by accident**
+`LOYALTY_ENABLED=false` stops earning and redeeming but keeps every read answering, so the account
+screen says the programme is inactive instead of showing stale numbers as current. Points already
+issued are untouched and keep their original expiry; re-enabling does not retro-award orders that were
+delivered while it was off, so avoid toggling it around a sale.
 
 **Suspected account takeover**
 1. `PATCH /api/admin/customers/:id` → `status: blocked`.

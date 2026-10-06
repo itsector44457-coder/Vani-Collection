@@ -46,6 +46,27 @@ const schema = z.object({
   /** Storefront origin used for links inside emails; falls back to the first CORS origin. */
   STOREFRONT_URL: z.string().optional(),
   SUPPORT_EMAIL: z.string().default('care@vanicollection.com'),
+
+  // Loyalty. Pure internal bookkeeping with no external provider, so it is on by default and needs
+  // no credentials — but every rate is configurable and the whole programme can be switched off.
+  LOYALTY_ENABLED: z.string().optional().transform((v) => v !== 'false'),
+  /** Rupees of delivered order value that earn one point. */
+  LOYALTY_RUPEES_PER_POINT: z.coerce.number().positive().default(100),
+  /** Rupees of checkout discount one point is worth. Redemption is always whole rupees. */
+  LOYALTY_POINT_VALUE_RUPEES: z.coerce.number().positive().default(1),
+  /** Smallest redemption accepted, in points — keeps ₹1 coupons out of the system. */
+  LOYALTY_MIN_REDEMPTION_POINTS: z.coerce.number().int().nonnegative().default(100),
+  /** Points may cover at most this share of an order, so a discount can never exceed the goods. */
+  LOYALTY_MAX_REDEMPTION_PERCENT: z.coerce.number().min(0).max(100).default(50),
+  /** How long earned points stay valid. */
+  LOYALTY_EXPIRY_MONTHS: z.coerce.number().int().positive().default(12),
+  /** Points awarded to BOTH the referrer and the referred shopper. */
+  LOYALTY_REFERRAL_BONUS_POINTS: z.coerce.number().int().nonnegative().default(200),
+  /** Lifetime-point thresholds for the two upper tiers; everything below Gold is Silver. */
+  LOYALTY_TIER_GOLD_POINTS: z.coerce.number().int().nonnegative().default(1000),
+  LOYALTY_TIER_PLATINUM_POINTS: z.coerce.number().int().nonnegative().default(5000),
+  /** Days a redeemed coupon stays claimable at checkout before it lapses. */
+  LOYALTY_COUPON_VALID_DAYS: z.coerce.number().int().positive().default(30),
 });
 
 function loadConfig() {
@@ -62,6 +83,22 @@ function loadConfig() {
     storefrontUrl: (parsed.data.STOREFRONT_URL || corsOrigins[0] || 'http://localhost:3000').replace(/\/+$/, ''),
     /** SMTP is only usable with a host; EMAIL_ENABLED alone must not imply "configured". */
     emailConfigured: Boolean(parsed.data.EMAIL_ENABLED && parsed.data.SMTP_HOST),
+    loyalty: {
+      enabled: parsed.data.LOYALTY_ENABLED,
+      rupeesPerPoint: parsed.data.LOYALTY_RUPEES_PER_POINT,
+      pointValueRupees: parsed.data.LOYALTY_POINT_VALUE_RUPEES,
+      minRedemptionPoints: parsed.data.LOYALTY_MIN_REDEMPTION_POINTS,
+      maxRedemptionPercent: parsed.data.LOYALTY_MAX_REDEMPTION_PERCENT,
+      expiryMonths: parsed.data.LOYALTY_EXPIRY_MONTHS,
+      referralBonusPoints: parsed.data.LOYALTY_REFERRAL_BONUS_POINTS,
+      couponValidDays: parsed.data.LOYALTY_COUPON_VALID_DAYS,
+      // Ascending so a lookup can take the highest threshold the shopper has passed.
+      tiers: [
+        { name: 'silver', label: 'Silver', minLifetimePoints: 0 },
+        { name: 'gold', label: 'Gold', minLifetimePoints: parsed.data.LOYALTY_TIER_GOLD_POINTS },
+        { name: 'platinum', label: 'Platinum', minLifetimePoints: parsed.data.LOYALTY_TIER_PLATINUM_POINTS },
+      ].sort((a, b) => a.minLifetimePoints - b.minLifetimePoints),
+    },
   };
 }
 

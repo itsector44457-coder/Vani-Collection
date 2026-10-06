@@ -10,10 +10,13 @@ const mongoose = require('mongoose');
 const { AppError } = require('./lib/errors');
 const { authMiddleware, optionalAuthMiddleware } = require('./middleware/auth');
 const { configureEmail } = require('./services/email');
+const { configureLoyalty } = require('./services/loyalty');
 
 const buildApp = ({ config, logger }) => {
   // Give the email service the parsed config before any route can trigger a send.
   configureEmail(config);
+  // Same for loyalty: rates, tiers and expiry come from config, not from module-level constants.
+  configureLoyalty(config);
   const app = express();
   app.set('trust proxy', 1);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
@@ -49,6 +52,7 @@ const buildApp = ({ config, logger }) => {
   mount('/api/orders', require('./routes/orders')({ config, auth }));
   mount('/api/inventory', require('./routes/inventory')({ auth }));
   mount('/api/customers', require('./routes/customers')({ auth }));
+  mount('/api/loyalty', require('./routes/loyalty')({ auth }));
   mount('/api/reviews', require('./routes/reviews')({ auth }));
   mount('/api/coupons', require('./routes/coupons')({ auth }));
   mount('/api/returns', require('./routes/returns')({ auth }));

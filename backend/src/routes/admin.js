@@ -8,11 +8,14 @@ const Review = require('../../models/Review');
 const AuditLog = require('../../models/AuditLog');
 const ReturnRequest = require('../../models/ReturnRequest');
 const EmailLog = require('../../models/EmailLog');
+const LoyaltyAccount = require('../../models/LoyaltyAccount');
+const LoyaltyTransaction = require('../../models/LoyaltyTransaction');
 const { validate } = require('../middleware/validate');
 const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { resendEmail } = require('../services/email');
+const { getLoyaltyConfig, tierFor, adjustPoints, applyExpiry, getSummary } = require('../services/loyalty');
 
 module.exports = ({ auth }) => {
   const router = express.Router();
@@ -130,6 +133,98 @@ module.exports = ({ auth }) => {
   router.post('/emails/:id/resend', requireRoles('support','admin','super_admin'), audit('email.resend','EmailLog'), asyncHandler(async (req, res) => {
     const result = await resendEmail(req.params.id, { log: req.log });
     res.json({ data: result });
+  }));
+
+  // ------------------------------------------------------------------ loyalty
+  /**
+   * The membership list plus the programme's headline numbers.
+   *
+   * Balances are shown as stored; `refresh=true` re-lapses anything due and reconciles each balance
+   * against the ledger first, which is what support should run before quoting a number to a member.
+   */
+  router.get('/loyalty', asyncHandler(async (req, res) => {
+    const config = getLoyaltyConfig();
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Number(req.query.limit) || 25);
+    const filter = {};
+    if (req.query.tier && ['silver', 'gold', 'platinum'].includes(req.query.tier)) filter.tier = req.query.tier;
+    if (req.query.q) filter.userId = { $in: (await User.find({ $or: [{ email: new RegExp(String(req.query.q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }, { firstName: new RegExp(String(req.query.q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }] }).limit(200)).map((u) => u._id) };
+
+    if (req.query.refresh === 'true') {
+      const due = await LoyaltyAccount.find(filter).select('userId').limit(500).lean();
+      for (const account of due) await applyExpiry(account.userId, {}).catch(() => {});
+    }
+
+    const [accounts, total, tierRows, ledgerRows] = await Promise.all([
+      LoyaltyAccount.find(filter).sort({ lifetimePoints: -1 }).skip((page - 1) * limit).limit(limit).populate('userId', 'email firstName lastName phone'),
+      LoyaltyAccount.countDocuments(filter),
+      LoyaltyAccount.aggregate([{ $group: { _id: '$tier', members: { $sum: 1 }, points: { $sum: '$points' }, lifetime: { $sum: '$lifetimePoints' } } }]),
+      LoyaltyTransaction.aggregate([{ $group: { _id: '$reason', points: { $sum: { $abs: '$delta' } }, count: { $sum: 1 } } }]),
+    ]);
+
+    const soon = new Date(Date.now() + 30 * 86400000);
+    const [expiring] = await LoyaltyTransaction.aggregate([
+      { $match: { delta: { $gt: 0 }, remaining: { $gt: 0 }, expiresAt: { $ne: null, $lte: soon } } },
+      { $group: { _id: null, points: { $sum: '$remaining' }, members: { $addToSet: '$userId' } } },
+    ]);
+
+    const data = accounts.map((account) => {
+      const member = account.userId && typeof account.userId === 'object' ? account.userId : null;
+      return {
+        _id: account.id,
+        userId: String(account.userId),
+        email: member?.email,
+        name: member ? [member.firstName, member.lastName].filter(Boolean).join(' ') : undefined,
+        phone: member?.phone,
+        points: account.points,
+        lifetimePoints: account.lifetimePoints,
+        tier: account.tier,
+        tierLabel: tierFor(account.lifetimePoints).label,
+        nextTier: tierFor(account.lifetimePoints).next,
+        valueRupees: Math.floor(account.points * config.pointValueRupees),
+        lastEarnedAt: account.lastEarnedAt,
+        memberSince: account.createdAt,
+      };
+    });
+
+    res.json({
+      data,
+      meta: {
+        page, limit, total, pages: Math.ceil(total / limit),
+        config: {
+          enabled: config.enabled,
+          rupeesPerPoint: config.rupeesPerPoint,
+          pointValueRupees: config.pointValueRupees,
+          minRedemptionPoints: config.minRedemptionPoints,
+          maxRedemptionPercent: config.maxRedemptionPercent,
+          expiryMonths: config.expiryMonths,
+          referralBonusPoints: config.referralBonusPoints,
+          tiers: config.tiers,
+        },
+        totals: Object.fromEntries(ledgerRows.map((row) => [row._id, { points: row.points, count: row.count }])),
+        byTier: Object.fromEntries(tierRows.map((row) => [row._id, { members: row.members, points: row.points, lifetime: row.lifetime }])),
+        expiringSoon: expiring ? { points: expiring.points, members: expiring.members.length } : { points: 0, members: 0 },
+        liabilityRupees: Math.floor((tierRows.reduce((sum, row) => sum + row.points, 0)) * config.pointValueRupees),
+      },
+    });
+  }));
+
+  // One member's full position — the screen support opens when someone asks "where are my points?".
+  router.get('/loyalty/:userId', requireRoles('support', 'finance', 'admin', 'super_admin'), asyncHandler(async (req, res) => {
+    const summary = await getSummary(req.params.userId);
+    const transactions = await LoyaltyTransaction.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(100).lean();
+    res.json({ data: { summary, transactions } });
+  }));
+
+  /**
+   * Manual correction. Requires a reason, is audited against the staff account, and can never take a
+   * balance below zero — a mistake is fixed by an explicit compensating adjustment, not by forcing a
+   * negative balance into existence.
+   */
+  router.post('/loyalty/:userId/adjust', requireRoles('finance', 'admin', 'super_admin'), validate(z.object({ delta: z.number().int().refine((value) => value !== 0, 'Adjustment cannot be zero'), note: z.string().min(3).max(500) })), audit('loyalty.adjust', 'LoyaltyTransaction'), asyncHandler(async (req, res) => {
+    const transaction = await adjustPoints({ userId: req.params.userId, delta: req.body.delta, note: req.body.note, actorEmail: req.user.email });
+    const account = await LoyaltyAccount.findOne({ userId: req.params.userId });
+    res.json({ data: { transaction, balance: account?.points ?? 0 } });
   }));
 
   router.get('/reports/sales', requireRoles('finance','admin','super_admin'), asyncHandler(async (req, res) => {

@@ -21,6 +21,14 @@ const userSchema = new mongoose.Schema({
   passwordResetTokenHash: { type: String, select: false },
   passwordResetExpiresAt: { type: Date, select: false },
   erpCustomerId: { type: String, sparse: true, index: true },
+  /**
+   * Loyalty referral identity. `referralCode` is the shareable code this customer hands out;
+   * `referredBy` records who brought them in and is set at most once, which is what stops a shopper
+   * claiming the signup bonus twice or referring themselves through a second account.
+   */
+  referralCode: { type: String, uppercase: true, trim: true, sparse: true, unique: true },
+  referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', sparse: true, index: true },
+  referredAt: Date,
 }, { timestamps: true });
 
 userSchema.methods.verifyPassword = function (password) { return bcrypt.compare(password, this.passwordHash); };

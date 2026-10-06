@@ -154,6 +154,53 @@ Writes are de-duplicated **by `productId`**, not by whole subdocument:
 | GET | `/admin/emails/:id` | support, admin, super_admin — one entry including the stored template input |
 | POST | `/admin/emails/:id/resend` | support, admin, super_admin — re-renders and re-enqueues a failed/skipped email (audited) |
 | GET | `/refunds/pending?status&page&limit` | finance, admin, super_admin — paid orders that were cancelled or returned |
+| GET | `/admin/loyalty?tier&q&page&limit&refresh=true` | any staff role — members, tier breakdown, ledger totals, points liability. `refresh=true` first lapses anything due and reconciles each cached balance against the ledger |
+| GET | `/admin/loyalty/:userId` | support, finance, admin, super_admin — one member's summary plus their last 100 ledger rows |
+| POST | `/admin/loyalty/:userId/adjust` | finance, admin, super_admin — `{ delta, note }`; `note` is mandatory and the change is audited |
+
+## Loyalty
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/loyalty/me` | balance, rupee value, tier and progress, points expiring within 30 days, redemption limits, own referral code and referral count, lifetime totals. Lapses anything due first, so the number shown is the number spendable |
+| GET | `/loyalty/transactions?limit=` | the member's ledger, newest first |
+| POST | `/loyalty/redeem` | `{ points, orderValue?, requestId? }` → a single-use discount code. Idempotent on `requestId` (or the `Idempotency-Key` header) |
+| POST | `/loyalty/referral` | `{ code }` — claims a referral, paying the bonus to both sides |
+| GET | `/loyalty/referral` | the member's own shareable code, created lazily |
+
+### How points behave
+
+- **Earning.** 1 point per `LOYALTY_RUPEES_PER_POINT` (default ₹100) of *net goods value* —
+  `amounts.subtotal − amounts.discount`. Delivery charges and GST are excluded: awarding points on tax
+  would rebate money that goes straight to the exchequer, and on shipping it would reward the
+  courier's cost. Points are awarded on the **transition** into `delivered`, and only when the money
+  has arrived (COD counts as collected at the door; an online order must be `paid`).
+- **Idempotence.** Every movement carries a `requestId` on a unique index. Awarding is keyed
+  `order-earned:<orderId>`, so a duplicated webhook, a retried status update or a re-run backfill
+  cannot award twice. A repeated redemption returns the coupon already issued instead of spending
+  again.
+- **Expiry.** Points lapse `LOYALTY_EXPIRY_MONTHS` (default 12) after they are earned. Each earn is a
+  *batch* with its own `remaining` and `expiresAt`; expiry is applied lazily before any read or spend
+  and writes an `expired` ledger row per batch.
+- **Redemption is FIFO.** The oldest batches are consumed first, so points that are about to lapse are
+  spent before ones that are not.
+- **Discounts are whole rupees**, capped at `LOYALTY_MAX_REDEMPTION_PERCENT` (default 50%) of the order
+  value. Exceeding the cap **clamps rather than fails**: the response reports `capped: true` with the
+  points actually used, and the rest stays in the balance. The resulting coupon is `type: fixed`,
+  `usageLimit: 1`, `minOrderValue` equal to its own value, and `issuedTo` the member — so it cannot be
+  passed on or used anonymously, and can never zero out a basket.
+- **Tiers** (Silver / Gold / Platinum) are thresholds on `lifetimePoints`, which only ever grows.
+  Redeeming or letting points expire never demotes a member. Thresholds are
+  `LOYALTY_TIER_GOLD_POINTS` / `LOYALTY_TIER_PLATINUM_POINTS`.
+- **Referrals** pay `LOYALTY_REFERRAL_BONUS_POINTS` (default 200) to *both* sides. One code per
+  account (`referredBy` is set at most once), self-referral is rejected, and each award is keyed on the
+  pair so a replay cannot mint points. A bad code at sign-up is reported in the response `meta` but
+  never fails registration — the account is still created and the code can be claimed later.
+- **A loyalty failure never fails a request.** `awardLoyaltyForOrder` catches and logs; a warehouse
+  operator marking an order delivered is never blocked by the rewards programme.
+- Set `LOYALTY_ENABLED=false` to stop earning and redeeming. Reads still answer, so the account screen
+  can say the programme is inactive rather than showing stale numbers as current.
+
 
 ## Transactional email
 

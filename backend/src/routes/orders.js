@@ -12,6 +12,7 @@ const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { shippingFeeFor, checkCouponValidity, computeDiscount } = require('../services/pricing');
 const { queueEmail, orderEmailData, orderRecipient } = require('../services/email');
+const { awardLoyaltyForOrder } = require('../services/loyalty');
 
 /**
  * Every order lifecycle email in one place so the trigger, the recipient rule and the "never fail
@@ -59,7 +60,7 @@ module.exports = ({ config, auth }) => {
         let discount = 0; const code = req.body.couponCode?.toUpperCase();
         if (code) {
           const coupon = await Coupon.findOne({ code, active: true }).session(session);
-          const validity = checkCouponValidity(coupon, subtotal);
+          const validity = checkCouponValidity(coupon, subtotal, new Date(), { userId: req.user.id });
           if (!validity.valid) throw new AppError(422, 'INVALID_COUPON', validity.reason);
           discount = computeDiscount(coupon, subtotal);
           coupon.usedCount += 1; await coupon.save({ session });
@@ -111,13 +112,21 @@ module.exports = ({ config, auth }) => {
     const previousStatus = order.status;
     order.status = req.body.status; order.statusHistory.push({ status: req.body.status, actor: req.user.email, note: req.body.note }); await order.save();
 
+    // Points are earned on the *transition* into delivered, not on every write that happens to say
+    // delivered — re-saving an already-delivered order must not award twice. The service is also
+    // idempotent per order, so a duplicated webhook or a retry still awards once.
+    let loyalty = null;
+    if (req.body.status === 'delivered' && previousStatus !== 'delivered') {
+      loyalty = await awardLoyaltyForOrder(order, { log: req.log });
+    }
+
     // Status emails carry the shipment block when the AWB is already known (Shiprocket fills it in
     // at pickup, so `shipped` almost always has a tracking link by the time this runs).
     await notifyOrder(req, 'order-status', order, {
-      data: { status: req.body.status, note: req.body.note, previousStatus },
+      data: { status: req.body.status, note: req.body.note, previousStatus, loyaltyPoints: loyalty?.awarded ? loyalty.points : undefined },
       dedupeKey: `order-status:${order.id}:${req.body.status}`,
     });
-    res.json({ data: order });
+    res.json({ data: order, meta: loyalty ? { loyalty } : undefined });
   }));
   return router;
 };

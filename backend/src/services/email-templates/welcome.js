@@ -4,7 +4,7 @@ const { layout, textFooter, heading, paragraph, eyebrow, bulletproofButton, esca
  * Sent right after `POST /api/auth/register`.
  * Non-transactional in spirit (a marketing-adjacent greeting), so it carries the unsubscribe link.
  *
- * @param {{firstName?: string, lastName?: string, email?: string}} data
+ * @param {{firstName?: string, lastName?: string, email?: string, referralCode?: string, referralBonusPoints?: number}} data
  * @param {{storefrontUrl: string, supportEmail: string, logoUrl?: string}} ctx
  */
 module.exports = function welcome(data = {}, ctx) {
@@ -36,6 +36,22 @@ module.exports = function welcome(data = {}, ctx) {
     )
     .join('');
 
+  // Only rendered when the account really has a code; an empty referral box reads as a bug.
+  const referralCode = String(data.referralCode || '').trim();
+  const bonus = Number(data.referralBonusPoints) > 0 ? Number(data.referralBonusPoints) : null;
+  const referralBlock = referralCode
+    ? `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;background:${BRAND.crimson};border-radius:14px;">
+        <tr><td style="padding:18px;">
+          <p style="margin:0 0 6px;font-family:${SANS};font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${BRAND.gold};">Your referral code</p>
+          <p style="margin:0;font-family:${SANS};font-size:26px;font-weight:700;letter-spacing:0.14em;color:#ffffff;">${escapeHtml(referralCode)}</p>
+          <p style="margin:8px 0 0;font-family:${SANS};font-size:13px;line-height:1.6;color:rgba(255,255,255,0.82);">
+            ${bonus ? `Share it and you both get ${bonus} points` : 'Share it and you both earn points'} when someone signs up with it.
+          </p>
+        </td></tr>
+      </table>`
+    : '';
+
   const body = `
       ${eyebrow('Namaste')}
       ${heading(`Welcome, ${name}`)}
@@ -43,6 +59,7 @@ module.exports = function welcome(data = {}, ctx) {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 18px;">${perks}</table>
       ${bulletproofButton(`${ctx.storefrontUrl}/products`, 'Start exploring the collection')}
       ${paragraph('Start with the Summer Bagru Edit in pure mul cotton, or jump straight to the festive heirlooms in Chanderi silk.', 'margin-top:18px;text-align:center;font-size:13px;')}
+      ${referralBlock}
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;background:${BRAND.cream};border:1px solid ${BRAND.line};border-radius:14px;">
         <tr><td style="padding:16px 18px;">
           <p style="margin:0 0 4px;font-family:${SANS};font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${BRAND.crimson};">Your account</p>
@@ -65,6 +82,9 @@ module.exports = function welcome(data = {}, ctx) {
     `• Track every order — live AWB tracking and status emails at each step.\n` +
     `• Save your wishlist — synced across every device you sign in from.\n` +
     `• Earn rewards — points on every delivered order.\n\n` +
+    (referralCode
+      ? `Your referral code: ${referralCode}\n${bonus ? `Share it and you both get ${bonus} points when someone signs up with it.\n` : 'Share it and you both earn points when someone signs up with it.\n'}\n`
+      : '') +
     `Start exploring: ${ctx.storefrontUrl}/products\n` +
     (data.email ? `Signed in as: ${data.email}\n` : '') +
     textFooter({ supportEmail: ctx.supportEmail, storefrontUrl: ctx.storefrontUrl, transactional: false, unsubscribeUrl: data.unsubscribeUrl || '' });
