@@ -326,3 +326,93 @@ maybeTest('customers can cancel their own pending order and reserved stock is re
   const notMine = await api(`/api/orders/${order.body.data.id}/cancel`, { method: 'POST', token: stranger, body: {} });
   assert.equal(notMine.status, 404);
 });
+
+maybeTest('wishlist round-trips ids as strings and never duplicates on repeat or concurrent saves', async () => {
+  const { Wishlist } = require('../models/Engagement');
+
+  const [alpha, beta] = await Promise.all([
+    Product.create({ name: 'Wishlist Alpha Saree', slug: 'wishlist-alpha-saree', category: 'festive', gstRate: 5, status: 'active', images: [{ url: 'https://example.com/alpha.jpg' }], variants: [{ sku: 'VC-WL-A-S', size: 'S', mrp: 2999, price: 2499 }, { sku: 'VC-WL-A-M', size: 'M', mrp: 2999, price: 2699 }] }),
+    Product.create({ name: 'Wishlist Beta Kurti', slug: 'wishlist-beta-kurti', category: 'mul-cotton', gstRate: 12, status: 'active', images: [{ url: 'https://example.com/beta.jpg' }], variants: [{ sku: 'VC-WL-B-M', size: 'M', mrp: 1999, price: 1599 }] }),
+  ]);
+  const token = await signup('wishlist@example.com');
+
+  // ---- the shape contract -------------------------------------------------
+  // GET populates items.productId so the account screen gets names and images in one round trip, but
+  // populate replaces the ObjectId with the whole Product document. The storefront compares against
+  // string ids (`wishlist.includes(product.id)`), so the API must hand back a string and move the
+  // document to `product`. Returning objects made a signed-in shopper's saved wishlist never match.
+  await api('/api/customers/wishlist', { method: 'PUT', token, body: { productId: alpha.id } });
+  const first = await api('/api/customers/wishlist', { token });
+  assert.equal(first.status, 200);
+  assert.equal(first.body.data.length, 1);
+  assert.equal(typeof first.body.data[0].productId, 'string', 'productId must serialise as a string id');
+  assert.equal(first.body.data[0].productId, String(alpha._id));
+  assert.ok(first.body.data[0].product, 'the populated document still travels in `product`');
+  assert.equal(first.body.data[0].product.name, 'Wishlist Alpha Saree');
+
+  // ---- idempotence --------------------------------------------------------
+  // The old handler used $addToSet on the subdocument, which compares every field including the
+  // `addedAt` default Mongoose applies while casting — so it appended a duplicate row on every call.
+  await api('/api/customers/wishlist', { method: 'PUT', token, body: { productId: alpha.id } });
+  await api('/api/customers/wishlist', { method: 'PUT', token, body: { productId: alpha.id } });
+  const repeated = await api('/api/customers/wishlist', { token });
+  assert.equal(repeated.body.data.length, 1, 'saving the same product again must not duplicate it');
+
+  // A different size of the same product is still the same wishlisted product.
+  await api('/api/customers/wishlist', { method: 'PUT', token, body: { productId: alpha.id, sku: 'VC-WL-A-M' } });
+  const otherSku = await api('/api/customers/wishlist', { token });
+  assert.equal(otherSku.body.data.length, 1, 'a differing sku must not create a second row for one product');
+
+  // ---- bulk merge on sign-in ---------------------------------------------
+  // Duplicated inside the request (alpha twice) and against what is already saved.
+  const merged = await api('/api/customers/wishlist', { method: 'PUT', token, body: { items: [{ productId: alpha.id }, { productId: alpha.id }, { productId: beta.id }] } });
+  assert.equal(merged.status, 200);
+  assert.equal(merged.body.data.length, 2, 'the merge de-duplicates within the request and against existing rows');
+  assert.equal(merged.body.meta.added, 1, 'only beta was new');
+  assert.equal(merged.body.meta.alreadySaved, 2);
+  assert.deepEqual(merged.body.data.map((row) => row.productId).sort(), [String(alpha._id), String(beta._id)].sort());
+
+  // ---- concurrency --------------------------------------------------------
+  // The sign-in merge used to fire one PUT per item in parallel. Each guarded $push is evaluated
+  // against the committed document and MongoDB serialises writes to one doc, so this stays idempotent.
+  await Wishlist.deleteOne({ userId: (await User.findOne({ email: 'wishlist@example.com' })).id });
+  await Promise.all([
+    api('/api/customers/wishlist', { method: 'PUT', token, body: { productId: alpha.id } }),
+    api('/api/customers/wishlist', { method: 'PUT', token, body: { productId: alpha.id } }),
+    api('/api/customers/wishlist', { method: 'PUT', token, body: { items: [{ productId: alpha.id }, { productId: beta.id }] } }),
+  ]);
+  const concurrent = await api('/api/customers/wishlist', { token });
+  assert.equal(concurrent.body.data.length, 2, 'concurrent merges must not duplicate rows');
+
+  // ---- removal ------------------------------------------------------------
+  const removed = await api(`/api/customers/wishlist/${alpha.id}`, { method: 'DELETE', token });
+  assert.equal(removed.status, 200);
+  assert.equal(removed.body.data.length, 1);
+  assert.equal(removed.body.data[0].productId, String(beta._id));
+
+  // Removing a product that was saved in two sizes clears it completely rather than leaving a stray row.
+  await api('/api/customers/wishlist', { method: 'PUT', token, body: { productId: alpha.id, sku: 'VC-WL-A-S' } });
+  await api('/api/customers/wishlist', { method: 'PUT', token, body: { items: [{ productId: alpha.id }] } });
+  const beforePull = await api('/api/customers/wishlist', { token });
+  assert.equal(beforePull.body.data.length, 2);
+  await api(`/api/customers/wishlist/${alpha.id}`, { method: 'DELETE', token });
+  const afterPull = await api('/api/customers/wishlist', { token });
+  assert.equal(afterPull.body.data.length, 1, '$pull matches on productId regardless of sku');
+
+  // ---- validation ---------------------------------------------------------
+  // A demo id ("vani-1") or any non-ObjectId used to reach the cast layer and 500; it is a clean 422.
+  const badId = await api('/api/customers/wishlist', { method: 'PUT', token, body: { productId: 'vani-1' } });
+  assert.equal(badId.status, 422);
+  assert.equal(badId.body.error.code, 'VALIDATION_ERROR');
+  const empty = await api('/api/customers/wishlist', { method: 'PUT', token, body: {} });
+  assert.equal(empty.status, 422);
+  const badDelete = await api('/api/customers/wishlist/not-an-id', { method: 'DELETE', token });
+  assert.equal(badDelete.status, 422);
+
+  // ---- isolation ----------------------------------------------------------
+  const stranger = await signup('wishlist-stranger@example.com');
+  const theirs = await api('/api/customers/wishlist', { token: stranger });
+  assert.equal(theirs.body.data.length, 0, 'a wishlist is per customer');
+  const anonymous = await api('/api/customers/wishlist');
+  assert.equal(anonymous.status, 401);
+});

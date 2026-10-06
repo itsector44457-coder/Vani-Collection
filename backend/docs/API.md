@@ -44,6 +44,37 @@ Common codes: `AUTH_REQUIRED` 401, `FORBIDDEN` 403, `ROUTE_NOT_FOUND` 404, `VALI
 | POST | `/shipping/rates` | pincode + subtotal → fee and total |
 | POST | `/coupons/validate` | code + subtotal → discount or 422 reason |
 
+### Content blocks the storefront reads
+
+`GET /content?kind=` returns published blocks ordered by `position`. The homepage maps each kind onto
+a section, and falls back to its bundled copy per kind — so a partially populated CMS renders a mix
+of live and bundled content rather than all-or-nothing. Fields an editor leaves blank inherit from
+the bundled block at the same position.
+
+| `kind` | Homepage section | Fields used |
+| --- | --- | --- |
+| `banner` | hero slides, in `position` order | `title`, `subtitle`, `body`, `ctaLabel`, `ctaHref`, `media[0].url`, `blocks.tag`, `blocks.position` |
+| `testimonial` | customer reviews | `title`, `body`, `blocks.{name,city,rating,verified,date,product}` |
+| `lookbook` | shoppable lookbook (**first published block only**) | `title`, `subtitle`, `media[0].url`, `blocks.pins[]` |
+| `faq` | FAQ accordion **and** `FAQPage` JSON-LD | `title` = question, `body` = answer |
+| `section` | category story tiles | `title`, `subtitle`, `media[0].url`, `blocks.{count,filterKey}` |
+| `page`, `policy` | standalone copy | not consumed by the homepage |
+
+Two rules the storefront enforces, both to avoid publishing something untrue:
+
+- A block missing the fields its section cannot render without (a banner with no title or no image, a
+  testimonial with no name or no text, a FAQ with a question but no answer) is dropped, not
+  half-rendered.
+- `faq` blocks drive the visible accordion and the `FAQPage` markup from the *same* array. Nothing is
+  ever marked up that the reader cannot see.
+
+`blocks` is `Schema.Types.Mixed` — the backend does not validate its contents, so the admin editor
+validates it as JSON before saving.
+
+Suggested key convention: `<area>.<kind>.<sequence>`, e.g. `home.banner.1`, `home.faq.shipping`.
+Keys are the stable id, so `PUT /content/:key` upserts and a key should never be renamed in place.
+
+
 ## Customer (authenticated)
 
 | Method | Path | Notes |
@@ -51,8 +82,8 @@ Common codes: `AUTH_REQUIRED` 401, `FORBIDDEN` 403, `ROUTE_NOT_FOUND` 404, `VALI
 | GET/PATCH | `/customers/profile` | name/phone |
 | GET/POST | `/customers/addresses` | `isDefault` handling |
 | PATCH/DELETE | `/customers/addresses/:id` | |
-| GET/PUT | `/customers/wishlist` | `PUT` body `{ productId, sku? }` |
-| DELETE | `/customers/wishlist/:productId` | |
+| GET/PUT | `/customers/wishlist` | `PUT` body `{ productId, sku? }` **or** `{ items: [{ productId, sku? }] }` to merge a guest list in one call |
+| DELETE | `/customers/wishlist/:productId` | removes every row for that product, whatever its `sku` |
 | GET | `/customers/exports/orders` | CSV of own orders |
 | POST | `/orders` | items `[{ productId, sku, quantity }]`, shippingAddress, paymentMethod `razorpay|cod`, couponCode? |
 | GET | `/orders/mine` | own orders |
@@ -67,6 +98,34 @@ Order response for online payments includes:
 ```json
 { "data": { "…order" }, "payment": { "id": "order_XXX", "amount": 249900, "currency": "INR", "keyId": "rzp_live_…" } }
 ```
+
+### Wishlist shape and idempotence
+
+`GET /customers/wishlist` populates `items.productId` so the account screen gets names, images and
+prices in the same round trip. Because populate replaces the ObjectId with the whole document, each
+row is serialised with the id as a **string** and the document moved to `product`:
+
+```json
+{ "data": [{ "productId": "6650f1a2…", "sku": "VC-SR-02-DW", "addedAt": "…", "product": { "name": "…", "slug": "…" } }], "meta": { "total": 1 } }
+```
+
+The storefront compares against string ids (`wishlist.includes(product.id)`), so returning the
+populated object in `productId` made a signed-in shopper's saved wishlist never match — and the
+object was then written into `localStorage` as `"[object Object]"`.
+
+Writes are de-duplicated **by `productId`**, not by whole subdocument:
+
+- Saving the same product twice is a no-op, and so is saving it with a different `sku`.
+- `PUT { items: [...] }` merges a guest list in one request, de-duplicating within the request and
+  against what is already saved. `meta.added` / `meta.alreadySaved` report what happened.
+- Each insert is a guarded `$push` (`items.productId: { $ne: id }`) inside a `bulkWrite`, evaluated
+  against the committed document, so the concurrent requests a sign-in merge fires cannot duplicate
+  rows. `$addToSet` is deliberately not used: it compares every field of the subdocument including
+  the `addedAt` default Mongoose applies while casting, so it appended a new row on *every* call.
+- `productId` must be a 24-hex ObjectId; anything else is a `422 VALIDATION_ERROR` rather than a cast
+  failure. Guest/demo ids (`vani-1`) are filtered out client-side and never sent.
+- `DELETE /customers/wishlist/:productId` pulls every row for that product whatever its `sku`, so
+  removing a product saved in two sizes clears it completely.
 
 ## Staff
 

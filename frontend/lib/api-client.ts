@@ -6,6 +6,12 @@
  * own while the real backend is wired up.
  */
 
+import type { ContentDoc } from "./content";
+
+// Re-exported so admin screens can import the CMS types from the API client alongside everything
+// else. Still a type-only edge, so the runtime import graph stays acyclic.
+export type { ContentDoc };
+
 const RAW_BASE = (process.env.NEXT_PUBLIC_API_URL || "").trim().replace(/\/+$/, "");
 
 export const API_BASE = RAW_BASE;
@@ -347,6 +353,27 @@ export interface StaffUser {
   createdAt: string;
 }
 
+/**
+ * Payload accepted by `POST /api/content` and `PUT /api/content/:key`.
+ *
+ * `blocks` is free-form JSON on the server (`Schema.Types.Mixed`); each homepage block reads the
+ * keys it understands, so the admin editor keeps it as raw JSON rather than pretending to a schema
+ * the backend does not enforce.
+ */
+export interface ContentInput {
+  kind?: "page" | "section" | "banner" | "faq" | "policy" | "testimonial" | "lookbook";
+  title?: string;
+  subtitle?: string;
+  body?: string;
+  blocks?: unknown;
+  media?: { url: string; alt?: string; kind?: string }[];
+  ctaLabel?: string;
+  ctaHref?: string;
+  position?: number;
+  locale?: string;
+  status?: "draft" | "published";
+}
+
 /** Coupon payload accepted by `POST`/`PATCH /api/coupons`. */
 export interface CouponInput {
   code?: string;
@@ -457,6 +484,17 @@ export const api = {
   staff: (signal?: AbortSignal) => apiFetch<{ data: StaffUser[] }>("/api/admin/staff", { signal }),
   createStaff: (body: { email: string; firstName: string; lastName?: string; password: string; roles: string[] }) =>
     apiFetch<{ data: StaffUser }>("/api/admin/staff", { method: "POST", body }),
+
+  /* ------------------------------------------------------------------- content */
+  // `import type` only — lib/content.ts reaches api-client through lib/seo.ts, so a runtime import
+  // here would close a cycle. Types are erased, so this stays acyclic in the bundle.
+  content: (kind?: string, signal?: AbortSignal) =>
+    apiFetch<{ data: ContentDoc[] }>(`/api/content${kind && kind !== "all" ? `?kind=${encodeURIComponent(kind)}` : ""}`, { signal }),
+  contentByKey: (key: string, signal?: AbortSignal) => apiFetch<{ data: ContentDoc }>(`/api/content/${encodeURIComponent(key)}`, { signal }),
+  /** `PUT /api/content/:key` upserts, so "save" works whether or not the block exists yet. */
+  upsertContent: (key: string, body: ContentInput) => apiFetch<{ data: ContentDoc }>(`/api/content/${encodeURIComponent(key)}`, { method: "PUT", body }),
+  createContent: (body: ContentInput & { key: string }) => apiFetch<{ data: ContentDoc }>("/api/content", { method: "POST", body }),
+  deleteContent: (key: string) => apiFetch<void>(`/api/content/${encodeURIComponent(key)}`, { method: "DELETE" }),
 };
 
 /** The UI groups orders into friendly buckets; the API uses lifecycle statuses. */

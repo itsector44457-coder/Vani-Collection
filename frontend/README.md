@@ -56,6 +56,44 @@ the value is stable across crawls instead of moving on every request.
 Set `NEXT_PUBLIC_SITE_URL` (see `.env.example`) before deploying: canonicals, the sitemap and all
 JSON-LD are absolute URLs built from it.
 
+## Homepage CMS
+
+The hero banners, customer testimonials, shoppable lookbook, category stories and FAQ are editable
+content blocks (`/admin/content` → `PUT /api/content/:key`). `lib/content.ts` maps the loosely-shaped
+Content documents onto the exact structures the homepage renders, so wiring the CMS up did not mean
+redesigning anything.
+
+`app/(main)/page.tsx` is a Server Component: it fetches all five kinds in one pass, mounts the
+`FAQPage` JSON-LD and declares the homepage canonical. The interactive body lives in
+`app/(main)/home-view.tsx` and takes the content as props, each defaulting to the bundled copy in
+`data/products.ts`.
+
+The fallback contract is **per kind and per field**, not all-or-nothing:
+
+- No backend, or an empty `contents` collection → the site renders exactly as it did before the CMS
+  existed. `data-content-source="bundled"` on the root element says so.
+- Banners published but no testimonials → live banners over bundled reviews.
+- An editor sets only a new headline → the bundled image and CTA for that position are kept.
+- A block missing what its section cannot render without (a banner with no image, a FAQ with a
+  question but no answer) is dropped rather than half-rendered.
+- `draft` blocks never reach the storefront — the API filters on `status: "published"`.
+
+The FAQ accordion and its `FAQPage` markup are driven by the same array, so nothing is ever marked up
+that a reader cannot see. When no FAQ is published, the section *and* the JSON-LD are both absent.
+
+## Wishlist sync
+
+On sign-in the guest wishlist in `localStorage` is merged into the server list. See the backend's
+`docs/API.md` → "Wishlist shape and idempotence" for the guarantees; the frontend side matters here:
+
+- `mergeWishlist()` sends the whole guest list in **one** request instead of a burst of concurrent
+  per-item PUTs. The backend de-duplicates by `productId`, so signing in repeatedly cannot grow it.
+- The device copy is pruned **only after** the merge succeeds. Pruning unconditionally (the old
+  behaviour) meant a backend outage during sign-in deleted the guest's saved items with no copy
+  anywhere left — permanent loss.
+- `fetchWishlist()` coerces ids to strings defensively, so a shape regression on either side degrades
+  instead of writing `"[object Object]"` into `localStorage`.
+
 ---
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).

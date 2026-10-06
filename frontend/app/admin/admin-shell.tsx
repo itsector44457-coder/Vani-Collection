@@ -123,6 +123,13 @@ const IntegrationIcon = () => (
     <path d="M8 8.2 10.6 16M16 8.2 13.4 16M8.5 6.5h7" />
   </svg>
 );
+const ContentIcon = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
+    <path d="M5 4.5h9.5L19 9v10.5a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4 19.5v-13A1.5 1.5 0 0 1 5.5 5Z" />
+    <path d="M14 4.5V9h4.5" />
+    <path d="M7.5 13h6M7.5 16.5h4" />
+  </svg>
+);
 const StaffIcon = () => (
   <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
     <path d="M8 11.5h8a2 2 0 0 1 2 2v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V13.5a2 2 0 0 1 2-2Z" />
@@ -192,6 +199,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
       { name: "Reels", href: "/admin/reels", icon: ReelsIcon, matchPrefix: true },
       { name: "Collections", href: "/admin/collections", icon: CollectionIcon, matchPrefix: true },
       { name: "Reviews", href: "/admin/reviews", icon: ReviewIcon, matchPrefix: true },
+      { name: "Homepage content", href: "/admin/content", icon: ContentIcon, matchPrefix: true },
     ],
   },
   {
