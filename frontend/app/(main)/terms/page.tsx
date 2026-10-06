@@ -42,7 +42,7 @@ export default function TermsPage() {
           <section>
             <h2 className="font-serif text-2xl text-[#881337] mb-4">Agreement to Terms</h2>
             <p className="text-stone-600 text-sm leading-relaxed">
-              These Terms and Conditions ("Terms") govern your use of the Vani Collection Atelier website and services. By accessing or using our website, making a purchase, or engaging with our services, you agree to be bound by these Terms. If you do not agree to these Terms, please do not use our services.
+              These Terms and Conditions (“Terms”) govern your use of the Vani Collection Atelier website and services. By accessing or using our website, making a purchase, or engaging with our services, you agree to be bound by these Terms. If you do not agree to these Terms, please do not use our services.
             </p>
           </section>
 
@@ -78,7 +78,7 @@ export default function TermsPage() {
                   <li>Attempting to hack, disrupt, or damage our website</li>
                   <li>Copying, reproducing, or distributing our content without permission</li>
                   <li>Creating false accounts or providing misleading information</li>
-                  <li>Interfering with other users' access to the website</li>
+                  <li>Interfering with other users’ access to the website</li>
                 </ul>
               </div>
             </div>
@@ -231,7 +231,7 @@ export default function TermsPage() {
               <div>
                 <h3 className="font-semibold text-stone-800 mb-3">Disclaimers</h3>
                 <ul className="list-disc pl-6 space-y-1 text-sm text-stone-600">
-                  <li>Our website and services are provided "as is" without warranties</li>
+                  <li>Our website and services are provided “as is” without warranties</li>
                   <li>We do not guarantee uninterrupted or error-free service</li>
                   <li>Product colors may vary due to screen settings and lighting</li>
                   <li>Handcrafted items may have natural variations</li>

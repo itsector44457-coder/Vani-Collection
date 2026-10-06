@@ -127,6 +127,27 @@ screen says the programme is inactive instead of showing stale numbers as curren
 issued are untouched and keep their original expiry; re-enabling does not retro-award orders that were
 delivered while it was off, so avoid toggling it around a sale.
 
+**An invoice is wrong (amount, tax split, HSN or seller details)**
+1. Establish *which* number is wrong before changing anything. The invoice is generated from the order
+   snapshot, so it reflects what was charged at the time — a mismatch with today's product master is
+   usually correct behaviour, not a bug.
+2. **Tax amount** — GST is inclusive here: `taxableValue = lineTotal − taxAmount`. Compare against
+   `GET /api/admin/reports/gst`, which does the same subtraction. If the two disagree, the order
+   snapshot does, and that is a data problem on the order, not in the renderer.
+3. **CGST/SGST versus IGST** — read "Place of Supply" and "Supply Type" off the document. If it says
+   `(assumed)`, the ship-to state did not match the GSTIN state table, so the split was inferred.
+   Correct the address state spelling on the order, or set `SELLER_STATE_CODE` explicitly.
+4. **HSN codes showing as a dash** — the product master has no `hsnCode` for that SKU, or the product
+   was archived/deleted so the lookup found nothing. Fill in the HSN on the product; codes are never
+   invented to look complete.
+5. **Seller block wrong or "UNREGISTERED"** — that is `SELLER_GSTIN` / `SELLER_LEGAL_NAME` /
+   `SELLER_ADDRESS`. The 15-character GSTIN and 10-character PAN formats are validated at config
+   parse time; malformed values prevent the process booting. A programmatically injected malformed
+   GSTIN is still suppressed by the renderer and shown as `INVALID — NOT SHOWN`.
+6. **Amounts print as `Rs.` and you expected `₹`** — that is deliberate and safe. See "The rupee
+   glyph" in `docs/API.md`; the built-in font renders `₹` as a superscript one, so `INVOICE_FONT_PATH`
+   must point at a font that exists in the runtime image.
+
 **Suspected account takeover**
 1. `PATCH /api/admin/customers/:id` → `status: blocked`.
 2. Inspect `GET /api/admin/audit-logs` for the actor's actions.
@@ -149,5 +170,14 @@ delivered while it was off, so avoid toggling it around a sale.
 - [ ] ERP webhook URL configured and one stock update tested end to end.
 - [ ] One live COD order and one live ₹1 online order placed, packed, shipped and refunded in test mode.
 - [ ] Shiprocket pickup address approved and one real label generated.
-- [ ] GST invoices (or ERP vouchers) reviewed by the client's accountant for series + rates.
+- [ ] `SELLER_GSTIN` set to the real registration number (plus `SELLER_LEGAL_NAME`, `SELLER_ADDRESS`,
+      `SELLER_PHONE`). Without it every invoice prints `UNREGISTERED` and tells the buyer no input tax
+      credit is available — correct, but not what a registered business wants to hand out.
+- [ ] One real invoice downloaded from `/admin/orders` → **Invoice** and reviewed by the client's
+      accountant for series, HSN codes and rates. Check the CGST/SGST versus IGST split against a
+      same-state and an out-of-state order; if the ship-to state is not one the GSTIN table knows, the
+      document says "Inter-State (assumed)" and that needs a human decision.
+- [ ] Decide on `INVOICE_FONT_PATH`. Unset means amounts print as `Rs. 1,23,456`; set it to a font
+      carrying U+20B9 for `₹`. See "GST invoices" in `docs/API.md` — do not set it to a path that does
+      not exist at runtime.
 - [ ] Storefront wired to the API with real credentials; admin staff accounts created with least privilege.

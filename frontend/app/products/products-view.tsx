@@ -69,33 +69,41 @@ function ProductsContent() {
     searchParams.get("search") || ""
   );
 
-  // Update URL when filters change
-  const updateURL = (newParams: Record<string, string>) => {
-    const current = new URLSearchParams(Array.from(searchParams.entries()));
-    
-    Object.entries(newParams).forEach(([key, value]) => {
-      if (value && value !== "all" && value !== "All Fabrics" && value !== "featured" && value !== "") {
-        current.set(key, value);
-      } else {
-        current.delete(key);
-      }
-    });
-
-    const search = current.toString();
-    const query = search ? `?${search}` : "";
-    router.replace(`/products${query}`, { scroll: false });
-  };
-
-  // Effect to update URL when state changes
+  /**
+   * Mirrors the filter state into the URL so a filtered listing is shareable and survives a refresh.
+   *
+   * The logic lives inside the effect rather than in a component-scope `updateURL` helper: the effect
+   * was that helper's only caller, and an inline function is a new reference on every render, which is
+   * what the missing-dependency warning was complaining about.
+   *
+   * The `desired !== current` guard is what makes it safe to depend on `searchParams` at all. Without
+   * it, writing the URL hands back a fresh `searchParams`, the effect re-runs and writes again — a
+   * navigation loop that only stops because Next happens to swallow identical replaces.
+   *
+   * `products` is deliberately not a dependency: the URL is a function of the filters alone. It used
+   * to be listed here, which re-ran the sync on every catalogue load for no reason.
+   */
   useEffect(() => {
-    updateURL({
+    const desired = new URLSearchParams();
+    const filters: Record<string, string> = {
       category: activeCategory,
       price: activePriceRange > 0 ? PRICE_RANGES[activePriceRange].label : "",
       fabric: activeFabric,
       sort: sortBy,
       search: searchQuery,
-    });
-  }, [products, activeCategory, activePriceRange, activeFabric, sortBy, searchQuery]);
+    };
+
+    // Anything at its neutral value is dropped, so the default listing keeps a clean /products URL.
+    for (const [key, value] of Object.entries(filters)) {
+      const neutral = !value || value === "all" || value === "All Fabrics" || value === "featured";
+      if (neutral) continue;
+      desired.set(key, value);
+    }
+
+    const desiredQuery = desired.toString();
+    if (desiredQuery === searchParams.toString()) return;
+    router.replace(`/products${desiredQuery ? `?${desiredQuery}` : ""}`, { scroll: false });
+  }, [router, searchParams, activeCategory, activePriceRange, activeFabric, sortBy, searchQuery]);
 
   const priceRange = PRICE_RANGES[activePriceRange];
 
@@ -145,7 +153,11 @@ function ProductsContent() {
     }
 
     return result;
-  }, [activeCategory, activePriceRange, activeFabric, sortBy, searchQuery, priceRange]);
+    // `products` was missing here, so the memo kept the first catalogue it saw and never recomputed
+    // when the live data replaced the demo fallback. `activePriceRange` is not listed because the body
+    // reads the derived `priceRange`, which is indexed from a module constant and so changes identity
+    // exactly when `activePriceRange` does.
+  }, [products, activeCategory, activeFabric, sortBy, searchQuery, priceRange]);
 
   const activeFilterCount = [
     activeCategory !== "all",

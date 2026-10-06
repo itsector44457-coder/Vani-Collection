@@ -88,6 +88,7 @@ Keys are the stable id, so `PUT /content/:key` upserts and a key should never be
 | POST | `/orders` | items `[{ productId, sku, quantity }]`, shippingAddress, paymentMethod `razorpay|cod`, couponCode? |
 | GET | `/orders/mine` | own orders |
 | GET | `/orders/:id` | own order (staff can read any) |
+| GET | `/orders/:id/invoice.pdf` | GST tax invoice as a PDF — owner or any staff role. Optional `?customerGstin=` (shape-validated) |
 | POST | `/payments/razorpay/verify` | orderId + razorpay_order_id/payment_id/signature |
 | POST | `/returns` | orderId, type, items[{ sku, quantity, reason }] |
 | GET | `/returns/mine` | own return requests |
@@ -147,6 +148,7 @@ Writes are de-duplicated **by `productId`**, not by whole subdocument:
 | GET | `/admin/customers`, GET `/admin/customers/:id` | support, admin, super_admin |
 | PATCH | `/admin/customers/:id` (status, roles) | admin, super_admin |
 | GET/POST | `/admin/staff` | admin, super_admin |
+| GET | `/admin/orders/:id/packing-slip.pdf` | warehouse, support, catalog_manager, finance, admin, super_admin — pick/pack sheet with **no prices** on it |
 | GET | `/admin/audit-logs?action&limit` | admin, super_admin |
 | GET | `/admin/reports/sales?days=` | finance, admin, super_admin |
 | GET | `/admin/reports/gst?month=YYYY-MM` | finance, admin, super_admin |
@@ -157,6 +159,60 @@ Writes are de-duplicated **by `productId`**, not by whole subdocument:
 | GET | `/admin/loyalty?tier&q&page&limit&refresh=true` | any staff role — members, tier breakdown, ledger totals, points liability. `refresh=true` first lapses anything due and reconciles each cached balance against the ledger |
 | GET | `/admin/loyalty/:userId` | support, finance, admin, super_admin — one member's summary plus their last 100 ledger rows |
 | POST | `/admin/loyalty/:userId/adjust` | finance, admin, super_admin — `{ delta, note }`; `note` is mandatory and the change is audited |
+
+## GST invoices and packing slips
+
+`GET /orders/:id/invoice.pdf` and `GET /admin/orders/:id/packing-slip.pdf` stream `application/pdf`
+(`Content-Disposition: attachment`, `Cache-Control: private, no-store`). Errors still come back as the
+usual JSON error body, so a 404 or 403 is distinguishable from a document.
+
+Both are rendered from the **order snapshot** — `items[].unitPrice`, `items[].gstRate`,
+`items[].taxAmount` and `amounts` as they were when the order was placed. Re-generating an invoice a
+year later cannot silently pick up today's prices or tax rates.
+
+**Tax is treated as inclusive**, matching how orders are created (`rate / (100 + rate)` is extracted
+from the line price) and how `GET /admin/reports/gst` reports it. So `taxableValue = lineTotal −
+taxAmount`, and the invoice presents GST as included rather than added on top.
+
+CGST/SGST versus IGST is decided by comparing the seller's state code (from `SELLER_GSTIN`, or
+`SELLER_STATE_CODE`) against the ship-to state:
+
+| Case | Split |
+| --- | --- |
+| Both states known and equal | half CGST, half SGST/UTGST |
+| Both known and different | all IGST |
+| Either unknown | all IGST, and the document says **"Inter-State (assumed)"** |
+
+The undetermined case assumes inter-state because a seller in one state shipping nationwide is
+overwhelmingly crossing a border, and IGST is fully creditable so the buyer is not worse off. It is
+never presented as a fact — the place of supply and the supply type are both printed so a person can
+check them.
+
+HSN/SAC codes are mandatory on a GST invoice but are **not** part of the order snapshot (they live on
+the product master), so they are looked up by SKU. A product that has since been archived or deleted
+renders as an em dash: an obviously missing code a person can fill in beats one invented to look
+complete. The same applies to the seller GSTIN — with none configured the document prints
+`UNREGISTERED` and states that no input tax credit is available. A malformed `SELLER_GSTIN` is rejected
+by the Zod config parser and prevents the process booting; if a config object is injected directly,
+the renderer still prints `INVALID — NOT SHOWN` as defence in depth.
+
+The packing slip deliberately carries **no prices**. It travels inside the parcel and is handled by
+couriers and warehouse staff, so what the customer paid is neither needed nor appropriate there. It
+does carry SKU, size, colour, HSN, quantity, a tick box per line, total units and a packer checklist.
+
+### The rupee glyph
+
+Leave `INVOICE_FONT_PATH` unset unless you specifically want `₹`. pdfkit's built-in Helvetica is a
+base-14 font in WinAnsiEncoding, which has no U+20B9 — and it does not error, it silently emits byte
+`0xB9`, which renders as a superscript one. So `₹1,23,456` would print as `¹1,23,456` on a legal tax
+document. The default output writes `Rs.` and needs no font file at all.
+
+Point `INVOICE_FONT_PATH` (and optionally `INVOICE_FONT_BOLD_PATH`) at a TrueType font that carries the
+glyph — DejaVu Sans does — and the renderer embeds it and switches to `₹` automatically. The symbol is
+always chosen from the font actually loaded, so a document can never claim a glyph it cannot draw. An
+unreadable path falls back to the default rather than failing the request. Note that slim container
+images ship no fonts, so the file must be present at runtime.
+
 
 ## Loyalty
 

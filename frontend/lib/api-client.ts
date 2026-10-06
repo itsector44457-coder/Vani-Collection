@@ -648,6 +648,14 @@ export const api = {
     apiFetch<{ data: { summary: LoyaltySummary; transactions: LoyaltyTransaction[] } }>(`/api/admin/loyalty/${encodeURIComponent(userId)}`, { signal }),
   adminLoyaltyAdjust: (userId: string, body: { delta: number; note: string }) =>
     apiFetch<{ data: { transaction: LoyaltyTransaction; balance: number } }>(`/api/admin/loyalty/${encodeURIComponent(userId)}/adjust`, { method: "POST", body }),
+
+  /* --------------------------------------------------------------- documents */
+  /** GST tax invoice for an order. Owner or finance/support/admin. */
+  downloadInvoice: (orderId: string) =>
+    downloadFromApi(`/api/orders/${encodeURIComponent(orderId)}/invoice.pdf`, `invoice-${orderId}.pdf`),
+  /** Warehouse packing slip — no prices on it. */
+  downloadPackingSlip: (orderId: string) =>
+    downloadFromApi(`/api/admin/orders/${encodeURIComponent(orderId)}/packing-slip.pdf`, `packing-slip-${orderId}.pdf`),
 };
 
 /** The UI groups orders into friendly buckets; the API uses lifecycle statuses. */
@@ -805,9 +813,9 @@ export const parseList = (raw: string): string[] =>
     .filter(Boolean);
 
 /** Downloads a string as a file — used by the client-side CSV exports. */
-export function downloadFile(filename: string, contents: string, mime = "text/csv;charset=utf-8"): void {
+/** Triggers a browser download for a Blob. Shared by the CSV exports and the PDF routes. */
+function saveBlob(filename: string, blob: Blob): void {
   if (typeof window === "undefined") return;
-  const blob = new Blob([contents], { type: mime });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -816,6 +824,50 @@ export function downloadFile(filename: string, contents: string, mime = "text/cs
   anchor.click();
   document.body.removeChild(anchor);
   URL.revokeObjectURL(url);
+}
+
+export function downloadFile(filename: string, contents: string, mime = "text/csv;charset=utf-8"): void {
+  saveBlob(filename, new Blob([contents], { type: mime }));
+}
+
+/**
+ * Fetches a binary document from the API and saves it.
+ *
+ * `apiFetch` cannot be used here: it JSON-parses every response, which would corrupt a PDF. This
+ * keeps the same cookie auth (`credentials: "include"`) and the same `ApiError` on failure, because
+ * an error from a route that normally returns a PDF still comes back as JSON.
+ *
+ * The filename comes from the server's `Content-Disposition` when present, so what the browser saves
+ * always matches what the API named it.
+ */
+export async function downloadFromApi(path: string, fallbackFilename: string): Promise<void> {
+  if (!isApiConfigured()) throw new ApiError(503, "API_NOT_CONFIGURED", "NEXT_PUBLIC_API_URL is not configured");
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { credentials: "include", cache: "no-store" });
+  } catch (error) {
+    if ((error as Error)?.name === "AbortError") throw error;
+    throw new ApiError(0, "NETWORK_ERROR", "Could not reach the Vani Collection API");
+  }
+
+  if (!response.ok) {
+    let code = "REQUEST_FAILED";
+    let message = `Request failed with status ${response.status}`;
+    try {
+      const payload = (await response.json()) as ApiErrorPayload;
+      code = payload.error?.code || code;
+      message = payload.error?.message || message;
+    } catch {
+      /* a non-JSON error body is not worth failing the download over */
+    }
+    throw new ApiError(response.status, code, message);
+  }
+
+  const disposition = response.headers.get("content-disposition") || "";
+  const named = /filename="?([^";]+)"?/i.exec(disposition)?.[1];
+  const type = response.headers.get("content-type") || "application/pdf";
+  saveBlob(named || fallbackFilename, new Blob([await response.blob()], { type }));
 }
 
 /** Minimal CSV encoder: quotes anything containing a comma, quote or newline. */

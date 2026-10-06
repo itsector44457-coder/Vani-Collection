@@ -1,12 +1,14 @@
 "use client";
 
 import { PRODUCTS } from "../data/products";
+import type { Product } from "../lib/storefront-types";
 import LivingProductCard from "./LivingProductCard";
 import { useCart } from "../context/CartContext";
 import { useState } from "react";
 
 interface RelatedProductsProps {
-  currentProduct: any; // Product type from context
+  /** The product being viewed; related items are drawn from the same category. */
+  currentProduct: Product;
 }
 
 export default function RelatedProducts({ currentProduct }: RelatedProductsProps) {

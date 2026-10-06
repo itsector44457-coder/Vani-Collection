@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ProductImageGalleryProps {
@@ -31,10 +32,13 @@ export default function ProductImageGallery({ images, productTitle, videoUrl }: 
             className="w-full h-full object-cover"
           />
         ) : (
-          <img
+          <Image
             src={images[currentImage]}
             alt={`${productTitle} - Image ${currentImage + 1}`}
-            className="w-full h-full object-cover cursor-zoom-in transition-transform group-hover:scale-105"
+            fill
+            priority
+            sizes="(min-width: 1024px) 45vw, 92vw"
+            className="object-cover cursor-zoom-in transition-transform group-hover:scale-105"
             onClick={() => setShowZoom(true)}
           />
         )}
@@ -101,16 +105,18 @@ export default function ProductImageGallery({ images, productTitle, videoUrl }: 
               setCurrentImage(index);
               setShowVideo(false);
             }}
-            className={`aspect-[3/4] rounded-lg overflow-hidden border-2 transition ${
+            className={`relative aspect-[3/4] rounded-lg overflow-hidden border-2 transition ${
               currentImage === index && !showVideo 
                 ? 'border-[#881337] ring-2 ring-[#881337]/20' 
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
-            <img
+            <Image
               src={image}
               alt={`${productTitle} thumbnail ${index + 1}`}
-              className="w-full h-full object-cover"
+              fill
+              sizes="96px"
+              className="object-cover"
             />
           </button>
         ))}
@@ -156,10 +162,13 @@ export default function ProductImageGallery({ images, productTitle, videoUrl }: 
               className="max-w-4xl max-h-full"
               onClick={(e) => e.stopPropagation()}
             >
-              <img
+              <Image
                 src={images[currentImage]}
                 alt={`${productTitle} - Zoomed`}
-                className="w-full h-full object-contain"
+                width={1200}
+                height={1600}
+                sizes="(min-width: 896px) 896px, 92vw"
+                className="max-w-full max-h-[86vh] w-auto h-auto object-contain rounded-xl"
               />
             </motion.div>
             

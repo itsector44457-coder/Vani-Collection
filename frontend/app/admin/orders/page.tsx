@@ -39,7 +39,32 @@ const tone = (status: string) => {
 export default function OrdersPage() {
   const [tab, setTab] = useState<Tab>("All");
   const [busyOrder, setBusyOrder] = useState<string | null>(null);
+  /** Keyed by `${orderId}:${document}` so downloading one order's slip does not lock every button. */
+  const [busyDoc, setBusyDoc] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  /**
+   * Both documents are generated server-side from the order snapshot, so they always show what was
+   * actually charged or shipped rather than today's catalogue. Fetched as a blob because the API
+   * client's JSON path would corrupt a PDF.
+   */
+  const download = async (order: AdminOrder, kind: "invoice" | "slip") => {
+    const key = `${order._id}:${kind}`;
+    setBusyDoc(key);
+    setActionError(null);
+    try {
+      if (kind === "invoice") await api.downloadInvoice(order._id);
+      else await api.downloadPackingSlip(order._id);
+    } catch (cause) {
+      setActionError(
+        cause instanceof ApiError
+          ? `${kind === "invoice" ? "Invoice" : "Packing slip"}: ${cause.message}`
+          : `Could not download the ${kind === "invoice" ? "invoice" : "packing slip"}`
+      );
+    } finally {
+      setBusyDoc(null);
+    }
+  };
+
   const orders = useApiResource<Paginated<AdminOrder>>((signal) => api.orders({ limit: 100 }, signal), DEMO_ORDERS);
 
   const decorated = useMemo(
@@ -172,7 +197,7 @@ export default function OrdersPage() {
                       </Badge>
                     </td>
                     <td className="py-3.5 text-right">
-                      {orders.source === "live" && transitions.length > 0 ? (
+                      {orders.source === "live" && transitions.length > 0 && (
                         <div className="flex justify-end gap-1">
                           {transitions.map((transition) => (
                             <button
@@ -185,8 +210,32 @@ export default function OrdersPage() {
                             </button>
                           ))}
                         </div>
+                      )}
+                      {orders.source === "live" ? (
+                        <div className="mt-1 flex justify-end gap-1">
+                          <button
+                            type="button"
+                            disabled={busyDoc === `${order._id}:invoice`}
+                            onClick={() => void download(order, "invoice")}
+                            title="GST tax invoice"
+                            className="rounded-lg border border-[#ebe6de] bg-white px-2 py-1 text-[11px] font-semibold text-stone-600 transition hover:border-[#dfc28c] hover:text-[#881337] disabled:opacity-50"
+                          >
+                            {busyDoc === `${order._id}:invoice` ? "…" : "Invoice"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busyDoc === `${order._id}:slip`}
+                            onClick={() => void download(order, "slip")}
+                            title="Packing slip — no prices on it"
+                            className="rounded-lg border border-[#ebe6de] bg-white px-2 py-1 text-[11px] font-semibold text-stone-600 transition hover:border-[#dfc28c] hover:text-[#881337] disabled:opacity-50"
+                          >
+                            {busyDoc === `${order._id}:slip` ? "…" : "Packing slip"}
+                          </button>
+                        </div>
                       ) : (
-                        <span className="text-[11.5px] text-stone-400">{orders.source === "live" ? "No action" : "Demo row"}</span>
+                        <span className="text-[11.5px] text-stone-400">
+                          {transitions.length > 0 ? "" : "Demo row"}
+                        </span>
                       )}
                     </td>
                   </tr>

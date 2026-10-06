@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { Badge, ButtonGhost, ButtonPrimary, Card, PageHeader } from "@/lib/account-ui";
-import { isApiConfigured } from "@/lib/api-client";
+import { ApiError, api, isApiConfigured } from "@/lib/api-client";
 import { cancelOrder, getOrder } from "@/lib/storefront-api";
 import { orderStatusLabel, type OrderAddress, type OrderLine, type StoreOrder } from "@/lib/storefront-types";
 
@@ -51,6 +51,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!live) return;
@@ -77,6 +78,28 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       setNotice((cause as Error)?.message || "We could not cancel this order. Please contact support.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * The GST invoice is generated server-side from the order snapshot, so it always shows what was
+   * actually charged. Downloaded as a blob because the API client's JSON path would corrupt a PDF.
+   */
+  const handleDownloadInvoice = async () => {
+    setDownloading(true);
+    setError(null);
+    try {
+      await api.downloadInvoice(id);
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError && cause.status === 404
+          ? "We could not find an invoice for this order."
+          : cause instanceof Error
+            ? cause.message
+            : "We could not download the invoice. Please try again."
+      );
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -260,7 +283,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   {busy ? "Cancelling…" : "Cancel order"}
                 </ButtonGhost>
               )}
-              <ButtonGhost>Download invoice</ButtonGhost>
+              {/* Only meaningful against a real order: the demo has nothing to generate from. */}
+              {live && order && (
+                <ButtonGhost onClick={() => void handleDownloadInvoice()} disabled={downloading}>
+                  {downloading ? "Preparing invoice…" : "Download invoice"}
+                </ButtonGhost>
+              )}
             </div>
           </Card>
         </div>

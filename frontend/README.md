@@ -56,6 +56,37 @@ the value is stable across crawls instead of moving on every request.
 Set `NEXT_PUBLIC_SITE_URL` (see `.env.example`) before deploying: canonicals, the sitemap and all
 JSON-LD are absolute URLs built from it.
 
+## Documents
+
+`/account/orders/[id]` has a **Download invoice** button and `/admin/orders` has **Invoice** and
+**Packing slip** buttons per row. Both fetch a server-rendered PDF (see the backend's
+`docs/API.md` → "GST invoices and packing slips"), so they always show what was actually charged or
+shipped.
+
+They cannot go through `apiFetch`, which JSON-parses every response and would corrupt a PDF —
+`downloadFromApi()` in `lib/api-client.ts` handles the binary path with the same cookie auth and the
+same `ApiError` on failure, and takes the filename from the server's `Content-Disposition`.
+
+## Product images
+
+Product imagery goes through `next/image`, so **the Next.js server — not the browser — fetches it**.
+Two consequences worth knowing:
+
+- Every host must be listed in `images.remotePatterns` in `next.config.ts`. `res.cloudinary.com`
+  (where `POST /api/uploads/images` stores uploads) and the demo catalogue's Unsplash/Pexels/Shopify
+  hosts are already there. An unlisted host returns `400 "url" parameter is not allowed` rather than
+  failing silently — add the host to the config when a new CDN appears.
+- The deployment needs outbound access to those hosts. A platform with restricted egress will show
+  broken images even though the storefront itself works.
+
+`ProductImageGallery`, `LivingProductCard`, the account order/wishlist thumbnails and the reels
+product thumbs all use it. Some marketing and modal components still use plain `<img>` with an
+`eslint-disable` for `@next/next/no-img-element`; `components/seo/og-card.tsx` has a genuine
+exception, since satori rasterises the Open Graph card itself and `next/image` does not exist inside
+`ImageResponse`.
+
+`npm run lint` runs with `--max-warnings=0`, so a new suppression has to be deliberate.
+
 ## Homepage CMS
 
 The hero banners, customer testimonials, shoppable lookbook, category stories and FAQ are editable

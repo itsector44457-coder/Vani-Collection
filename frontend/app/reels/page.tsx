@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
 import { PRODUCTS } from "../../data/products";
@@ -228,10 +229,12 @@ function ReelCard({
 
         {/* Product thumb → product page */}
         <Link href={productHref(product)}>
-          <img
+          <Image
             src={product.image}
             alt={product.title}
-            style={{ width: 44, height: 44, borderRadius: 12, objectFit: "cover", border: "2px solid rgba(255,255,255,0.65)", boxShadow: "0 2px 12px rgba(0,0,0,0.5)", display: "block" }}
+            width={44}
+            height={44}
+            style={{ borderRadius: 12, objectFit: "cover", border: "2px solid rgba(255,255,255,0.65)", boxShadow: "0 2px 12px rgba(0,0,0,0.5)", display: "block" }}
           />
         </Link>
       </div>
@@ -309,7 +312,8 @@ export default function ReelsPage() {
   const handleLike = useCallback((id: string) => {
     setLikedIds((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);

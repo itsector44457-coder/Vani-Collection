@@ -16,8 +16,9 @@ const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { resendEmail } = require('../services/email');
 const { getLoyaltyConfig, tierFor, adjustPoints, applyExpiry, getSummary } = require('../services/loyalty');
+const { renderPackingSlipPdf, loadHsnBySku } = require('../services/invoice');
 
-module.exports = ({ auth }) => {
+module.exports = ({ auth, config }) => {
   const router = express.Router();
   router.use(auth, requireRoles('support','warehouse','catalog_manager','finance','admin','super_admin'));
 
@@ -89,6 +90,30 @@ module.exports = ({ auth }) => {
     if (await User.exists({ email: req.body.email })) throw new AppError(409, 'EMAIL_EXISTS', 'User already exists');
     const user = await User.create({ email: req.body.email, firstName: req.body.firstName, lastName: req.body.lastName, roles: req.body.roles, passwordHash: await User.hashPassword(req.body.password) });
     res.status(201).json({ data: user.toSafeJSON() });
+  }));
+
+  /**
+   * Warehouse packing slip as a PDF.
+   *
+   * Carries no prices on purpose — it travels inside the parcel and is handled by couriers and
+   * warehouse staff, so what the customer paid is neither needed nor appropriate there.
+   */
+  router.get('/orders/:id/packing-slip.pdf', requireRoles('warehouse', 'support', 'catalog_manager', 'finance', 'admin', 'super_admin'), asyncHandler(async (req, res) => {
+    const order = await Order.findById(req.params.id).populate('customerId', 'email');
+    if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+
+    const customer = order.customerId ? await User.findById(order.customerId).catch(() => null) : null;
+    const pdf = await renderPackingSlipPdf(order, {
+      seller: config.seller,
+      hsnBySku: await loadHsnBySku(order, { log: req.log }),
+      customerEmail: customer?.email || order.guestEmail,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', String(pdf.length));
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Disposition', `attachment; filename="packing-slip-${order.orderNumber || order.id}.pdf"`);
+    res.end(pdf);
   }));
 
   router.get('/audit-logs', requireRoles('admin','super_admin'), asyncHandler(async (req, res) => {

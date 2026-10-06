@@ -36,6 +36,18 @@ const api = async (path, { method = 'GET', body, token, headers = {} } = {}) => 
   const text = await response.text();
   return { status: response.status, body: text ? JSON.parse(text) : null, setCookie: response.headers.getSetCookie?.() || [] };
 };
+/** Binary-response helper for PDF endpoints; the JSON helper above intentionally JSON-parses. */
+const apiRaw = async (path, { method = 'GET', token, headers = {} } = {}) => {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers },
+  });
+  return {
+    status: response.status,
+    headers: response.headers,
+    body: Buffer.from(await response.arrayBuffer()),
+  };
+};
 const accessTokenFrom = (setCookie) => setCookie.find((c) => c.startsWith('accessToken='))?.split(';')[0].split('=')[1];
 const signup = async (email) => {
   const res = await api('/api/auth/register', { method: 'POST', body: { email, password: 'StrongPass123', firstName: 'Test', phone: '9876543210' } });
@@ -415,4 +427,71 @@ maybeTest('wishlist round-trips ids as strings and never duplicates on repeat or
   assert.equal(theirs.body.data.length, 0, 'a wishlist is per customer');
   const anonymous = await api('/api/customers/wishlist');
   assert.equal(anonymous.status, 401);
+});
+
+maybeTest('GST invoices are owner/staff scoped and packing slips are staff-only PDFs', async () => {
+  const suffix = Date.now();
+  const ownerEmail = `invoice-owner-${suffix}@example.com`;
+  const ownerToken = await signup(ownerEmail);
+  const owner = await User.findOne({ email: ownerEmail });
+  const product = await Product.create({
+    name: 'Invoice Test Saree',
+    slug: `invoice-test-saree-${suffix}`,
+    category: 'festive',
+    hsnCode: '5208',
+    gstRate: 5,
+    status: 'active',
+    images: [{ url: 'https://example.com/invoice.jpg' }],
+    variants: [{ sku: `VC-INV-${suffix}`, size: 'Free Size', mrp: 1299, price: 999 }],
+  });
+  const [order] = await Order.create([{
+    customerId: owner._id,
+    items: [{ productId: product._id, sku: product.variants[0].sku, name: product.name, quantity: 1, unitPrice: 999, mrp: 1299, gstRate: 5, taxAmount: 47.57, lineTotal: 999 }],
+    shippingAddress: { fullName: 'Invoice Owner', phone: '9876543210', email: ownerEmail, line1: '12 Freeganj Road', city: 'Guna', state: 'Madhya Pradesh', pincode: '473001', country: 'IN' },
+    amounts: { subtotal: 999, discount: 0, shipping: 99, tax: 47.57, total: 1098, currency: 'INR' },
+    payment: { method: 'cod', status: 'pending' },
+    status: 'confirmed',
+  }]);
+
+  // The owner receives a real PDF, built from the saved snapshot.
+  const ownInvoice = await apiRaw(`/api/orders/${order.id}/invoice.pdf`, { token: ownerToken });
+  assert.equal(ownInvoice.status, 200);
+  assert.match(ownInvoice.headers.get('content-type'), /application\/pdf/i);
+  assert.match(ownInvoice.headers.get('content-disposition'), new RegExp(`invoice-${order.orderNumber}\\.pdf`));
+  assert.equal(ownInvoice.body.subarray(0, 5).toString(), '%PDF-');
+  assert.ok(ownInvoice.body.length > 1000);
+  assert.match(ownInvoice.headers.get('cache-control'), /no-store/);
+
+  // A different shopper cannot fetch this order's invoice, and anonymous requests cannot either.
+  const strangerToken = await signup(`invoice-stranger-${suffix}@example.com`);
+  const stranger = await api(`/api/orders/${order.id}/invoice.pdf`, { token: strangerToken });
+  assert.equal(stranger.status, 404, 'not found rather than disclosing somebody else’s order');
+  const anonymous = await api('/api/orders/not-an-order/invoice.pdf');
+  assert.equal(anonymous.status, 401);
+
+  // A warehouse staff account can download both operational documents.
+  const staff = await User.create({
+    email: `invoice-warehouse-${suffix}@example.com`,
+    firstName: 'Warehouse',
+    roles: ['warehouse'],
+    passwordHash: await User.hashPassword('StrongPass123'),
+  });
+  const login = await api('/api/auth/login', { method: 'POST', body: { email: staff.email, password: 'StrongPass123' } });
+  assert.equal(login.status, 200);
+  const staffToken = accessTokenFrom(login.setCookie);
+  assert.ok(staffToken);
+
+  const staffInvoice = await apiRaw(`/api/orders/${order.id}/invoice.pdf`, { token: staffToken });
+  assert.equal(staffInvoice.status, 200, 'staff can retrieve the invoice for support');
+  assert.equal(staffInvoice.body.subarray(0, 5).toString(), '%PDF-');
+
+  const slip = await apiRaw(`/api/admin/orders/${order.id}/packing-slip.pdf`, { token: staffToken });
+  assert.equal(slip.status, 200);
+  assert.match(slip.headers.get('content-type'), /application\/pdf/i);
+  assert.match(slip.headers.get('content-disposition'), new RegExp(`packing-slip-${order.orderNumber}\\.pdf`));
+  assert.equal(slip.body.subarray(0, 5).toString(), '%PDF-');
+  assert.ok(slip.body.length > 1000);
+
+  const customerSlip = await api('/api/admin/orders/not-an-order/packing-slip.pdf', { token: ownerToken });
+  assert.equal(customerSlip.status, 403, 'a customer cannot use the warehouse packing-slip endpoint');
 });

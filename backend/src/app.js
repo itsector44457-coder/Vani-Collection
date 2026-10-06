@@ -27,7 +27,13 @@ const buildApp = ({ config, logger }) => {
   app.use(cookieParser());
   const genReqId = (req, res) => { const id = req.headers['x-request-id'] || crypto.randomUUID(); res.setHeader('x-request-id', id); return id; };
   // Accept any logger exposing pino's levels; otherwise fall back to a request-scoped noop logger.
-  app.use(logger?.levels ? pinoHttp({ logger, genReqId }) : (req, _res, next) => { req.id = genReqId(req, _res); req.log = { info() {}, warn() {}, error() {}, debug() {} }; next(); });
+  app.use(logger?.levels ? pinoHttp({ logger, genReqId }) : (req, _res, next) => {
+    req.id = genReqId(req, _res);
+    // A caller-provided fallback logger (notably the test logger) should still receive request-scoped
+    // errors; replacing it with a hard-coded no-op hid the cause of real 500s in integration tests.
+    req.log = logger?.child ? logger.child({ requestId: req.id }) : { info() {}, warn() {}, error() {}, debug() {} };
+    next();
+  });
 
   const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 600, standardHeaders: 'draft-8', legacyHeaders: false });
   const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: { code: 'RATE_LIMITED', message: 'Too many attempts, try again later' } } });
@@ -56,7 +62,7 @@ const buildApp = ({ config, logger }) => {
   mount('/api/reviews', require('./routes/reviews')({ auth }));
   mount('/api/coupons', require('./routes/coupons')({ auth }));
   mount('/api/returns', require('./routes/returns')({ auth }));
-  mount('/api/admin', require('./routes/admin')({ auth }));
+  mount('/api/admin', require('./routes/admin')({ auth, config }));
   mount('/api/content', require('./routes/content')({ auth }));
   mount('/api/integrations', require('./routes/integrations')({ config, auth }));
   mount('/api/shipments', require('./routes/shipments')({ config, auth }));

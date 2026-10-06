@@ -55,11 +55,11 @@ export default function NotFound() {
           </h1>
           
           <p className="text-gray-600 mb-2 leading-relaxed">
-            We couldn't find the page you're looking for. It might have been moved, deleted, or you entered an incorrect URL.
+            We couldn’t find the page you’re looking for. It might have been moved, deleted, or you entered an incorrect URL.
           </p>
           
           <p className="text-sm text-gray-500 mb-8">
-            But don't worry – our beautiful collection is just a click away!
+            But don’t worry – our beautiful collection is just a click away!
           </p>
 
           {/* Action Buttons */}

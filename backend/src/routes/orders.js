@@ -6,6 +6,7 @@ const Product = require('../../models/Product');
 const Inventory = require('../../models/Inventory');
 const Order = require('../../models/Order');
 const Coupon = require('../../models/Coupon');
+const User = require('../../models/User');
 const { validate } = require('../middleware/validate');
 const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
@@ -13,6 +14,7 @@ const { AppError, asyncHandler } = require('../lib/errors');
 const { shippingFeeFor, checkCouponValidity, computeDiscount } = require('../services/pricing');
 const { queueEmail, orderEmailData, orderRecipient } = require('../services/email');
 const { awardLoyaltyForOrder } = require('../services/loyalty');
+const { renderInvoicePdf, loadHsnBySku } = require('../services/invoice');
 
 /**
  * Every order lifecycle email in one place so the trigger, the recipient rule and the "never fail
@@ -107,6 +109,46 @@ module.exports = ({ config, auth }) => {
     const page = Math.max(1, Number(req.query.page) || 1), limit = Math.min(100, Number(req.query.limit) || 25), filter = req.query.status ? { status: req.query.status } : {};
     const [data,total] = await Promise.all([Order.find(filter).sort({ createdAt: -1 }).skip((page-1)*limit).limit(limit).populate('customerId','email firstName lastName'), Order.countDocuments(filter)]); res.json({ data, meta: { page, limit, total } });
   }));
+  /**
+   * GST tax invoice as a PDF.
+   *
+   * Accessible to the customer who placed the order and to staff who handle money or support. The
+   * document is generated from the order snapshot, so it always shows what was actually charged —
+   * re-generating it a year later cannot silently pick up today's prices or tax rates.
+   */
+  router.get('/:id/invoice.pdf', auth, asyncHandler(async (req, res) => {
+    const isStaff = req.user.roles.some((role) => ['support', 'warehouse', 'catalog_manager', 'finance', 'admin', 'super_admin'].includes(role));
+    const filter = isStaff ? { _id: req.params.id } : { _id: req.params.id, customerId: req.user.id };
+    const order = await Order.findOne(filter).populate('customerId', 'email');
+    if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+
+    const [hsnBySku, customer] = await Promise.all([
+      loadHsnBySku(order, { log: req.log }),
+      order.customerId ? User.findById(order.customerId).catch(() => null) : null,
+    ]);
+
+    // The buyer's GSTIN is not captured at checkout, so it can only be supplied here. It is
+    // shape-checked before being printed: arbitrary text on a tax invoice is worse than a blank, and
+    // an obviously wrong number would be the one thing an accountant notices.
+    const rawGstin = String(req.query.customerGstin || '').trim().toUpperCase();
+    const customerGstin = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/.test(rawGstin) ? rawGstin : undefined;
+    if (rawGstin && !customerGstin) throw new AppError(422, 'INVALID_GSTIN', 'customerGstin is not a valid 15-character GSTIN');
+
+    const pdf = await renderInvoicePdf(order, {
+      seller: config.seller,
+      hsnBySku,
+      customerEmail: customer?.email || order.guestEmail || order.shippingAddress?.email,
+      customerGstin,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', String(pdf.length));
+    // Per-customer document, so it must never be cached by a shared cache.
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${order.orderNumber || order.id}.pdf"`);
+    res.end(pdf);
+  }));
+
   router.patch('/:id/status', auth, requireRoles('warehouse', 'support', 'admin', 'super_admin'), validate(z.object({ status: z.enum(['confirmed','processing','packed','shipped','delivered','cancelled']), note: z.string().optional() })), audit('order.status', 'Order'), asyncHandler(async (req, res) => {
     const order = await Order.findById(req.params.id); if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
     const previousStatus = order.status;

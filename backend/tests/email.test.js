@@ -34,7 +34,14 @@ const Inventory = require('../models/Inventory');
 const Order = require('../models/Order');
 const ReturnRequest = require('../models/ReturnRequest');
 
-const silentLogger = { info() {}, warn() {}, error() {}, debug() {}, child() { return this; } };
+const capturedRequestErrors = [];
+const silentLogger = {
+  info() {},
+  warn() {},
+  error(fields, message) { capturedRequestErrors.push({ fields, message }); },
+  debug() {},
+  child() { return this; },
+};
 const config = loadConfig();
 
 /* ------------------------------------------------------------------- fixtures */
@@ -441,6 +448,11 @@ maybeTest('placing an order enqueues order-confirmation and a broken transport c
   const orderId = created.body.data.id;
 
   const confirmation = await EmailLog.findOne({ template: 'order-confirmation', orderId });
+  if (!confirmation) {
+    const emailLogs = await EmailLog.find({ to: 'email-shopper@example.com' }).select('template status error orderId subject').lean();
+    const emailEvents = await IntegrationEvent.find({ provider: 'email' }).select('eventType status lastError entityId idempotencyKey').lean();
+    assert.ok(confirmation, `order-confirmation missing; order=${JSON.stringify({ id: orderId, number: created.body.data.orderNumber, status: created.body.data.status })}; logs=${JSON.stringify(emailLogs)}; events=${JSON.stringify(emailEvents)}`);
+  }
   assert.ok(confirmation, 'order-confirmation is enqueued on order creation');
   assert.equal(confirmation.to, 'email-shopper@example.com');
   assert.match(confirmation.subject, new RegExp(created.body.data.orderNumber));
@@ -516,8 +528,10 @@ maybeTest('cancelling an order and moving a return both email the shopper', asyn
 
   const order = await api('/api/orders', { method: 'POST', token, body: { items: [{ productId: product.id, sku: 'VC-AN-01-M', quantity: 1 }], shippingAddress: address, paymentMethod: 'cod' } });
   assert.equal(order.status, 201);
+  const errorMark = capturedRequestErrors.length;
   const cancelled = await api(`/api/orders/${order.body.data.id}/cancel`, { method: 'POST', token, body: { reason: 'Ordered the wrong size' } });
-  assert.equal(cancelled.status, 200);
+  const requestErrors = capturedRequestErrors.slice(errorMark).map(({ fields, message }) => ({ message, error: fields?.err?.stack || fields?.err?.message || String(fields?.err || '') }));
+  assert.equal(cancelled.status, 200, `cancellation response: ${JSON.stringify(cancelled.body)}; server log: ${JSON.stringify(requestErrors)}`);
   const cancelLog = await EmailLog.findOne({ template: 'order-cancelled', orderId: order.body.data.id });
   assert.ok(cancelLog, 'cancellation emails the shopper');
   assert.equal(cancelLog.data.reason, 'Ordered the wrong size');

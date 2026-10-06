@@ -384,6 +384,13 @@ async function redeemPoints({ userId, points, orderValue, requestId }, { log } =
     }
   }
   if (discountRupees < 1) throw new AppError(422, 'INVALID_POINTS', 'That many points is worth less than one rupee');
+  if (capped && spendPoints < config.minRedemptionPoints) {
+    throw new AppError(422, 'ORDER_TOO_SMALL', `This order's ${config.maxRedemptionPercent}% cap allows less than the minimum ${config.minRedemptionPoints}-point redemption`, {
+      maxRedeemablePoints: spendPoints,
+      minRedemptionPoints: config.minRedemptionPoints,
+      maxPercentOfOrder: config.maxRedemptionPercent,
+    });
+  }
 
   const session = await mongoose.startSession();
   try {

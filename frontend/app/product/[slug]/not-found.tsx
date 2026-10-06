@@ -24,8 +24,8 @@ export default function ProductNotFound() {
           Product Not Found
         </h1>
         <p className="text-gray-600 mb-8 leading-relaxed">
-          Oops! The product you're looking for doesn't exist or may have been moved. 
-          Let's get you back to our beautiful collection.
+          Oops! The product you’re looking for doesn’t exist or may have been moved. 
+          Let’s get you back to our beautiful collection.
         </p>
 
         {/* Action Buttons */}
