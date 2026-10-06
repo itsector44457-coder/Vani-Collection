@@ -285,7 +285,7 @@ export default function PrivacyPage() {
                 <h4 className="font-semibold text-stone-800 mb-2">Mailing Address</h4>
                 <p className="text-sm text-stone-600">
                   Vani Collection Atelier<br />
-                  Jaipur, Rajasthan, India<br />
+                  Guna, Madhya Pradesh, India<br />
                   PIN: XXXXXX
                 </p>
               </div>
