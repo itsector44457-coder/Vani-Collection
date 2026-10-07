@@ -86,7 +86,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { name: "Home", href: "/", icon: HomeIcon },
-  { name: "Reels", href: "/reels", icon: ReelsIcon, badge: "Live", matchPrefix: true },
+  { name: "Reels", href: "/reels", icon: ReelsIcon, matchPrefix: true },
   { name: "Shop", href: "/products", icon: ShopIcon, matchPrefix: true },
   { name: "Wishlist", href: "/account", icon: HeartIcon },
 ];
@@ -187,7 +187,7 @@ export default function ReelsSidebar() {
   return (
     <aside
       className="fixed left-0 top-0 z-50 hidden lg:flex flex-col border-r border-white/[0.06] bg-[#14100f] text-[#f5f1ea]"
-      style={{ width: 248, height: "100vh", overflow: "hidden" }}
+      style={{ width: 240, height: "100vh", overflow: "hidden" }}
     >
       {/* ---------- Brand ---------- */}
       <div className="px-5 pt-7 pb-5">
