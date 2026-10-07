@@ -113,7 +113,7 @@ function ReelCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const product = PRODUCTS.find((p) => p.id === reel.productId) ?? PRODUCTS[0];
   const { addToCart, setIsCartOpen } = useCart();
-  const [muted, setMuted] = useState(true);
+
   const [showToast, setShowToast] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
@@ -165,7 +165,7 @@ function ReelCard({
           src={reel.videoSrc}
           poster={reel.poster}
           loop
-          muted={muted}
+          muted
           playsInline
           onLoadedData={handleVideoLoad}
           onError={handleVideoError}
@@ -190,56 +190,7 @@ function ReelCard({
       {/* Enhanced gradient overlay for better text readability */}
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.2) 40%, transparent 70%)", pointerEvents: "none" }} />
 
-      {/* ── TOP: mute only ── Compact Header ── */}
-      <div style={{ 
-        position: "fixed", 
-        top: 0, 
-        left: 0, 
-        right: 0, 
-        zIndex: 1000, 
-        display: "flex", 
-        alignItems: "center", 
-        justifyContent: "flex-end", 
-        padding: "12px 16px",
-        background: "linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 70%, transparent 100%)",
-        height: "48px"
-      }}>
-        {/* Mute Button — Instagram Exact Style (only show if video loaded) */}
-        {!videoError && (
-          <button
-            onClick={() => setMuted((m) => !m)}
-            style={{ 
-              width: 32, 
-              height: 32, 
-              borderRadius: "50%", 
-              background: "rgba(255,255,255,0.25)", 
-              backdropFilter: "blur(15px)", 
-              WebkitBackdropFilter: "blur(15px)",
-              border: "0.5px solid rgba(255,255,255,0.4)", 
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "center", 
-              color: "#ffffff",
-              cursor: "pointer",
-              transition: "all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-              boxShadow: "0 1px 6px rgba(0,0,0,0.15)"
-            }}
-          >
-            {muted ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <line x1="22 9" y1="9" x2="16" y2="15" />
-                <line x1="16" y1="9" x2="22" y2="15" />
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" />
-              </svg>
-            )}
-          </button>
-        )}
-      </div>
+
 
       {/* ── RIGHT: like / share / product thumb ──
           Positioned from the bottom so it always stays above the CTA area.
