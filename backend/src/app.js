@@ -35,8 +35,13 @@ const buildApp = ({ config, logger }) => {
     next();
   });
 
-  const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 600, standardHeaders: 'draft-8', legacyHeaders: false });
-  const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: { code: 'RATE_LIMITED', message: 'Too many attempts, try again later' } } });
+  // The integration suite drives many hundreds of requests through one process and signs in once per
+  // scenario, so the production ceilings (600 and 20 per 15 minutes) throttle it into 429s that look
+  // exactly like application bugs. Nothing asserts rate limiting, so lift the ceilings under
+  // NODE_ENV=test and leave the middleware mounted — production behaviour is byte-identical.
+  const isTestEnv = config.NODE_ENV === 'test';
+  const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: isTestEnv ? 1_000_000 : 600, standardHeaders: 'draft-8', legacyHeaders: false });
+  const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: isTestEnv ? 1_000_000 : 20, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: { code: 'RATE_LIMITED', message: 'Too many attempts, try again later' } } });
   app.use('/api', apiLimiter);
 
   const auth = authMiddleware(config);

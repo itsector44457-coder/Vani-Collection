@@ -78,9 +78,14 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             # Also attach the failure context as a check annotation; it is queryable over the GitHub
             # API even when a client cannot fetch the raw log archive from Actions' blob storage.
-            details=$(grep -n -A 18 -B 4 '^not ok' test-output.txt | tail -c 5000 | tr '\n' ' ' || true)
-            if [ -n "$details" ]; then
-              echo "::error title=Backend TAP failure details::$details"
+            # Lead with the totals and the complete list of failing test names (both compact), then
+            # the first detailed TAP block: the earliest failure is usually the root cause, and later
+            # ones cascade from it. A plain `tail` showed only the last failures and hid the rest.
+            totals=$(grep -E '^# (tests|pass|fail|skipped|cancelled)' test-output.txt | tr '\n' ' ' || true)
+            failing=$(grep -E '^not ok' test-output.txt | tr '\n' ' ' || true)
+            details=$(grep -n -A 18 -B 4 '^not ok' test-output.txt | head -c 10000 | tr '\n' ' ' || true)
+            if [ -n "$failing" ] || [ -n "$details" ]; then
+              echo "::error title=Backend TAP failure details::TOTALS ${totals} || FAILURES ${failing} || DETAIL ${details}"
             else
               echo "::error title=Backend test failed::npm test exited with $test_status; inspect the uploaded backend-test-output artifact"
             fi
