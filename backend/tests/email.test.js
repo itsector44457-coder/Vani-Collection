@@ -475,10 +475,11 @@ maybeTest('placing an order enqueues order-confirmation and a broken transport c
   // The worker retries, fails, and the failure stays inside the outbox.
   const failed = await processPendingEmails({ log: silentLogger });
   assert.ok(failed.some((row) => row.status === 'failed'), 'a transport failure is recorded as failed, not thrown');
-  await confirmation.reload();
-  assert.equal(confirmation.status, 'failed');
-  assert.match(confirmation.error, /connection refused/);
-  assert.equal(confirmation.attempts, 1);
+  // Mongoose 9 removed Document.prototype.reload(), so refetch the row explicitly.
+  const afterFailure = await EmailLog.findById(confirmation._id);
+  assert.equal(afterFailure.status, 'failed');
+  assert.match(afterFailure.error, /connection refused/);
+  assert.equal(afterFailure.attempts, 1);
 
   // A status change still emails even though the last delivery failed.
   const adminLogin = await api('/api/auth/login', { method: 'POST', body: { email: 'email-admin@example.com', password: 'AdminPass12345' } });
@@ -494,10 +495,10 @@ maybeTest('placing an order enqueues order-confirmation and a broken transport c
   const drained = await processPendingEmails({ log: silentLogger });
   assert.equal(drained.filter((row) => row.status === 'succeeded').length, sentMessages.length);
   assert.ok(sentMessages.length >= 2, 'the confirmation and the status email are delivered');
-  await confirmation.reload();
-  assert.equal(confirmation.status, 'sent');
-  assert.ok(confirmation.providerMessageId);
-  assert.ok(confirmation.sentAt instanceof Date);
+  const afterDelivery = await EmailLog.findById(confirmation._id);
+  assert.equal(afterDelivery.status, 'sent');
+  assert.ok(afterDelivery.providerMessageId);
+  assert.ok(afterDelivery.sentAt instanceof Date);
 
   // Delivery never reaches the real SMTP host configured in env.
   assert.ok(sentMessages.every((message) => message.to.endsWith('@example.com')));
