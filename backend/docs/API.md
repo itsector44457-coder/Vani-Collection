@@ -44,6 +44,22 @@ Common codes: `AUTH_REQUIRED` 401, `FORBIDDEN` 403, `ROUTE_NOT_FOUND` 404, `VALI
 | POST | `/shipping/rates` | pincode + subtotal → fee and total |
 | POST | `/coupons/validate` | code + subtotal → discount or 422 reason |
 
+## Reels (public)
+
+The `/reels` feed on the storefront. Every published reel carries a `product` object including its
+sellable `variants`, so a shopper can add to bag straight from the feed with no second request.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/reels?limit&productId&tag` | published reels, ordered by `position` then newest first |
+| GET | `/reels/:id` | one published reel |
+| POST | `/reels/:id/engage` | `{ action, identity? }` → `{ liked, likes, views, shares, cartAdds }` |
+
+`action` is one of `like`, `unlike`, `view`, `share`, `cart_add`. `identity` is a stable per-browser
+id for guests (a signed-in session is keyed on the user automatically). Likes are idempotent per
+identity, so refreshing cannot inflate a count, and a repeat `view` from the same identity within
+24h is not counted again. Anonymous callers must send `identity` or get 422 `IDENTITY_REQUIRED`.
+
 ## Customer (authenticated)
 
 | Method | Path | Notes |
@@ -81,6 +97,11 @@ Order response for online payments includes:
 | GET/POST/PATCH/DELETE | `/coupons` | finance, admin, super_admin |
 | GET | `/returns`, PATCH `/returns/:id` | support, finance, admin, super_admin |
 | POST | `/uploads/images` (multipart `files`) | catalog_manager, admin, super_admin |
+| GET | `/uploads/signature?type=video\|image&folder=reels\|products\|content` | signed Cloudinary direct upload — catalog_manager, admin, super_admin |
+| GET | `/reels/admin?status&q&limit` | all reels incl. drafts, with published/draft counts |
+| POST | `/reels`, PATCH `/reels/:id` | catalog_manager, admin, super_admin |
+| PATCH | `/reels/reorder` | `{ order: [id…] }` rewrites feed positions |
+| DELETE | `/reels/:id?purge=false` | admin, super_admin — also destroys the Cloudinary assets |
 | POST | `/shipments/:orderId/create` | warehouse, admin, super_admin |
 | POST | `/refunds/:orderId` | finance, admin, super_admin |
 | GET | `/admin/dashboard` | any staff role |
@@ -91,6 +112,23 @@ Order response for online payments includes:
 | GET | `/admin/audit-logs?action&limit` | admin, super_admin |
 | GET | `/admin/reports/sales?days=` | finance, admin, super_admin |
 | GET | `/admin/reports/gst?month=YYYY-MM` | finance, admin, super_admin |
+
+## Media uploads (Cloudinary)
+
+Reel videos are far too large to proxy through this API, so they stream **browser → Cloudinary**
+using a signature minted by a staff-authenticated request:
+
+1. `GET /uploads/signature?type=video&folder=reels` → `{ cloudName, apiKey, signature, timestamp, folder, resourceType, uploadUrl, maxBytes }`
+2. `POST {uploadUrl}` as `multipart/form-data` with `file`, `api_key`, `timestamp`, `signature`, `folder`
+3. Save the returned `secure_url` as `videoUrl` and `public_id` as `videoPublicId` on the reel
+
+The signature covers exactly `folder` + `timestamp`, so those two form fields must match what was
+signed. `folder` comes from an allowlist (`vani-collection/reels`, `…/products`, `…/content`) — the
+query value selects one of those keys and can never inject a path. Video uploads are capped at
+300 MB, images at 8 MB. Storing `videoPublicId` is what lets `DELETE /reels/:id` destroy the asset.
+
+Requires `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET`; without them the
+endpoint answers 503 `MEDIA_NOT_CONFIGURED`.
 
 ## Integrations
 
