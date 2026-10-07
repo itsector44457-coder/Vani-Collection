@@ -460,7 +460,11 @@ maybeTest('placing an order enqueues order-confirmation and a broken transport c
   assert.ok(confirmation, 'order-confirmation is enqueued on order creation');
   assert.equal(confirmation.to, 'email-shopper@example.com');
   assert.match(confirmation.subject, new RegExp(created.body.data.orderNumber));
-  assert.ok(confirmation.data.order.items.length === 2, 'the template input is stored so support can resend');
+  // The order was placed as a single line of quantity 2, not two lines: the checkout route pushes
+  // one snapshot item per requested line. Assert both, since a resend re-renders from this snapshot
+  // and a wrong quantity would show the shopper the wrong goods.
+  assert.equal(confirmation.data.order.items.length, 1, 'the template input is stored so support can resend');
+  assert.equal(confirmation.data.order.items[0].quantity, 2, 'the line quantity is preserved for the resend');
 
   const event = await IntegrationEvent.findOne({ eventType: 'email.send', entityId: confirmation.id });
   assert.ok(event, 'delivery goes through the shared outbox');
