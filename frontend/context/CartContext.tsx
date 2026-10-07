@@ -9,6 +9,7 @@ import {
   clearServerCart,
   fetchCart,
   fetchWishlist,
+  mergeWishlist,
   readLocalWishlist,
   removeCartLine,
   removeWishlistItem,
@@ -119,11 +120,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     const load = async () => {
       try {
+        /* Only real product ids can be merged; demo ids ("vani-1") exist solely in the browser. */
         const pending = local.filter((id) => OBJECT_ID.test(id));
-        await Promise.all(pending.map((id) => addWishlistItem(id).catch(() => undefined)));
-        if (pending.length > 0) writeLocalWishlist(local.filter((id) => !OBJECT_ID.test(id)));
+        const deviceOnly = local.filter((id) => !OBJECT_ID.test(id));
+
+        let merged = false;
+        if (pending.length > 0) {
+          try {
+            /* One request for the whole guest list. The backend de-duplicates by productId and keeps
+               each insert atomic, so signing in again — or in a second tab — cannot duplicate it. */
+            await mergeWishlist(pending);
+            merged = true;
+          } catch {
+            merged = false;
+          }
+        }
+
+        /* Prune the device copy only once the server has actually accepted the merge. Doing it
+           unconditionally (the old behaviour) meant a backend outage during sign-in silently deleted
+           the guest's saved items from localStorage with no copy anywhere — permanent loss. */
+        if (merged) writeLocalWishlist(deviceOnly);
+
         const server = await fetchWishlist(controller.signal);
-        if (!cancelled) setWishlist(server);
+        if (cancelled) return;
+        /* If the merge failed, keep the unsynced ids visible so nothing appears to vanish; the next
+           load retries the merge. */
+        setWishlist(merged ? server : Array.from(new Set([...server, ...pending])));
       } catch (cause) {
         if ((cause as Error)?.name === "AbortError") return;
         if (!cancelled) setWishlist(local);

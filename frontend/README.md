@@ -19,6 +19,112 @@ npm run dev                    # http://localhost:3000  ·  admin console at /ad
   behaviour. Use them when wiring the storefront to the same API.
 - Roles enforced by the backend: support, warehouse, catalog_manager, finance, admin, super_admin.
 
+## SEO
+
+Everything a crawler reads is generated server-side from the live catalogue, and **degrades rather
+than guesses** when the backend is unreachable.
+
+| Path | What it produces |
+| --- | --- |
+| `app/sitemap.ts` | Static pages + one entry per category + every active product, with real `lastmod`, `changefreq`, `priority` and image entries. Regenerates hourly (`revalidate = 3600`). |
+| `app/robots.ts` | Storefront allowed; `/admin`, `/account`, `/checkout`, `/api`, `/order-confirmation` and the auth routes disallowed; points at the sitemap. |
+| `app/opengraph-image.tsx` | Branded 1200×630 site card. |
+| `app/product/[slug]/opengraph-image.tsx` | Per-product card with the real photo, price and discount, cached for an hour. |
+| `components/seo/` | `SiteSchema` (Organization + WebSite/SearchAction), `ProductSchema` (ItemPage + BreadcrumbList + Product/Offer), `BreadcrumbSchema`, `FaqSchema`, plus the pure builders in `schema.ts` and the `<JsonLd>` primitive. |
+| `lib/seo.ts` | Canonical origin, taxonomy, the catalogue fetchers and the price/availability helpers. |
+
+`generateMetadata` lives on `app/product/[slug]/page.tsx` and `app/products/page.tsx`. Both were
+`"use client"`, which cannot export metadata, so the interactive body of each moved to
+`product-view.tsx` / `products-view.tsx` and the `page.tsx` files are now thin Server Components.
+The same split applies to `app/admin/` and `app/account/`, whose layouts are `noindex, nofollow`.
+
+Two rules worth knowing before editing this:
+
+- **Never set `alternates.canonical` in a layout.** It is inherited by every route that does not
+  declare its own, which silently marks private pages as duplicates of the homepage. Each indexable
+  page sets its canonical itself.
+- **Never set `openGraph.images` where an `opengraph-image.tsx` exists.** The explicit value wins and
+  replaces the generated card (and its `:width`/`:height`/`:alt` tags) with a raw photo of unknown
+  aspect ratio.
+
+`Product` structured data is emitted only when the catalogue actually returned the product, and
+`availability` only when `GET /api/products/:slug` reported real inventory for that SKU. A product
+with no inventory rows gets an Offer with **no** `availability` — forfeiting the rich result beats
+asserting stock nobody verified. `priceValidUntil` is derived from the product's own `updatedAt` so
+the value is stable across crawls instead of moving on every request.
+
+Set `NEXT_PUBLIC_SITE_URL` (see `.env.example`) before deploying: canonicals, the sitemap and all
+JSON-LD are absolute URLs built from it.
+
+## Documents
+
+`/account/orders/[id]` has a **Download invoice** button and `/admin/orders` has **Invoice** and
+**Packing slip** buttons per row. Both fetch a server-rendered PDF (see the backend's
+`docs/API.md` → "GST invoices and packing slips"), so they always show what was actually charged or
+shipped.
+
+They cannot go through `apiFetch`, which JSON-parses every response and would corrupt a PDF —
+`downloadFromApi()` in `lib/api-client.ts` handles the binary path with the same cookie auth and the
+same `ApiError` on failure, and takes the filename from the server's `Content-Disposition`.
+
+## Product images
+
+Product imagery goes through `next/image`, so **the Next.js server — not the browser — fetches it**.
+Two consequences worth knowing:
+
+- Every host must be listed in `images.remotePatterns` in `next.config.ts`. `res.cloudinary.com`
+  (where `POST /api/uploads/images` stores uploads) and the demo catalogue's Unsplash/Pexels/Shopify
+  hosts are already there. An unlisted host returns `400 "url" parameter is not allowed` rather than
+  failing silently — add the host to the config when a new CDN appears.
+- The deployment needs outbound access to those hosts. A platform with restricted egress will show
+  broken images even though the storefront itself works.
+
+`ProductImageGallery`, `LivingProductCard`, the account order/wishlist thumbnails and the reels
+product thumbs all use it. Some marketing and modal components still use plain `<img>` with an
+`eslint-disable` for `@next/next/no-img-element`; `components/seo/og-card.tsx` has a genuine
+exception, since satori rasterises the Open Graph card itself and `next/image` does not exist inside
+`ImageResponse`.
+
+`npm run lint` runs with `--max-warnings=0`, so a new suppression has to be deliberate.
+
+## Homepage CMS
+
+The hero banners, customer testimonials, shoppable lookbook, category stories and FAQ are editable
+content blocks (`/admin/content` → `PUT /api/content/:key`). `lib/content.ts` maps the loosely-shaped
+Content documents onto the exact structures the homepage renders, so wiring the CMS up did not mean
+redesigning anything.
+
+`app/(main)/page.tsx` is a Server Component: it fetches all five kinds in one pass, mounts the
+`FAQPage` JSON-LD and declares the homepage canonical. The interactive body lives in
+`app/(main)/home-view.tsx` and takes the content as props, each defaulting to the bundled copy in
+`data/products.ts`.
+
+The fallback contract is **per kind and per field**, not all-or-nothing:
+
+- No backend, or an empty `contents` collection → the site renders exactly as it did before the CMS
+  existed. `data-content-source="bundled"` on the root element says so.
+- Banners published but no testimonials → live banners over bundled reviews.
+- An editor sets only a new headline → the bundled image and CTA for that position are kept.
+- A block missing what its section cannot render without (a banner with no image, a FAQ with a
+  question but no answer) is dropped rather than half-rendered.
+- `draft` blocks never reach the storefront — the API filters on `status: "published"`.
+
+The FAQ accordion and its `FAQPage` markup are driven by the same array, so nothing is ever marked up
+that a reader cannot see. When no FAQ is published, the section *and* the JSON-LD are both absent.
+
+## Wishlist sync
+
+On sign-in the guest wishlist in `localStorage` is merged into the server list. See the backend's
+`docs/API.md` → "Wishlist shape and idempotence" for the guarantees; the frontend side matters here:
+
+- `mergeWishlist()` sends the whole guest list in **one** request instead of a burst of concurrent
+  per-item PUTs. The backend de-duplicates by `productId`, so signing in repeatedly cannot grow it.
+- The device copy is pruned **only after** the merge succeeds. Pruning unconditionally (the old
+  behaviour) meant a backend outage during sign-in deleted the guest's saved items with no copy
+  anywhere left — permanent loss.
+- `fetchWishlist()` coerces ids to strings defensively, so a shape regression on either side degrades
+  instead of writing `"[object Object]"` into `localStorage`.
+
 ---
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).

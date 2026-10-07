@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -110,14 +111,6 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "address", label: "Addresses", icon: "📍" },
 ];
 
-/* ── Profile form ── */
-const PROFILE_DEFAULT = {
-  name: "Priya Sharma",
-  email: "priya.sharma@gmail.com",
-  phone: "9001234567",
-  dob: "1995-03-15",
-  gender: "female",
-};
 
 export default function AccountPage() {
   const { wishlist, toggleWishlist } = useCart();
@@ -310,7 +303,8 @@ export default function AccountPage() {
                               <div className="px-5 py-4 space-y-4">
                                 {order.items.map((item, i) => (
                                   <div key={i} className="flex items-center gap-4">
-                                    <img src={item.image} alt={item.title}
+                                    <Image src={item.image} alt={item.title}
+                                      width={56} height={64}
                                       className="w-14 h-16 object-cover rounded-xl flex-shrink-0 border border-gray-100" />
                                     <div className="flex-1 min-w-0">
                                       <Link href={item.slug ? `/product/${item.slug}` : ("href" in order ? order.href : "/account/orders")}
@@ -359,8 +353,9 @@ export default function AccountPage() {
                         {wishlistProducts.map((product) => (
                           <div key={product.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden group">
                             <div className="relative aspect-[3/4]">
-                              <img src={product.image} alt={product.title}
-                                className="w-full h-full object-cover" />
+                              <Image src={product.image} alt={product.title}
+                                fill sizes="(min-width: 640px) 33vw, 50vw"
+                                className="object-cover" />
                               <button
                                 onClick={() => toggleWishlist(product.id)}
                                 className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center text-rose-600 hover:text-gray-500 transition shadow"

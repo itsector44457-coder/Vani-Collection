@@ -24,6 +24,27 @@ test('config validation rejects missing secrets', () => {
   assert.equal(typeof loadConfig().MONGO_URI, 'string');
 });
 
+test('seller GSTIN, PAN and state code reject malformed non-empty values at boot', () => {
+  const saved = { ...process.env };
+  // Blank values from a copied .env.example are intentionally treated as unset.
+  process.env.SELLER_GSTIN = '';
+  process.env.SELLER_PAN = '';
+  process.env.SELLER_STATE_CODE = '';
+  assert.equal(loadConfig().seller.gstin, undefined);
+
+  process.env.SELLER_GSTIN = 'not-a-gstin';
+  assert.throws(() => loadConfig(), /SELLER_GSTIN must be a valid 15-character GSTIN/);
+  process.env.SELLER_GSTIN = '';
+  process.env.SELLER_PAN = '123';
+  assert.throws(() => loadConfig(), /SELLER_PAN must be a valid 10-character PAN/);
+  process.env.SELLER_PAN = '';
+  process.env.SELLER_STATE_CODE = 'Madhya Pradesh';
+  assert.throws(() => loadConfig(), /SELLER_STATE_CODE must be a two-digit state code/);
+
+  process.env = saved;
+  assert.equal(typeof loadConfig().MONGO_URI, 'string');
+});
+
 test('coupon engine enforces windows, limits and caps', () => {
   const now = new Date('2026-10-05T00:00:00.000Z');
   const coupon = { code: 'FEST10', type: 'percentage', value: 10, maxDiscount: 500, minOrderValue: 1000, active: true, usedCount: 0 };
@@ -119,8 +140,13 @@ test('route surface is complete and free of duplicate registrations', () => {
       }
     }
   }
-  for (const required of ['POST /api/orders', 'POST /api/integrations/erp/webhook', 'POST /api/webhooks/razorpay', 'GET /api/admin/dashboard', 'PATCH /api/inventory/:sku', 'POST /api/payments/razorpay/verify', 'POST /api/returns', 'POST /api/uploads/images', 'GET /api/cart', 'POST /api/cart/items', 'PATCH /api/cart/items/:lineId', 'DELETE /api/cart/items/:lineId', 'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/orders/:id/cancel']) {
+  for (const required of ['POST /api/orders', 'POST /api/integrations/erp/webhook', 'POST /api/webhooks/razorpay', 'GET /api/admin/dashboard', 'PATCH /api/inventory/:sku', 'POST /api/payments/razorpay/verify', 'POST /api/returns', 'POST /api/uploads/images', 'GET /api/cart', 'POST /api/cart/items', 'PATCH /api/cart/items/:lineId', 'DELETE /api/cart/items/:lineId', 'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/orders/:id/cancel',
+    // The screens the admin console drives — a silently unmounted router would leave a blank page
+    // rather than a failing request, so the surface is asserted explicitly.
+    'GET /api/integrations/events', 'POST /api/integrations/events/:id/retry', 'GET /api/admin/audit-logs', 'GET /api/admin/reports/sales', 'GET /api/admin/reports/gst', 'GET /api/admin/staff', 'POST /api/admin/staff', 'GET /api/refunds/pending', 'POST /api/refunds/:orderId', 'GET /api/inventory', 'GET /api/returns', 'PATCH /api/returns/:id', 'GET /api/coupons', 'POST /api/coupons', 'PATCH /api/coupons/:id', 'DELETE /api/coupons/:id', 'GET /api/reviews', 'PATCH /api/reviews/:id',
+    // Phase 5–6 contracts — reward routes and both downloadable documents.
+    'GET /api/loyalty/me', 'GET /api/loyalty/transactions', 'POST /api/loyalty/redeem', 'POST /api/loyalty/referral', 'GET /api/loyalty/referral', 'GET /api/admin/loyalty', 'GET /api/admin/loyalty/:userId', 'POST /api/admin/loyalty/:userId/adjust', 'GET /api/orders/:id/invoice.pdf', 'GET /api/admin/orders/:id/packing-slip.pdf']) {
     assert.ok(seen.has(required), `missing route ${required}`);
   }
-  assert.ok(seen.size >= 60, `expected a broad API surface, saw ${seen.size} routes`);
+  assert.ok(seen.size >= 80, `expected a broad API surface, saw ${seen.size} routes`);
 });

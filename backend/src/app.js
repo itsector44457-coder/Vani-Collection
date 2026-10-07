@@ -9,8 +9,14 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { AppError } = require('./lib/errors');
 const { authMiddleware, optionalAuthMiddleware } = require('./middleware/auth');
+const { configureEmail } = require('./services/email');
+const { configureLoyalty } = require('./services/loyalty');
 
 const buildApp = ({ config, logger }) => {
+  // Give the email service the parsed config before any route can trigger a send.
+  configureEmail(config);
+  // Same for loyalty: rates, tiers and expiry come from config, not from module-level constants.
+  configureLoyalty(config);
   const app = express();
   app.set('trust proxy', 1);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
@@ -21,10 +27,21 @@ const buildApp = ({ config, logger }) => {
   app.use(cookieParser());
   const genReqId = (req, res) => { const id = req.headers['x-request-id'] || crypto.randomUUID(); res.setHeader('x-request-id', id); return id; };
   // Accept any logger exposing pino's levels; otherwise fall back to a request-scoped noop logger.
-  app.use(logger?.levels ? pinoHttp({ logger, genReqId }) : (req, _res, next) => { req.id = genReqId(req, _res); req.log = { info() {}, warn() {}, error() {}, debug() {} }; next(); });
+  app.use(logger?.levels ? pinoHttp({ logger, genReqId }) : (req, _res, next) => {
+    req.id = genReqId(req, _res);
+    // A caller-provided fallback logger (notably the test logger) should still receive request-scoped
+    // errors; replacing it with a hard-coded no-op hid the cause of real 500s in integration tests.
+    req.log = logger?.child ? logger.child({ requestId: req.id }) : { info() {}, warn() {}, error() {}, debug() {} };
+    next();
+  });
 
-  const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 600, standardHeaders: 'draft-8', legacyHeaders: false });
-  const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: { code: 'RATE_LIMITED', message: 'Too many attempts, try again later' } } });
+  // The integration suite drives many hundreds of requests through one process and signs in once per
+  // scenario, so the production ceilings (600 and 20 per 15 minutes) throttle it into 429s that look
+  // exactly like application bugs. Nothing asserts rate limiting, so lift the ceilings under
+  // NODE_ENV=test and leave the middleware mounted — production behaviour is byte-identical.
+  const isTestEnv = config.NODE_ENV === 'test';
+  const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: isTestEnv ? 1_000_000 : 600, standardHeaders: 'draft-8', legacyHeaders: false });
+  const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: isTestEnv ? 1_000_000 : 20, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: { code: 'RATE_LIMITED', message: 'Too many attempts, try again later' } } });
   app.use('/api', apiLimiter);
 
   const auth = authMiddleware(config);
@@ -46,10 +63,11 @@ const buildApp = ({ config, logger }) => {
   mount('/api/orders', require('./routes/orders')({ config, auth }));
   mount('/api/inventory', require('./routes/inventory')({ auth }));
   mount('/api/customers', require('./routes/customers')({ auth }));
+  mount('/api/loyalty', require('./routes/loyalty')({ auth }));
   mount('/api/reviews', require('./routes/reviews')({ auth }));
   mount('/api/coupons', require('./routes/coupons')({ auth }));
   mount('/api/returns', require('./routes/returns')({ auth }));
-  mount('/api/admin', require('./routes/admin')({ auth }));
+  mount('/api/admin', require('./routes/admin')({ auth, config }));
   mount('/api/content', require('./routes/content')({ auth }));
   mount('/api/integrations', require('./routes/integrations')({ config, auth }));
   mount('/api/shipments', require('./routes/shipments')({ config, auth }));

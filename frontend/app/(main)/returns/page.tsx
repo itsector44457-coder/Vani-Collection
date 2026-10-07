@@ -107,7 +107,7 @@ export default function ReturnsPage() {
                 <span className="w-8 h-8 rounded-full bg-green-600 text-white text-sm flex items-center justify-center font-bold">3</span>
                 <div>
                   <h4 className="font-semibold text-stone-800 mb-2">Free Pickup</h4>
-                  <p className="text-sm text-stone-600">We'll arrange free pickup from your address within 2-3 business days.</p>
+                  <p className="text-sm text-stone-600">We’ll arrange free pickup from your address within 2-3 business days.</p>
                 </div>
               </div>
               
@@ -131,9 +131,9 @@ export default function ReturnsPage() {
               </p>
               <ul className="text-amber-600 text-xs space-y-1">
                 <li>• Exchange item must be unworn with original tags</li>
-                <li>• We'll arrange pickup and delivery of the new size</li>
+                <li>• We’ll arrange pickup and delivery of the new size</li>
                 <li>• No additional shipping charges for size exchange</li>
-                <li>• If exact size unavailable, we'll process a full refund</li>
+                <li>• If exact size unavailable, we’ll process a full refund</li>
               </ul>
             </div>
           </section>
@@ -166,7 +166,7 @@ export default function ReturnsPage() {
             <div className="bg-rose-50 border border-rose-200 rounded-lg p-6">
               <h3 className="font-semibold text-rose-800 mb-2">Manufacturing Defect?</h3>
               <p className="text-rose-700 text-sm mb-3">
-                If you receive an item with a manufacturing defect, we'll provide a full refund plus compensation for the inconvenience.
+                If you receive an item with a manufacturing defect, we’ll provide a full refund plus compensation for the inconvenience.
               </p>
               <p className="text-rose-600 text-xs">
                 Every piece is handcrafted with care. If we fall short, we make it right.

@@ -324,3 +324,31 @@ export const REVIEWS = [
     product: "Roohani Indigo Co-ord Set",
   },
 ];
+
+/**
+ * The bundled hero banners, used as the fallback when the CMS has no published `banner` blocks.
+ * Kept next to the other bundled homepage content so `app/(main)/page.tsx` and `home-view.tsx`
+ * share one source of truth instead of two copies that can drift.
+ */
+export const HERO_SLIDES = [
+  {
+    title: "Poetry in Pure Mul Cotton",
+    subtitle: "The Summer Bagru Edit 2026",
+    desc: "Featherlight 100-count handspun cotton woven for everyday grace. Hand-pressed wooden blocks dipped in natural botanical dyes.",
+    ctaText: "Shop Pure Mul Sets",
+    ctaLink: "#products",
+    tag: "Jaipur Atelier Exclusive",
+    image: "/vani-store-front.jpg",
+    position: "object-[center_30%]",
+  },
+  {
+    title: "Gulmohar Festive Heirlooms",
+    subtitle: "Chanderi Silk & Zari Soiree",
+    desc: "A timeless ode to royal celebrations. Ethereal kalidaar flares, delicate gota patti laces, and scalloped tissue organza dupattas.",
+    ctaText: "Discover Festive Edit",
+    ctaLink: "#products",
+    tag: "Wedding & Celebrations",
+    image: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1920&q=85",
+    position: "object-[center_62%]",
+  },
+];

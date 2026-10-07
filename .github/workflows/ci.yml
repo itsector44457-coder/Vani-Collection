@@ -1,0 +1,183 @@
+name: CI
+
+# Runs on every pull request and on pushes to main, so a PR cannot merge with a broken build,
+# a failing test, a TypeScript error or a lint error.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to the same PR supersedes the run in flight rather than queueing behind it.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend — parse, routes, tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Every source file must parse, and the expected file inventory must still match.
+      - name: Static check
+        run: npm run check
+
+      # The full route table. Catches a router that stopped being mounted, which would otherwise
+      # show up as a blank admin screen rather than a failing request.
+      - name: Route surface
+        run: npm run routes
+
+      # The integration tests need a replica set for transactions. mongodb-memory-server spins one up
+      # and downloads its mongod binary on first use, so that download is cached outside node_modules
+      # (npm ci wipes node_modules, which would otherwise throw the binary away every run).
+      #
+      # Without a reachable MongoDB the DB-gated tests skip rather than fail, so this job still passes
+      # on a machine with no MongoDB — but in CI they must actually run. `verifyNoSkip` below fails the
+      # build if they silently skipped, which is the whole point of providing the database.
+      - name: Cache MongoDB binaries
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-${{ hashFiles('backend/package-lock.json') }}
+          restore-keys: mongodb-binaries-${{ runner.os }}-
+
+      - name: Test
+        # Preserve node --test's exit code through tee. On failure, put just the failing TAP context
+        # in the GitHub job summary (available via the checks API even when raw logs are unavailable).
+        run: |
+          set +e
+          set -o pipefail
+          npm test 2>&1 | tee test-output.txt
+          test_status=$?
+          set -e
+          if [ "$test_status" -ne 0 ]; then
+            {
+              echo '### Backend test failure details'
+              echo
+              grep -n -A 18 -B 4 '^not ok' test-output.txt | tail -240 || true
+              echo
+              grep -E '^# (tests|pass|fail|skipped|duration_ms)' test-output.txt | tail -10 || true
+            } >> "$GITHUB_STEP_SUMMARY"
+            # Attach the failure context as check annotations; these are queryable over the GitHub
+            # API even when a client cannot fetch the raw log archive from Actions' blob storage.
+            # One annotation per failing test: a single combined blob gets truncated at ~65k and,
+            # worse, the earlier failures scrolled out of the window entirely — the root cause is
+            # usually the *first* failure, since later ones cascade from it.
+            totals=$(grep -E '^# (tests|pass|fail|skipped|cancelled)' test-output.txt | tr '\n' ' ' || true)
+            failing_lines=$(grep -n '^not ok' test-output.txt | cut -d: -f1 || true)
+            if [ -n "$failing_lines" ]; then
+              idx=0
+              while IFS= read -r line_no; do
+                idx=$((idx + 1))
+                name=$(sed -n "${line_no}p" test-output.txt | sed -e 's/^not ok [0-9]* - //' -e 's/[[:space:]]*$//' | cut -c1-70)
+                # Start at the failing line itself: the test name is already in the annotation title,
+                # and pulling in preceding lines only drags in the previous test's tail.
+                start=$line_no
+                # End at the next test boundary, so one failure's block never swallows the next.
+                end=$((line_no + 16))
+                next_boundary=$(awk -v s=$((line_no + 1)) 'NR >= s && /^(not ok |ok |# Subtest|# )/ { print NR; exit }' test-output.txt)
+                if [ -n "$next_boundary" ]; then
+                  end=$((next_boundary - 1))
+                fi
+                # Strip the extremely repetitive Mongoose deprecation warnings, which otherwise
+                # consume the whole window and squeeze out the actual assertion output.
+                block=$(sed -n "${start},${end}p" test-output.txt \
+                  | grep -v -e 'MONGOOSE' -e 'trace-warnings' \
+                  | tr '\n' ' ' | cut -c1-1400)
+                echo "::error title=Failure ${idx}: ${name}::${block}"
+              done <<< "$failing_lines"
+              echo "::error title=Backend totals::${totals}"
+            else
+              echo "::error title=Backend test failed::npm test exited with $test_status; inspect the uploaded backend-test-output artifact"
+            fi
+          fi
+          exit "$test_status"
+        env:
+          MONGOMS_DOWNLOAD_DIR: ${{ github.workspace }}/.cache/mongodb-binaries
+
+      - name: Assert the database-backed tests actually ran
+        run: |
+          skipped=$(grep -E '^# skipped' test-output.txt | awk '{print $3}')
+          failed=$(grep -E '^# fail' test-output.txt | awk '{print $3}')
+          passed=$(grep -E '^# pass' test-output.txt | awk '{print $3}')
+          echo "pass=$passed fail=$failed skipped=$skipped"
+          if [ "$failed" != "0" ]; then
+            echo "::error::$failed test(s) failed"; exit 1
+          fi
+          if [ "$skipped" != "0" ]; then
+            echo "::error::$skipped test(s) skipped — MongoDB was expected to be available in CI, so the integration coverage did not run"
+            exit 1
+          fi
+          if [ "${passed:-0}" -lt 40 ]; then
+            echo "::error::only $passed tests passed, expected at least 40"; exit 1
+          fi
+
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-output
+          path: backend/test-output.txt
+          if-no-files-found: ignore
+          retention-days: 7
+
+  frontend:
+    name: Frontend — types, lint, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      # `--max-warnings=0` is in the lint script itself, so local and CI cannot disagree about what
+      # "clean" means.
+      - name: Lint
+        run: npm run lint
+
+      # Deliberately built with no NEXT_PUBLIC_API_URL: the storefront, the admin console, the
+      # sitemap, robots.txt and the Open Graph images must all build against the bundled demo data.
+      # A build that only works with a backend attached is not a build that works on a fresh clone.
+      - name: Build
+        run: npm run build
+
+      - name: Upload build manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build-manifest
+          path: frontend/.next/routes-manifest.json
+          if-no-files-found: ignore
+          retention-days: 7

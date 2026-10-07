@@ -322,13 +322,63 @@ export async function requestReturn(payload: { orderId: string; type: "return" |
 
 /* ----------------------------------------------------------------- customer */
 
+/** One saved wishlist row. `product` carries the populated catalogue entry when present. */
+export interface WishlistRow {
+  productId: string;
+  sku?: string;
+  addedAt?: string;
+  product?: unknown;
+}
+
+/**
+ * Coerces a wishlist row's id to a string.
+ *
+ * The API is meant to return `productId` as a string, but it used to hand back the *populated
+ * Product document* — and because the return type claimed `string`, TypeScript could not catch it.
+ * Every consumer then compared an object against a string id, so a signed-in shopper's saved
+ * wishlist never matched, and the object was written into localStorage as "[object Object]".
+ * Normalising here means a shape regression on either side degrades instead of corrupting storage.
+ */
+const wishlistId = (row: WishlistRow | string): string => {
+  if (typeof row === "string") return row;
+  const value = row?.productId as unknown;
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object" && "_id" in value) return String((value as { _id: unknown })._id);
+  return "";
+};
+
 export async function fetchWishlist(signal?: AbortSignal): Promise<string[]> {
-  const response = await apiFetch<{ data: { productId: string }[] }>("/api/customers/wishlist", { signal });
-  return response.data.map((item) => item.productId);
+  const response = await apiFetch<{ data: WishlistRow[] }>("/api/customers/wishlist", { signal });
+  const ids = (response.data ?? []).map(wishlistId).filter(Boolean);
+  // De-duplicate defensively: a stale row set should never render the same product twice.
+  return Array.from(new Set(ids));
+}
+
+/** The saved rows with their populated product data, for the account wishlist screen. */
+export async function fetchWishlistRows(signal?: AbortSignal): Promise<WishlistRow[]> {
+  const response = await apiFetch<{ data: WishlistRow[] }>("/api/customers/wishlist", { signal });
+  return (response.data ?? []).map((row) => ({ ...row, productId: wishlistId(row) })).filter((row) => row.productId);
 }
 
 export async function addWishlistItem(productId: string): Promise<void> {
   await apiFetch("/api/customers/wishlist", { method: "PUT", body: { productId } });
+}
+
+/**
+ * Merges a whole guest wishlist in one request.
+ *
+ * The backend de-duplicates by productId and keeps each insert atomic, so signing in repeatedly — or
+ * in two tabs at once — cannot grow the list. One round trip also avoids the burst of concurrent
+ * PUTs the per-item loop used to fire.
+ */
+export async function mergeWishlist(productIds: string[]): Promise<string[]> {
+  const ids = Array.from(new Set(productIds.map((id) => (id || "").trim()).filter(Boolean)));
+  if (ids.length === 0) return [];
+  const response = await apiFetch<{ data: WishlistRow[] }>("/api/customers/wishlist", {
+    method: "PUT",
+    body: { items: ids.map((productId) => ({ productId })) },
+  });
+  return (response.data ?? []).map(wishlistId).filter(Boolean);
 }
 
 export async function removeWishlistItem(productId: string): Promise<void> {

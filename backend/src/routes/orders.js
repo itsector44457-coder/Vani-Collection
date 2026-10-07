@@ -6,11 +6,36 @@ const Product = require('../../models/Product');
 const Inventory = require('../../models/Inventory');
 const Order = require('../../models/Order');
 const Coupon = require('../../models/Coupon');
+const User = require('../../models/User');
 const { validate } = require('../middleware/validate');
 const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { shippingFeeFor, checkCouponValidity, computeDiscount } = require('../services/pricing');
+const { queueEmail, orderEmailData, orderRecipient } = require('../services/email');
+const { awardLoyaltyForOrder } = require('../services/loyalty');
+const { renderInvoicePdf, loadHsnBySku } = require('../services/invoice');
+
+/**
+ * Every order lifecycle email in one place so the trigger, the recipient rule and the "never fail
+ * the request" contract stay identical across create / status / cancel.
+ *
+ * `actor` is the *customer* whose name should appear in the greeting — only the checkout route has
+ * it, because staff-triggered transitions run under a warehouse or support session. `dedupeKey`
+ * makes the outbox row idempotent: a double-submitted form or a replayed webhook cannot send the
+ * shopper the same confirmation twice.
+ */
+const notifyOrder = (req, template, order, { data: extra = {}, dedupeKey, tags = ['orders', template], actor = null } = {}) =>
+  queueEmail({
+    to: orderRecipient(order, actor),
+    template,
+    data: orderEmailData(order, { firstName: actor?.firstName || order.shippingAddress?.fullName?.split(' ')[0] || '', ...extra }),
+    orderId: order.id || order._id,
+    userId: order.customerId?.toString?.() || undefined,
+    dedupeKey: dedupeKey || `${template}:${order.id || order._id}`,
+    tags,
+    log: req.log,
+  });
 
 const address = z.object({ fullName: z.string().min(2), phone: z.string().regex(/^[6-9]\d{9}$/), email: z.email(), line1: z.string().min(5), line2: z.string().optional(), landmark: z.string().optional(), city: z.string().min(2), state: z.string().min(2), pincode: z.string().regex(/^\d{6}$/), country: z.string().default('IN') });
 const orderInput = z.object({ items: z.array(z.object({ productId: z.string(), sku: z.string(), quantity: z.number().int().min(1).max(10) })).min(1), shippingAddress: address, billingAddress: address.optional(), couponCode: z.string().optional(), paymentMethod: z.enum(['razorpay', 'cod']) });
@@ -37,7 +62,7 @@ module.exports = ({ config, auth }) => {
         let discount = 0; const code = req.body.couponCode?.toUpperCase();
         if (code) {
           const coupon = await Coupon.findOne({ code, active: true }).session(session);
-          const validity = checkCouponValidity(coupon, subtotal);
+          const validity = checkCouponValidity(coupon, subtotal, new Date(), { userId: req.user.id });
           if (!validity.valid) throw new AppError(422, 'INVALID_COUPON', validity.reason);
           discount = computeDiscount(coupon, subtotal);
           coupon.usedCount += 1; await coupon.save({ session });
@@ -52,6 +77,7 @@ module.exports = ({ config, auth }) => {
       paymentOrder = await razorpay.orders.create({ amount: Math.round(order.amounts.total * 100), currency: 'INR', receipt: order.orderNumber, notes: { internalOrderId: order.id } });
       order.payment.providerOrderId = paymentOrder.id; await order.save();
     }
+    await notifyOrder(req, 'order-confirmation', order, { actor: req.user });
     res.status(201).json({ data: order, payment: paymentOrder && { id: paymentOrder.id, amount: paymentOrder.amount, currency: paymentOrder.currency, keyId: config.RAZORPAY_KEY_ID } });
   }));
   router.get('/mine', auth, asyncHandler(async (req, res) => res.json({ data: await Order.find({ customerId: req.user.id }).sort({ createdAt: -1 }) })));
@@ -75,6 +101,7 @@ module.exports = ({ config, auth }) => {
     } finally {
       await session.endSession();
     }
+    await notifyOrder(req, 'order-cancelled', order, { data: { reason: req.body.reason }, actor: req.user });
     res.json({ data: order });
   }));
 
@@ -82,9 +109,66 @@ module.exports = ({ config, auth }) => {
     const page = Math.max(1, Number(req.query.page) || 1), limit = Math.min(100, Number(req.query.limit) || 25), filter = req.query.status ? { status: req.query.status } : {};
     const [data,total] = await Promise.all([Order.find(filter).sort({ createdAt: -1 }).skip((page-1)*limit).limit(limit).populate('customerId','email firstName lastName'), Order.countDocuments(filter)]); res.json({ data, meta: { page, limit, total } });
   }));
+  /**
+   * GST tax invoice as a PDF.
+   *
+   * Accessible to the customer who placed the order and to staff who handle money or support. The
+   * document is generated from the order snapshot, so it always shows what was actually charged —
+   * re-generating it a year later cannot silently pick up today's prices or tax rates.
+   */
+  router.get('/:id/invoice.pdf', auth, asyncHandler(async (req, res) => {
+    const isStaff = req.user.roles.some((role) => ['support', 'warehouse', 'catalog_manager', 'finance', 'admin', 'super_admin'].includes(role));
+    const filter = isStaff ? { _id: req.params.id } : { _id: req.params.id, customerId: req.user.id };
+    const order = await Order.findOne(filter).populate('customerId', 'email');
+    if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+
+    const [hsnBySku, customer] = await Promise.all([
+      loadHsnBySku(order, { log: req.log }),
+      order.customerId ? User.findById(order.customerId).catch(() => null) : null,
+    ]);
+
+    // The buyer's GSTIN is not captured at checkout, so it can only be supplied here. It is
+    // shape-checked before being printed: arbitrary text on a tax invoice is worse than a blank, and
+    // an obviously wrong number would be the one thing an accountant notices.
+    const rawGstin = String(req.query.customerGstin || '').trim().toUpperCase();
+    const customerGstin = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$/.test(rawGstin) ? rawGstin : undefined;
+    if (rawGstin && !customerGstin) throw new AppError(422, 'INVALID_GSTIN', 'customerGstin is not a valid 15-character GSTIN');
+
+    const pdf = await renderInvoicePdf(order, {
+      seller: config.seller,
+      hsnBySku,
+      customerEmail: customer?.email || order.guestEmail || order.shippingAddress?.email,
+      customerGstin,
+    });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', String(pdf.length));
+    // Per-customer document, so it must never be cached by a shared cache.
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${order.orderNumber || order.id}.pdf"`);
+    res.end(pdf);
+  }));
+
   router.patch('/:id/status', auth, requireRoles('warehouse', 'support', 'admin', 'super_admin'), validate(z.object({ status: z.enum(['confirmed','processing','packed','shipped','delivered','cancelled']), note: z.string().optional() })), audit('order.status', 'Order'), asyncHandler(async (req, res) => {
     const order = await Order.findById(req.params.id); if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
-    order.status = req.body.status; order.statusHistory.push({ status: req.body.status, actor: req.user.email, note: req.body.note }); await order.save(); res.json({ data: order });
+    const previousStatus = order.status;
+    order.status = req.body.status; order.statusHistory.push({ status: req.body.status, actor: req.user.email, note: req.body.note }); await order.save();
+
+    // Points are earned on the *transition* into delivered, not on every write that happens to say
+    // delivered — re-saving an already-delivered order must not award twice. The service is also
+    // idempotent per order, so a duplicated webhook or a retry still awards once.
+    let loyalty = null;
+    if (req.body.status === 'delivered' && previousStatus !== 'delivered') {
+      loyalty = await awardLoyaltyForOrder(order, { log: req.log });
+    }
+
+    // Status emails carry the shipment block when the AWB is already known (Shiprocket fills it in
+    // at pickup, so `shipped` almost always has a tracking link by the time this runs).
+    await notifyOrder(req, 'order-status', order, {
+      data: { status: req.body.status, note: req.body.note, previousStatus, loyaltyPoints: loyalty?.awarded ? loyalty.points : undefined },
+      dedupeKey: `order-status:${order.id}:${req.body.status}`,
+    });
+    res.json({ data: order, meta: loyalty ? { loyalty } : undefined });
   }));
   return router;
 };

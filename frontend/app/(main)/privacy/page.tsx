@@ -42,7 +42,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-serif text-2xl text-[#881337] mb-4">Introduction</h2>
             <p className="text-stone-600 text-sm leading-relaxed">
-              Vani Collection Atelier ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website, make a purchase, or interact with our services. Please read this privacy policy carefully.
+              Vani Collection Atelier (“we,” “our,” or “us”) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website, make a purchase, or interact with our services. Please read this privacy policy carefully.
             </p>
           </section>
 
@@ -255,7 +255,7 @@ export default function PrivacyPage() {
 
           {/* Children's Privacy */}
           <section>
-            <h2 className="font-serif text-2xl text-[#881337] mb-6">Children's Privacy</h2>
+            <h2 className="font-serif text-2xl text-[#881337] mb-6">Children’s Privacy</h2>
             <p className="text-stone-600 text-sm">
               Our services are not directed to children under 13 years of age. We do not knowingly collect personal information from children under 13. If we become aware that we have collected such information, we will take steps to delete it promptly.
             </p>
@@ -265,7 +265,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-serif text-2xl text-[#881337] mb-6">Changes to This Privacy Policy</h2>
             <p className="text-stone-600 text-sm">
-              We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated "Last Updated" date. We encourage you to review this policy periodically to stay informed about how we protect your information.
+              We may update this Privacy Policy from time to time. Any changes will be posted on this page with an updated “Last Updated” date. We encourage you to review this policy periodically to stay informed about how we protect your information.
             </p>
           </section>
 
