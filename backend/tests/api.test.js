@@ -31,6 +31,10 @@ const config = loadConfig();
 // suite skips instead of failing, so `npm test` stays green on machines without MongoDB.
 const maybeTest = (name, fn) => test(name, (t) => (dbAvailable ? fn(t) : t.skip(skipReason || 'MongoDB unavailable')));
 
+// Routes answer with `res.json({ data: <mongoose doc> })`, and a document's `toJSON` ships `_id` —
+// the `id` virtual is not part of it. Always read ids off a response body as `_id`; reading `.id`
+// yields `undefined`, which interpolates into a URL as the string "undefined" and surfaces far away
+// as a CastError 500. (`doc.id` on a document fetched directly from a model is still fine.)
 const api = async (path, { method = 'GET', body, token, headers = {} } = {}) => {
   const response = await fetch(`${baseUrl}${path}`, { method, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined });
   const text = await response.text();
@@ -132,7 +136,7 @@ maybeTest('catalogue, checkout, stock reservation and idempotent ERP sync work e
 
   const adminLogin = await api('/api/auth/login', { method: 'POST', body: { email: 'admin@example.com', password: 'AdminPass12345' } });
   const adminToken = accessTokenFrom(adminLogin.setCookie);
-  const statusUpdate = await api(`/api/orders/${order.body.data.id}/status`, { method: 'PATCH', token: adminToken, body: { status: 'packed', note: 'Packed at Ujjain studio' } });
+  const statusUpdate = await api(`/api/orders/${order.body.data._id}/status`, { method: 'PATCH', token: adminToken, body: { status: 'packed', note: 'Packed at Ujjain studio' } });
   assert.equal(statusUpdate.status, 200);
   assert.equal(statusUpdate.body.data.status, 'packed');
 
@@ -216,7 +220,7 @@ maybeTest('reviews require moderation before they are public', async () => {
   const admin = await User.findOne({ email: 'admin@example.com' });
   const adminLogin = await api('/api/auth/login', { method: 'POST', body: { email: admin.email, password: 'AdminPass12345' } });
   const adminToken = accessTokenFrom(adminLogin.setCookie);
-  const published = await api(`/api/reviews/${created.body.data.id}`, { method: 'PATCH', token: adminToken, body: { status: 'published' } });
+  const published = await api(`/api/reviews/${created.body.data._id}`, { method: 'PATCH', token: adminToken, body: { status: 'published' } });
   assert.equal(published.status, 200);
   assert.equal((await api(`/api/reviews/product/${product.id}`)).body.data.length, 1);
   const summary = await api(`/api/reviews/summary/${product.id}`);
@@ -234,7 +238,7 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
 
   const customerToken = await signup('returns@example.com');
   const order = await api('/api/orders', { method: 'POST', token: customerToken, body: { items: [{ productId: (await Product.findOne()).id, sku: 'VC-AN-01-M', quantity: 1 }], shippingAddress: { fullName: 'Return User', phone: '9876543210', email: 'returns@example.com', line1: '9 Bhoj Marg', city: 'Ujjain', state: 'Madhya Pradesh', pincode: '456010' }, paymentMethod: 'cod' } });
-  const orderId = order.body.data.id;
+  const orderId = order.body.data._id;
   const early = await api('/api/returns', { method: 'POST', token: customerToken, body: { orderId, items: [{ sku: 'VC-AN-01-M', quantity: 1, reason: 'Size issue' }] } });
   assert.equal(early.status, 409);
 
@@ -243,7 +247,7 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
   const request = await api('/api/returns', { method: 'POST', token: customerToken, body: { orderId, items: [{ sku: 'VC-AN-01-M', quantity: 1, reason: 'Size issue' }] } });
   assert.equal(request.status, 201);
   assert.ok(request.body.data.refundAmount > 0);
-  const approved = await api(`/api/returns/${request.body.data.id}`, { method: 'PATCH', token: adminToken, body: { status: 'approved', adminNote: 'Pickup scheduled' } });
+  const approved = await api(`/api/returns/${request.body.data._id}`, { method: 'PATCH', token: adminToken, body: { status: 'approved', adminNote: 'Pickup scheduled' } });
   assert.equal(approved.body.data.status, 'approved');
   const forbidden = await api('/api/returns', { method: 'PATCH', token: customerToken, body: {} });
   assert.equal(forbidden.status, 405);
@@ -326,16 +330,16 @@ maybeTest('customers can cancel their own pending order and reserved stock is re
   assert.equal(order.status, 201);
   assert.equal((await Inventory.findOne({ sku: 'VC-AN-01-M' })).reserved, 2);
 
-  const cancelled = await api(`/api/orders/${order.body.data.id}/cancel`, { method: 'POST', token, body: { reason: 'Ordered the wrong size' } });
+  const cancelled = await api(`/api/orders/${order.body.data._id}/cancel`, { method: 'POST', token, body: { reason: 'Ordered the wrong size' } });
   assert.equal(cancelled.status, 200);
   assert.equal(cancelled.body.data.status, 'cancelled');
   assert.equal((await Inventory.findOne({ sku: 'VC-AN-01-M' })).reserved, 0, 'cancelling releases the reservation');
 
-  const again = await api(`/api/orders/${order.body.data.id}/cancel`, { method: 'POST', token, body: {} });
+  const again = await api(`/api/orders/${order.body.data._id}/cancel`, { method: 'POST', token, body: {} });
   assert.equal(again.status, 409);
 
   const stranger = await signup('stranger@example.com');
-  const notMine = await api(`/api/orders/${order.body.data.id}/cancel`, { method: 'POST', token: stranger, body: {} });
+  const notMine = await api(`/api/orders/${order.body.data._id}/cancel`, { method: 'POST', token: stranger, body: {} });
   assert.equal(notMine.status, 404);
 });
 

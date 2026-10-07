@@ -390,6 +390,10 @@ let skipReason = '';
 
 const maybeTest = (name, fn) => test(name, (t) => (dbAvailable ? fn(t) : t.skip(skipReason || 'MongoDB unavailable')));
 
+// Routes answer with `res.json({ data: <mongoose doc> })`, and a document's `toJSON` ships `_id` —
+// the `id` virtual is not part of it. Always read ids off a response body as `_id`; reading `.id`
+// yields `undefined`, which interpolates into a URL as the string "undefined" and surfaces far away
+// as a CastError 500. (`doc.id` on a document fetched directly from a model is still fine.)
 const api = async (path, { method = 'GET', body, token } = {}) => {
   const response = await fetch(`${baseUrl}${path}`, { method, headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
   const text = await response.text();
@@ -445,7 +449,7 @@ maybeTest('placing an order enqueues order-confirmation and a broken transport c
     },
   });
   assert.equal(created.status, 201, `a broken mail transport must not fail checkout: ${JSON.stringify(created.body)}`);
-  const orderId = created.body.data.id;
+  const orderId = created.body.data._id;
 
   const confirmation = await EmailLog.findOne({ template: 'order-confirmation', orderId });
   if (!confirmation) {
@@ -529,22 +533,22 @@ maybeTest('cancelling an order and moving a return both email the shopper', asyn
   const order = await api('/api/orders', { method: 'POST', token, body: { items: [{ productId: product.id, sku: 'VC-AN-01-M', quantity: 1 }], shippingAddress: address, paymentMethod: 'cod' } });
   assert.equal(order.status, 201);
   const errorMark = capturedRequestErrors.length;
-  const cancelled = await api(`/api/orders/${order.body.data.id}/cancel`, { method: 'POST', token, body: { reason: 'Ordered the wrong size' } });
+  const cancelled = await api(`/api/orders/${order.body.data._id}/cancel`, { method: 'POST', token, body: { reason: 'Ordered the wrong size' } });
   const requestErrors = capturedRequestErrors.slice(errorMark).map(({ fields, message }) => ({ message, error: fields?.err?.stack || fields?.err?.message || String(fields?.err || '') }));
   assert.equal(cancelled.status, 200, `cancellation response: ${JSON.stringify(cancelled.body)}; server log: ${JSON.stringify(requestErrors)}`);
-  const cancelLog = await EmailLog.findOne({ template: 'order-cancelled', orderId: order.body.data.id });
+  const cancelLog = await EmailLog.findOne({ template: 'order-cancelled', orderId: order.body.data._id });
   assert.ok(cancelLog, 'cancellation emails the shopper');
   assert.equal(cancelLog.data.reason, 'Ordered the wrong size');
 
   // Return lifecycle: deliver a second order, request a return, then approve it.
   const delivered = await api('/api/orders', { method: 'POST', token, body: { items: [{ productId: product.id, sku: 'VC-AN-01-M', quantity: 1 }], shippingAddress: address, paymentMethod: 'cod' } });
-  const deliveredId = delivered.body.data.id;
+  const deliveredId = delivered.body.data._id;
   await api(`/api/orders/${deliveredId}/status`, { method: 'PATCH', token: adminToken, body: { status: 'delivered' } });
   const requested = await api('/api/returns', { method: 'POST', token, body: { orderId: deliveredId, items: [{ sku: 'VC-AN-01-M', quantity: 1, reason: 'Size too small' }] } });
   assert.equal(requested.status, 201);
   assert.ok(await EmailLog.findOne({ template: 'return-status', orderId: deliveredId }), 'submitting a return emails the shopper');
 
-  const approved = await api(`/api/returns/${requested.body.data.id}`, { method: 'PATCH', token: adminToken, body: { status: 'approved', adminNote: 'Pickup on Monday', refundAmount: 3999, refundId: 'rfnd_TEST999' } });
+  const approved = await api(`/api/returns/${requested.body.data._id}`, { method: 'PATCH', token: adminToken, body: { status: 'approved', adminNote: 'Pickup on Monday', refundAmount: 3999, refundId: 'rfnd_TEST999' } });
   assert.equal(approved.status, 200);
   assert.equal(approved.body.data.refundAmount, 3999, 'finance can record the agreed refund amount');
   assert.equal(approved.body.data.refundId, 'rfnd_TEST999');
