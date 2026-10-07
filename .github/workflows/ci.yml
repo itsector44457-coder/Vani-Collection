@@ -76,16 +76,35 @@ jobs:
               echo
               grep -E '^# (tests|pass|fail|skipped|duration_ms)' test-output.txt | tail -10 || true
             } >> "$GITHUB_STEP_SUMMARY"
-            # Also attach the failure context as a check annotation; it is queryable over the GitHub
+            # Attach the failure context as check annotations; these are queryable over the GitHub
             # API even when a client cannot fetch the raw log archive from Actions' blob storage.
-            # Lead with the totals and the complete list of failing test names (both compact), then
-            # the first detailed TAP block: the earliest failure is usually the root cause, and later
-            # ones cascade from it. A plain `tail` showed only the last failures and hid the rest.
+            # One annotation per failing test: a single combined blob gets truncated at ~65k and,
+            # worse, the earlier failures scrolled out of the window entirely — the root cause is
+            # usually the *first* failure, since later ones cascade from it.
             totals=$(grep -E '^# (tests|pass|fail|skipped|cancelled)' test-output.txt | tr '\n' ' ' || true)
-            failing=$(grep -E '^not ok' test-output.txt | tr '\n' ' ' || true)
-            details=$(grep -n -A 18 -B 4 '^not ok' test-output.txt | head -c 10000 | tr '\n' ' ' || true)
-            if [ -n "$failing" ] || [ -n "$details" ]; then
-              echo "::error title=Backend TAP failure details::TOTALS ${totals} || FAILURES ${failing} || DETAIL ${details}"
+            failing_lines=$(grep -n '^not ok' test-output.txt | cut -d: -f1 || true)
+            if [ -n "$failing_lines" ]; then
+              idx=0
+              while IFS= read -r line_no; do
+                idx=$((idx + 1))
+                name=$(sed -n "${line_no}p" test-output.txt | sed -e 's/^not ok [0-9]* - //' -e 's/[[:space:]]*$//' | cut -c1-70)
+                # Start at the failing line itself: the test name is already in the annotation title,
+                # and pulling in preceding lines only drags in the previous test's tail.
+                start=$line_no
+                # End at the next test boundary, so one failure's block never swallows the next.
+                end=$((line_no + 16))
+                next_boundary=$(awk -v s=$((line_no + 1)) 'NR >= s && /^(not ok |ok |# Subtest|# )/ { print NR; exit }' test-output.txt)
+                if [ -n "$next_boundary" ]; then
+                  end=$((next_boundary - 1))
+                fi
+                # Strip the extremely repetitive Mongoose deprecation warnings, which otherwise
+                # consume the whole window and squeeze out the actual assertion output.
+                block=$(sed -n "${start},${end}p" test-output.txt \
+                  | grep -v -e 'MONGOOSE' -e 'trace-warnings' \
+                  | tr '\n' ' ' | cut -c1-1400)
+                echo "::error title=Failure ${idx}: ${name}::${block}"
+              done <<< "$failing_lines"
+              echo "::error title=Backend totals::${totals}"
             else
               echo "::error title=Backend test failed::npm test exited with $test_status; inspect the uploaded backend-test-output artifact"
             fi

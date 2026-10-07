@@ -100,7 +100,10 @@ module.exports = ({ auth }) => {
 
     const wishlist = await Wishlist.findOne({ userId: req.user.id }).populate('items.productId');
     const data = serializeWishlist(wishlist?.items);
-    res.json({ data, meta: { total: data.length, added: additions.length, alreadySaved: unique.length - additions.length } });
+    // `added` + `alreadySaved` reconcile against the entries the caller *sent*, not the de-duplicated
+    // set, so the client can tell "you asked for 3, 1 was new and 2 were already saved" apart from
+    // "you asked for 2". A guest list can legitimately carry the same product twice.
+    res.json({ data, meta: { total: data.length, added: additions.length, alreadySaved: incoming.length - additions.length } });
   }));
 
   router.delete('/wishlist/:productId', validate(z.object({ productId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'productId must be a product id') }), 'params'), asyncHandler(async (req, res) => {

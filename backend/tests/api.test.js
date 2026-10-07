@@ -17,6 +17,7 @@ const { processPendingEvents } = require('../src/workers/integration-worker');
 const User = require('../models/User');
 const Product = require('../models/Product');
 const Inventory = require('../models/Inventory');
+const Order = require('../models/Order');
 const IntegrationEvent = require('../models/IntegrationEvent');
 
 let replset;
@@ -148,9 +149,16 @@ maybeTest('catalogue, checkout, stock reservation and idempotent ERP sync work e
   assert.equal(dashboard.body.data.activeProducts, 1);
   assert.ok(dashboard.body.data.openOrders >= 1);
 
+  // A GST return reports tax on *captured* orders only, so the endpoint filters on
+  // `payment.status: 'paid'` — correctly, since including unpaid orders would overstate the
+  // liability to the exchequer. This order was placed COD, whose payment stays `pending` until it is
+  // collected at the door, so mark it captured first (there is no API route for it; online orders
+  // reach this state via the Razorpay verification webhook).
+  await Order.updateOne({ _id: order.body.data._id }, { $set: { 'payment.status': 'paid', 'payment.paidAt': new Date() } });
   const report = await api('/api/admin/reports/gst', { token: adminToken });
   assert.equal(report.status, 200);
   assert.ok(report.body.data.totalTax > 0);
+  assert.equal(report.body.data.invoices, 1);
 
   const audit = await api('/api/admin/audit-logs', { token: adminToken });
   assert.ok(audit.body.data.some((entry) => entry.action === 'order.status'));
@@ -249,8 +257,19 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
   assert.ok(request.body.data.refundAmount > 0);
   const approved = await api(`/api/returns/${request.body.data._id}`, { method: 'PATCH', token: adminToken, body: { status: 'approved', adminNote: 'Pickup scheduled' } });
   assert.equal(approved.body.data.status, 'approved');
+  // There is no collection-level PATCH route at all (`/api/returns` only serves POST and GET), so
+  // this 404s identically for a customer and for an admin — it is not an authorization boundary.
+  // The real one is `requireRoles` on `PATCH /api/returns/:id`, exercised by `early` above: a
+  // customer cannot approve their own return. Asserting 405 here would test Express's fallthrough
+  // rather than the app.
   const forbidden = await api('/api/returns', { method: 'PATCH', token: customerToken, body: {} });
-  assert.equal(forbidden.status, 405);
+  assert.equal(forbidden.status, 404);
+  const adminOnCollection = await api('/api/returns', { method: 'PATCH', token: adminToken, body: {} });
+  assert.equal(adminOnCollection.status, 404, 'the collection route does not exist for anyone');
+
+  // The boundary that does matter: a customer cannot drive the ladder on their own return.
+  const customerApprove = await api(`/api/returns/${request.body.data._id}`, { method: 'PATCH', token: customerToken, body: { status: 'completed' } });
+  assert.equal(customerApprove.status, 403, 'only staff can move a return through the ladder');
 });
 
 maybeTest('cart persists per browser, rejects oversell and merges into the customer cart on login', async () => {
