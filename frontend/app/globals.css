@@ -128,26 +128,36 @@ textarea:focus-visible,
   line-height: 1.08;
 }
 
-/* Reels scroll snap - strict settings */
+/* ------------------------------------------------------------------ */
+/*  Reels stage                                                        */
+/*                                                                     */
+/*  The stage is a fixed, exactly-viewport-tall box and every descendant */
+/*  sizes itself with height:100% — no viewport units and no zoom       */
+/*  arithmetic inside the feed, which is what made slots bleed.         */
+/* ------------------------------------------------------------------ */
+.reels-stage {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh; /* dynamic viewport: correct while mobile URL bars show or hide */
+  overscroll-behavior: none;
+}
+
 .reels-scroll-container {
   scrollbar-width: none;
   -ms-overflow-style: none;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
 }
 
 .reels-scroll-container::-webkit-scrollbar {
   display: none;
 }
 
-.reel-item {
-  position: relative;
-  overflow: hidden;
-}
-
-/* Override zoom for reels page to get exact viewport height */
-@media (min-width: 640px) {
-  .reels-page-container {
-    zoom: 1 !important;
-  }
+.reels-slot {
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 /* Hide scrollbar utility */

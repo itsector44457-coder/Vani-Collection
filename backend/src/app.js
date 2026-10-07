@@ -51,6 +51,7 @@ const buildApp = ({ config, logger }) => {
   mount('/api/returns', require('./routes/returns')({ auth }));
   mount('/api/admin', require('./routes/admin')({ auth }));
   mount('/api/content', require('./routes/content')({ auth }));
+  mount('/api/reels', require('./routes/reels')({ auth, optionalAuth }));
   mount('/api/integrations', require('./routes/integrations')({ config, auth }));
   mount('/api/shipments', require('./routes/shipments')({ config, auth }));
   mount('/api/uploads', require('./routes/uploads')({ auth }));

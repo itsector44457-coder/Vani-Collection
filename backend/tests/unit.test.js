@@ -119,8 +119,112 @@ test('route surface is complete and free of duplicate registrations', () => {
       }
     }
   }
-  for (const required of ['POST /api/orders', 'POST /api/integrations/erp/webhook', 'POST /api/webhooks/razorpay', 'GET /api/admin/dashboard', 'PATCH /api/inventory/:sku', 'POST /api/payments/razorpay/verify', 'POST /api/returns', 'POST /api/uploads/images', 'GET /api/cart', 'POST /api/cart/items', 'PATCH /api/cart/items/:lineId', 'DELETE /api/cart/items/:lineId', 'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/orders/:id/cancel']) {
+  for (const required of ['POST /api/orders', 'POST /api/integrations/erp/webhook', 'POST /api/webhooks/razorpay', 'GET /api/admin/dashboard', 'PATCH /api/inventory/:sku', 'POST /api/payments/razorpay/verify', 'POST /api/returns', 'POST /api/uploads/images', 'GET /api/cart', 'POST /api/cart/items', 'PATCH /api/cart/items/:lineId', 'DELETE /api/cart/items/:lineId', 'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/orders/:id/cancel', 'GET /api/reels', 'GET /api/reels/:id', 'GET /api/reels/admin', 'POST /api/reels', 'PATCH /api/reels/:id', 'PATCH /api/reels/reorder', 'DELETE /api/reels/:id', 'POST /api/reels/:id/engage', 'GET /api/uploads/signature']) {
     assert.ok(seen.has(required), `missing route ${required}`);
   }
   assert.ok(seen.size >= 60, `expected a broad API surface, saw ${seen.size} routes`);
+});
+
+test('reels router registers its literal paths before the :id wildcards', () => {
+  const app = buildApp({ config: loadConfig(), logger: silentLogger });
+  const reels = app.locals.routes.find((entry) => entry.base === '/api/reels');
+  assert.ok(reels, 'the /api/reels router is mounted');
+  const order = reels.router.stack.filter((layer) => layer.route).map((layer) => `${Object.keys(layer.route.methods)[0].toUpperCase()} ${layer.route.path}`);
+  // Express matches in registration order: `/admin` and `/reorder` would be swallowed by `/:id`.
+  assert.ok(order.indexOf('GET /admin') < order.indexOf('GET /:id'), `GET /admin must precede GET /:id (${order.join(', ')})`);
+  assert.ok(order.indexOf('PATCH /reorder') < order.indexOf('PATCH /:id'), `PATCH /reorder must precede PATCH /:id (${order.join(', ')})`);
+});
+
+test('reel serialization folds the linked product into a storefront-ready card', () => {
+  const { serialize } = require('../src/routes/reels');
+  const productId = '6650f0a2c1d2e3f4a5b6c7d8';
+  const reel = {
+    _id: '6650f0a2c1d2e3f4a5b6c7d9',
+    title: 'Bagru handblock drop',
+    videoUrl: 'https://res.cloudinary.com/vani/video/upload/v1/reels/a.mp4',
+    likes: 12, views: 90, shares: 3, cartAdds: 1,
+    status: 'published', position: 0,
+    productId: {
+      _id: productId,
+      name: 'Gulab Bagh Anarkali',
+      slug: 'gulab-bagh-anarkali',
+      category: 'anarkalis',
+      status: 'active',
+      images: [{ url: 'https://res.cloudinary.com/vani/image/upload/v1/p/front.jpg' }],
+      variants: [
+        { sku: 'VC-AN-01-M', size: 'M', price: 2499, mrp: 3499, active: true },
+        { sku: 'VC-AN-01-L', size: 'L', price: 2699, mrp: 3499, active: true },
+        { sku: 'VC-AN-01-S', size: 'S', price: 2499, mrp: 3499, active: false },
+      ],
+    },
+  };
+
+  const flat = serialize(reel);
+  assert.equal(flat.productId, productId);
+  assert.equal(flat.product.slug, 'gulab-bagh-anarkali');
+  assert.equal(flat.product.image, 'https://res.cloudinary.com/vani/image/upload/v1/p/front.jpg');
+  assert.equal(flat.product.price, 2499, 'the card shows the cheapest live variant');
+  assert.deepEqual(flat.product.sizes, ['M', 'L'], 'inactive variants are not offered');
+  assert.deepEqual(
+    flat.product.variants.map((variant) => variant.sku),
+    ['VC-AN-01-M', 'VC-AN-01-L'],
+    'sellable variants ride along so add-to-bag needs no second round trip'
+  );
+  assert.ok(!('costPrice' in flat.product.variants[0]), 'cost price never leaves the API');
+
+  const orphan = serialize({ _id: reel._id, title: 'orphan', videoUrl: 'https://x.test/v.mp4', productId });
+  assert.equal(orphan.productId, productId, 'a deleted product keeps its id…');
+  assert.equal(orphan.product, null, '…but renders no product card');
+});
+
+test('Cloudinary upload signatures are minted for staff and verify against the upload form', async () => {
+  const express = require('express');
+  const cloudinary = require('cloudinary');
+  const saved = { ...process.env };
+  process.env.CLOUDINARY_CLOUD_NAME = 'vani-test-cloud';
+  process.env.CLOUDINARY_API_KEY = 'test-api-key';
+  process.env.CLOUDINARY_API_SECRET = 'test-api-secret';
+  try {
+    // Auth is stubbed so this exercises the real handler without a database.
+    const auth = (req, _res, next) => { req.user = { id: '507f1f77bcf86cd799439011', roles: ['admin'] }; next(); };
+    const app = express();
+    app.use('/api/uploads', require('../src/routes/uploads')({ auth }));
+    // eslint-disable-next-line no-unused-vars
+    app.use((error, _req, res, _next) => res.status(error.status || 500).json({ error: { code: error.code, message: error.message } }));
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise((resolve) => server.once('listening', resolve));
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const get = async (path) => {
+      const response = await fetch(`${base}${path}`);
+      return { status: response.status, body: await response.json() };
+    };
+
+    const video = await get('/api/uploads/signature?type=video&folder=reels');
+    assert.equal(video.status, 200);
+    assert.equal(video.body.data.cloudName, 'vani-test-cloud');
+    assert.equal(video.body.data.folder, 'vani-collection/reels');
+    assert.equal(video.body.data.resourceType, 'video');
+    assert.equal(video.body.data.uploadUrl, 'https://api.cloudinary.com/v1_1/vani-test-cloud/video/upload');
+    assert.equal(video.body.data.maxBytes, 300 * 1024 * 1024);
+
+    // Cloudinary recomputes the signature from exactly the fields the browser posts; a mismatch 401s.
+    const expected = cloudinary.v2.utils.api_sign_request(
+      { folder: video.body.data.folder, timestamp: video.body.data.timestamp },
+      process.env.CLOUDINARY_API_SECRET
+    );
+    assert.equal(video.body.data.signature, expected, 'the signature matches the uploaded form fields');
+
+    const image = await get('/api/uploads/signature?type=image&folder=products');
+    assert.equal(image.body.data.folder, 'vani-collection/products');
+    assert.equal(image.body.data.resourceType, 'image');
+
+    // Hostile query values must fall back to the allowlist, never reach the folder path.
+    const hostile = await get('/api/uploads/signature?type=hack&folder=../../../etc');
+    assert.equal(hostile.body.data.folder, 'vani-collection/reels');
+    assert.equal(hostile.body.data.resourceType, 'video');
+
+    await new Promise((resolve) => server.close(resolve));
+  } finally {
+    process.env = saved;
+  }
 });

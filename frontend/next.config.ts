@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "cdn.shopify.com",
       },
+      {
+        // Reel posters and product imagery uploaded through the admin console.
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
     ],
   },
 };
