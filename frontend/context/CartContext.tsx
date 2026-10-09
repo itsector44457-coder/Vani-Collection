@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { isApiConfigured } from "../lib/api-client";
 import {
   addCartItem,
@@ -59,6 +60,8 @@ const OBJECT_ID = /^[0-9a-f]{24}$/i;
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
+  const pathname = usePathname();
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
   const configured = isApiConfigured();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [snapshot, setSnapshot] = useState<CartSnapshot | null>(null);
@@ -78,7 +81,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   /* ---------------------------------------------------------------- cart load */
 
   useEffect(() => {
-    if (!configured) return;
+    if (!configured || isAdminRoute) return;
     const controller = new AbortController();
     let cancelled = false;
     const load = async () => {
@@ -103,13 +106,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       controller.abort();
     };
-  }, [configured, applySnapshot, isAuthenticated, nonce]);
+  }, [configured, isAdminRoute, applySnapshot, isAuthenticated, nonce]);
 
   /* ------------------------------------------------------------ wishlist load */
 
   useEffect(() => {
     const local = readLocalWishlist();
-    if (!configured || !isAuthenticated) {
+    if (isAdminRoute || !configured || !isAuthenticated) {
       /* Falling back to the device wishlist is a refresh, not a synchronous state reset. */
       void Promise.resolve().then(() =>
         setWishlist((previous) => (previous.join("|") === local.join("|") ? previous : local)),
@@ -156,7 +159,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       controller.abort();
     };
-  }, [configured, isAuthenticated]);
+  }, [configured, isAdminRoute, isAuthenticated]);
 
   /* ----------------------------------------------------------------- mutations */
 

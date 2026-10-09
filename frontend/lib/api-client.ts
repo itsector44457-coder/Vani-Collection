@@ -967,7 +967,7 @@ export const emailStatusTone = (status: string): "success" | "warning" | "danger
 
 /** Staff roles allowed into the admin console. */
 export const STAFF_ROLES = ["support", "warehouse", "catalog_manager", "finance", "admin", "super_admin"] as const;
-export const hasStaffAccess = (user: SessionUser | null): boolean => Boolean(user?.roles?.some((role) => (STAFF_ROLES as readonly string[]).includes(role)));
+export const hasStaffAccess = (user: { roles?: readonly string[] } | null): boolean => Boolean(user?.roles?.some((role) => (STAFF_ROLES as readonly string[]).includes(role)));
 
 export const formatCurrency = (value: number): string => `₹${Math.round(value || 0).toLocaleString("en-IN")}`;
 

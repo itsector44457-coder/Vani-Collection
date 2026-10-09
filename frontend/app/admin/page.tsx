@@ -117,6 +117,7 @@ export default function AdminDashboard() {
           <AdminDataBadge resource={dashboard} label="30 days" />
           <Link
             href="/admin/orders"
+            prefetch={false}
             className="rounded-xl bg-[#881337] px-4 py-2 text-[12.5px] font-semibold text-white transition hover:bg-[#6b0f2b]"
           >
             Manage orders
@@ -194,7 +195,7 @@ export default function AdminDashboard() {
         <Card
           title="Top performing products"
           action={
-            <Link href="/admin/products" className="text-[12px] font-semibold text-[#881337] hover:underline">
+            <Link href="/admin/products" prefetch={false} className="text-[12px] font-semibold text-[#881337] hover:underline">
               View all →
             </Link>
           }
@@ -229,7 +230,7 @@ export default function AdminDashboard() {
         <Card
           title="Recent orders"
           action={
-            <Link href="/admin/orders" className="text-[12px] font-semibold text-[#881337] hover:underline">
+            <Link href="/admin/orders" prefetch={false} className="text-[12px] font-semibold text-[#881337] hover:underline">
               View all →
             </Link>
           }

@@ -61,16 +61,30 @@ module.exports = ({ auth, config }) => {
   }));
 
   router.get('/catalogue', requireRoles('catalog_manager','warehouse','support','finance','admin','super_admin'), asyncHandler(async (req, res) => {
-    const page = Math.max(1, Number(req.query.page) || 1), limit = Math.min(100, Number(req.query.limit) || 50);
+    const page = Math.max(1, Number(req.query.page) || 1), limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
     const filter = {};
     if (req.query.status) filter.status = req.query.status;
     if (req.query.category) filter.category = req.query.category;
     if (req.query.q) filter.name = new RegExp(String(req.query.q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    const [products, total, stockRows, salesRows] = await Promise.all([
+    const [products, total] = await Promise.all([
       Product.find(filter).sort({ updatedAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       Product.countDocuments(filter),
-      Inventory.aggregate([{ $group: { _id: '$sku', available: { $sum: { $subtract: ['$onHand', '$reserved'] } }, onHand: { $sum: '$onHand' }, reorderLevel: { $max: '$reorderLevel' } } }]),
-      Order.aggregate([{ $unwind: '$items' }, { $match: { status: { $nin: ['cancelled', 'returned'] } } }, { $group: { _id: '$items.productId', units: { $sum: '$items.quantity' }, revenue: { $sum: '$items.lineTotal' } } }]),
+    ]);
+    if (!products.length) return res.json({ data: [], meta: { page, limit, total, pages: Math.ceil(total / limit) } });
+
+    const productIds = products.map((product) => product._id);
+    const skus = products.flatMap((product) => product.variants.map((variant) => variant.sku));
+    const [stockRows, salesRows] = await Promise.all([
+      Inventory.aggregate([
+        { $match: { sku: { $in: skus } } },
+        { $group: { _id: '$sku', available: { $sum: { $subtract: ['$onHand', '$reserved'] } }, onHand: { $sum: '$onHand' }, reorderLevel: { $max: '$reorderLevel' } } },
+      ]),
+      Order.aggregate([
+        { $match: { 'items.productId': { $in: productIds }, status: { $nin: ['cancelled', 'returned'] } } },
+        { $unwind: '$items' },
+        { $match: { 'items.productId': { $in: productIds } } },
+        { $group: { _id: '$items.productId', units: { $sum: '$items.quantity' }, revenue: { $sum: '$items.lineTotal' } } },
+      ]),
     ]);
     const stock = new Map(stockRows.map((row) => [row._id, row]));
     const sales = new Map(salesRows.map((row) => [String(row._id), row]));

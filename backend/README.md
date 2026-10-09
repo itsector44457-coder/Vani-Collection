@@ -92,6 +92,9 @@ server and admin seed script; do not set it in production.
 - Run behind TLS (Nginx/Caddy/Render/Railway). Set `COOKIE_SECURE=true` in production so auth cookies
   are `Secure`; the API expects to sit behind a proxy (`trust proxy` is enabled).
 - Add the storefront origin(s) to `CORS_ORIGINS`; cookies are sent with credentials.
+- Production disables Mongoose `autoIndex`; after deploying the admin catalogue product-sales index,
+  create it during a controlled maintenance window with
+  `db.orders.createIndex({ "items.productId": 1, status: 1 })`.
 - Set the frontend build-time `NEXT_PUBLIC_API_URL` to the HTTPS API origin. Admin login uses staff
   email/password and httpOnly session cookies; it does not require an API key.
 - Use `COOKIE_SAMESITE=none` with `COOKIE_SECURE=true` only when the storefront and API are cross-site.

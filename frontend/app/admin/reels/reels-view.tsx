@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Badge, Card, PageHeading, Alert, FilterTabs, Modal, Field, TextInput, Textarea, Select, ButtonPrimary, ButtonGhost, ButtonDanger } from "@/lib/admin-ui";
+import { Badge, Card, PageHeading, Alert, FilterTabs, Modal, Field, TextInput, Textarea, Select, ButtonPrimary, ButtonGhost } from "@/lib/admin-ui";
 import AdminDataBadge from "@/components/admin/AdminDataBadge";
-import { api, apiFetch, ApiError, type AdminReel, type AdminCatalogueProduct, type Paginated, type ReelInput } from "@/lib/api-client";
+import { api, ApiError, type AdminReel, type AdminCatalogueProduct, type Paginated, type ReelInput } from "@/lib/api-client";
 import { useApiResource } from "@/lib/use-api";
 import { useAdminSession } from "@/lib/use-admin-session";
 
@@ -97,32 +97,26 @@ export default function ReelsView() {
     )
   );
 
-  // Show access denied message if user lacks required role
-  if (session.authenticated && !hasReelsAccess) {
-    return (
-      <div className="space-y-5">
-        <PageHeading
-          eyebrow="Content"
-          title="Reels"
-          subtitle="Access restricted"
-        />
-        <Alert tone="warning">
-          <strong>Access denied.</strong> Reels management requires catalog_manager, admin, or super_admin role.
-        </Alert>
-      </div>
-    );
-  }
-
   // Create/Edit modal state
   const [showModal, setShowModal] = useState(false);
+  const [productsNeeded, setProductsNeeded] = useState(false);
   const [editingReel, setEditingReel] = useState<AdminReel | null>(null);
   const [formData, setFormData] = useState<ReelInput>({});
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   // API resources
-  const reels = useApiResource<Paginated<AdminReel>>((signal) => api.reels({ limit: 100 }, signal), DEMO_REELS);
-  const products = useApiResource<Paginated<AdminCatalogueProduct>>((signal) => api.catalogue({ limit: 100 }, signal), DEMO_PRODUCTS);
+  const canLoadReels = !session.configured || hasReelsAccess;
+  const reels = useApiResource<Paginated<AdminReel>>(
+    canLoadReels ? (signal) => api.reels({ limit: 100 }, signal) : null,
+    DEMO_REELS,
+    [canLoadReels]
+  );
+  const products = useApiResource<Paginated<AdminCatalogueProduct>>(
+    productsNeeded ? (signal) => api.catalogue({ limit: 100 }, signal) : null,
+    DEMO_PRODUCTS,
+    [productsNeeded]
+  );
 
   const reelsList = reels.data.data;
   const productsList = products.data.data;
@@ -159,6 +153,17 @@ export default function ReelsView() {
     return reel.productId?.name || "Product not found";
   };
 
+  if (session.authenticated && !hasReelsAccess) {
+    return (
+      <div className="space-y-5">
+        <PageHeading eyebrow="Content" title="Reels" subtitle="Access restricted" />
+        <Alert tone="warning">
+          <strong>Access denied.</strong> Reels management requires catalog_manager, admin, or super_admin role.
+        </Alert>
+      </div>
+    );
+  }
+
   const productImage = (reel: AdminReel) => {
     if (typeof reel.productId === "string") return null;
     return reel.productId?.images?.[0]?.url || null;
@@ -170,6 +175,7 @@ export default function ReelsView() {
   };
 
   const openCreateModal = () => {
+    setProductsNeeded(true);
     setEditingReel(null);
     setFormData({ isActive: true, position: 0 });
     setFormErrors({});
@@ -177,6 +183,7 @@ export default function ReelsView() {
   };
 
   const openEditModal = (reel: AdminReel) => {
+    setProductsNeeded(true);
     setEditingReel(reel);
     setFormData({
       title: reel.title,

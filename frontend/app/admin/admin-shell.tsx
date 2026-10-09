@@ -39,11 +39,6 @@ const DashboardIcon = () => (
     <rect x="13.5" y="11.5" width="7.5" height="9.5" rx="1.5" />
   </svg>
 );
-const AnalyticsIcon = () => (
-  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
-    <path d="M3 20V9M9 20V4M15 20v-7M21 20v-4" />
-  </svg>
-);
 const ProductsIcon = () => (
   <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
     <path d="M12 2.5 21 7v10l-9 4.5L3 17V7z" />
@@ -68,14 +63,6 @@ const ReelsIcon = () => (
     <rect x="3" y="3" width="18" height="18" rx="3.5" />
     <path d="M3 8.5h18M9 3v5.5" />
     <path d="m11 12.5 4.5 2.6-4.5 2.6z" fill="currentColor" stroke="none" />
-  </svg>
-);
-const CollectionIcon = () => (
-  <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
-    <rect x="3" y="3" width="7" height="7" rx="1.5" />
-    <rect x="14" y="3" width="7" height="7" rx="1.5" />
-    <rect x="3" y="14" width="7" height="7" rx="1.5" />
-    <rect x="14" y="14" width="7" height="7" rx="1.5" />
   </svg>
 );
 const MailIcon = () => (
@@ -198,7 +185,6 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
     label: "Overview",
     items: [
       { name: "Dashboard", href: "/admin", icon: DashboardIcon },
-      { name: "Analytics", href: "/admin/analytics", icon: AnalyticsIcon, matchPrefix: true },
       { name: "Reports", href: "/admin/reports", icon: ReportsIcon, matchPrefix: true },
     ],
   },
@@ -219,7 +205,6 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
     label: "Content",
     items: [
       { name: "Reels", href: "/admin/reels", icon: ReelsIcon, matchPrefix: true },
-      { name: "Collections", href: "/admin/collections", icon: CollectionIcon, matchPrefix: true },
       { name: "Reviews", href: "/admin/reviews", icon: ReviewIcon, matchPrefix: true },
       { name: "Homepage content", href: "/admin/content", icon: ContentIcon, matchPrefix: true },
     ],
@@ -336,7 +321,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       >
         {/* Brand */}
         <div className={`flex items-center pt-5 pb-4 ${isSidebarCollapsed ? "flex-col gap-4 px-3" : "justify-between px-5"}`}>
-          <Link href="/admin" aria-label="Vani Admin dashboard" className={`flex min-w-0 items-center ${isSidebarCollapsed ? "justify-center" : "gap-3"}`}>
+          <Link href="/admin" prefetch={false} aria-label="Vani Admin dashboard" className={`flex min-w-0 items-center ${isSidebarCollapsed ? "justify-center" : "gap-3"}`}>
             <div className="relative flex h-10 w-10 items-center justify-center">
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#dfc28c] via-[#c9a56b] to-[#8a6d3f]" />
               <div className="absolute inset-[1.5px] rounded-[14px] bg-[#14100f]" />
@@ -394,6 +379,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                     <li key={item.name}>
                       <Link
                         href={item.href}
+                        prefetch={false}
                         onClick={() => setMobileSidebarPath(null)}
                         title={isSidebarCollapsed ? item.name : undefined}
                         aria-label={isSidebarCollapsed ? item.name : undefined}
@@ -523,7 +509,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                     </div>
                     <ul className="p-1.5 text-[12.5px]">
                       <li>
-                        <Link href="/admin/settings" className="block rounded-lg px-3 py-2 text-stone-600 hover:bg-[#faf7f2]">
+                        <Link href="/admin/settings" prefetch={false} className="block rounded-lg px-3 py-2 text-stone-600 hover:bg-[#faf7f2]">
                           Account settings
                         </Link>
                       </li>

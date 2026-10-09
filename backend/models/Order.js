@@ -18,5 +18,6 @@ const orderSchema = new mongoose.Schema({
   notes: String, source: { type: String, default: 'website' }, statusHistory: [{ status: String, at: { type: Date, default: Date.now }, actor: String, note: String }],
 }, { timestamps: true, optimisticConcurrency: true });
 orderSchema.index({ createdAt: -1 });
+orderSchema.index({ 'items.productId': 1, status: 1 });
 orderSchema.pre('save', function () { if (!this.orderNumber) this.orderNumber = `VC${Date.now()}${Math.floor(Math.random() * 900 + 100)}`; });
 module.exports = mongoose.model('Order', orderSchema);

@@ -149,6 +149,13 @@ maybeTest('catalogue, checkout, stock reservation and idempotent ERP sync work e
   assert.equal(dashboard.body.data.activeProducts, 1);
   assert.ok(dashboard.body.data.openOrders >= 1);
 
+  const catalogue = await api('/api/admin/catalogue?limit=10', { token: adminToken });
+  assert.equal(catalogue.status, 200);
+  assert.equal(catalogue.body.data.length, 1);
+  assert.equal(catalogue.body.data[0].stockAvailable, 7);
+  assert.equal(catalogue.body.data[0].unitsSold, 2);
+  assert.equal(catalogue.body.data[0].revenue, 7998);
+
   // A GST return reports tax on *captured* orders only, so the endpoint filters on
   // `payment.status: 'paid'` — correctly, since including unpaid orders would overstate the
   // liability to the exchequer. This order was placed COD, whose payment stays `pending` until it is
