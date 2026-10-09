@@ -68,6 +68,7 @@ const buildApp = ({ config, logger }) => {
   mount('/api/coupons', require('./routes/coupons')({ auth }));
   mount('/api/returns', require('./routes/returns')({ auth }));
   mount('/api/admin', require('./routes/admin')({ auth, config }));
+  mount('/api/admin/reels', require('./routes/reels')({ auth }));
   mount('/api/content', require('./routes/content')({ auth }));
   mount('/api/integrations', require('./routes/integrations')({ config, auth }));
   mount('/api/shipments', require('./routes/shipments')({ config, auth }));
