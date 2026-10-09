@@ -1,0 +1,15 @@
+{
+  "project_type": "Node.js/Express backend + Next.js 16 frontend with TypeScript, MongoDB database",
+  "language": "JavaScript (backend), TypeScript (frontend)",
+  "build_system": "npm scripts - backend uses node --watch for dev, frontend uses next dev/build",
+  "test_framework": "node --test for backend, no frontend tests configured",
+  "build_command": "npm run build (frontend), npm run check (backend validation)",
+  "test_command": "npm run test (backend only)",
+  "verification_instructions": "Run backend tests with 'npm run test' in backend directory, start both services and test admin UI manually",
+  "snapshot_or_generated_files": "null",
+  "environment_constraints": "Requires MongoDB connection, uses httpOnly cookies for auth, Next.js App Router with strict TypeScript",
+  "contribution_requirements": "Follow existing patterns: zod validation, asyncHandler wrapper, requireRoles middleware, audit logging for admin actions",
+  "key_patterns": "Models use mongoose schemas with timestamps and optimistic concurrency. API routes use express.Router with auth/validation middleware. Admin pages use useApiResource hook with demo fallbacks. All admin routes require staff roles.",
+  "relevant_files": ["backend/src/routes/admin.js", "backend/models/Product.js", "backend/models/Order.js", "backend/src/middleware/auth.js", "frontend/app/admin/admin-shell.tsx", "frontend/app/admin/products/page.tsx", "frontend/lib/api-client.ts"],
+  "directory_structure": "backend: src/routes/ (API routes), models/ (Mongoose schemas), src/middleware/ (auth, validation). frontend: app/admin/ (admin pages), lib/ (utilities), components/ (reusable UI)"
+}

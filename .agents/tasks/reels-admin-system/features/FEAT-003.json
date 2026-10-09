@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-003",
+  "type": "feat", 
+  "description": "Integrate reels admin page into existing admin navigation and verify end-to-end functionality",
+  "status": "pending",
+  "steps": [
+    "Verify that the Reels nav item already exists in frontend/app/admin/admin-shell.tsx SECTIONS config (it's already there in the Content section)",
+    "Test that clicking the Reels nav item properly navigates to /admin/reels and activates the correct nav state",
+    "Add proper page metadata to the reels page following the pattern from other admin pages",
+    "Verify the admin layout properly wraps the reels page and applies consistent styling",
+    "Test responsive behavior of the reels admin page on mobile and desktop viewports",
+    "Verify authentication flow - unauthenticated users should be redirected to /admin/login",
+    "Test role-based access - only users with catalog_manager/admin/super_admin roles should access reels admin"
+  ],
+  "acceptance_criteria": [
+    "Reels nav item is properly highlighted when on /admin/reels page",
+    "Page title in browser tab shows 'Reels · Admin Console' following the metadata template pattern",
+    "Reels admin page is properly protected by authentication middleware",
+    "Users without proper roles receive 403 Forbidden when accessing reels API endpoints",
+    "Page layout and styling is consistent with other admin pages across all screen sizes"
+  ],
+  "verification": [
+    "Manual test: navigate through admin sidebar and verify Reels link works correctly",
+    "Manual test: sign out and verify /admin/reels redirects to login page",
+    "Manual test: sign in with different role levels and verify access control",
+    "Visual test: compare reels page styling with products page for consistency"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

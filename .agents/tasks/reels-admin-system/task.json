@@ -1,0 +1,7 @@
+{
+  "task_id": "reels-admin-system",
+  "task_description": "Build a complete Admin Reels management system for VaniCollection, including backend model/API and frontend admin interface",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003"],
+  "blocked_reason": null
+}

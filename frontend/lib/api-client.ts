@@ -353,6 +353,31 @@ export interface StaffUser {
   createdAt: string;
 }
 
+export interface AdminReel {
+  _id: string;
+  title: string;
+  description?: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  productId: { _id: string; name?: string; slug?: string; images?: { url: string; alt?: string }[] } | string;
+  position: number;
+  isActive: boolean;
+  createdBy?: { _id: string; email?: string; firstName?: string; lastName?: string };
+  updatedBy?: { _id: string; email?: string; firstName?: string; lastName?: string };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReelInput {
+  title?: string;
+  description?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  productId?: string;
+  position?: number;
+  isActive?: boolean;
+}
+
 /* ------------------------------------------------------------------ loyalty */
 
 export type LoyaltyTierName = "silver" | "gold" | "platinum";
@@ -648,6 +673,20 @@ export const api = {
     apiFetch<{ data: { summary: LoyaltySummary; transactions: LoyaltyTransaction[] } }>(`/api/admin/loyalty/${encodeURIComponent(userId)}`, { signal }),
   adminLoyaltyAdjust: (userId: string, body: { delta: number; note: string }) =>
     apiFetch<{ data: { transaction: LoyaltyTransaction; balance: number } }>(`/api/admin/loyalty/${encodeURIComponent(userId)}/adjust`, { method: "POST", body }),
+
+  /* ------------------------------------------------------------------ reels */
+  reels: (params: { isActive?: boolean; productId?: string; q?: string; page?: number; limit?: number } = {}, signal?: AbortSignal) => {
+    const query = new URLSearchParams();
+    if (params.isActive !== undefined) query.set("isActive", String(params.isActive));
+    if (params.productId) query.set("productId", params.productId);
+    if (params.q) query.set("q", params.q);
+    query.set("page", String(params.page ?? 1));
+    query.set("limit", String(params.limit ?? 25));
+    return apiFetch<Paginated<AdminReel>>(`/api/admin/reels?${query.toString()}`, { signal });
+  },
+  createReel: (body: ReelInput) => apiFetch<{ data: AdminReel }>("/api/admin/reels", { method: "POST", body }),
+  updateReel: (id: string, body: ReelInput) => apiFetch<{ data: AdminReel }>(`/api/admin/reels/${id}`, { method: "PATCH", body }),
+  deleteReel: (id: string) => apiFetch<{ data: AdminReel }>(`/api/admin/reels/${id}`, { method: "DELETE" }),
 
   /* --------------------------------------------------------------- documents */
   /** GST tax invoice for an order. Owner or finance/support/admin. */

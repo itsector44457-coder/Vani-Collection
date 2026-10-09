@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-002", 
+  "type": "feat",
+  "description": "Build frontend admin reels page at /admin/reels following existing admin page patterns from products page",
+  "status": "pending",
+  "steps": [
+    "Create frontend/app/admin/reels/page.tsx as a client component following the structure of products/page.tsx",
+    "Add reel-related API client functions to frontend/lib/api-client.ts: api.reels() for listing and api.createReel/updateReel/deleteReel for CRUD operations",
+    "Add TypeScript interfaces for Reel and AdminReel types in api-client.ts following existing AdminCatalogueProduct pattern",
+    "Implement reels list view with search, filtering, and table display showing title, video thumbnail, linked product, position, status, and actions",
+    "Add useApiResource hook integration with demo fallback data for reels listing",
+    "Implement create/edit reel form with fields for title, description, video URL, thumbnail URL, product selection dropdown, position, and active status",
+    "Add proper form validation and error handling following existing admin page patterns",
+    "Include delete/archive functionality with confirmation dialog following products page pattern"
+  ],
+  "acceptance_criteria": [
+    "Reels admin page renders without errors and shows consistent styling with other admin pages", 
+    "Search and filtering functionality works correctly with live API data",
+    "Create/edit forms properly validate inputs and submit to backend API",
+    "Delete operations show confirmation and properly call backend API",
+    "Page gracefully falls back to demo data when API is not configured",
+    "All TypeScript interfaces compile without errors"
+  ],
+  "verification": [
+    "Run 'npm run build' in frontend directory to verify TypeScript compilation",
+    "Navigate to /admin/reels in browser and verify page loads and displays demo data",
+    "Test CRUD operations through the UI when connected to live backend API"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
