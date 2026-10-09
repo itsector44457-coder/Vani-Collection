@@ -11,8 +11,38 @@ const { AppError, asyncHandler } = require('../lib/errors');
 const createReelSchema = z.object({
   title: z.string().min(1).max(200).trim(),
   description: z.string().max(1000).trim().optional(),
-  videoUrl: z.string().url().trim(),
-  thumbnailUrl: z.string().url().trim().optional(),
+  videoUrl: z.string().url().trim().refine(
+    (url) => {
+      try {
+        const parsed = new URL(url);
+        // Allow common video hosting domains and local development
+        const allowedDomains = ['youtube.com', 'youtu.be', 'vimeo.com', 'cloudinary.com', 'amazonaws.com', 'localhost'];
+        const allowedExtensions = ['.mp4', '.mov', '.avi', '.webm', '.m4v'];
+        
+        return allowedDomains.some(domain => parsed.hostname.includes(domain)) ||
+               allowedExtensions.some(ext => parsed.pathname.toLowerCase().endsWith(ext));
+      } catch {
+        return false;
+      }
+    },
+    { message: "Video URL must be from allowed domains (YouTube, Vimeo, Cloudinary, AWS) or have valid video extension (.mp4, .mov, .avi, .webm, .m4v)" }
+  ),
+  thumbnailUrl: z.string().url().trim().refine(
+    (url) => {
+      try {
+        const parsed = new URL(url);
+        // Allow common image hosting domains and local development
+        const allowedDomains = ['cloudinary.com', 'amazonaws.com', 'localhost'];
+        const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+        
+        return allowedDomains.some(domain => parsed.hostname.includes(domain)) ||
+               allowedExtensions.some(ext => parsed.pathname.toLowerCase().endsWith(ext));
+      } catch {
+        return false;
+      }
+    },
+    { message: "Thumbnail URL must be from allowed domains (Cloudinary, AWS) or have valid image extension (.jpg, .jpeg, .png, .webp, .gif)" }
+  ).optional(),
   productId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid product ID'),
   position: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),

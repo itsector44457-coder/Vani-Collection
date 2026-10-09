@@ -6,6 +6,7 @@ import { Badge, Card, PageHeading, Alert, FilterTabs, Modal, Field, TextInput, T
 import AdminDataBadge from "@/components/admin/AdminDataBadge";
 import { api, apiFetch, ApiError, type AdminReel, type AdminCatalogueProduct, type Paginated, type ReelInput } from "@/lib/api-client";
 import { useApiResource } from "@/lib/use-api";
+import { useAdminSession } from "@/lib/use-admin-session";
 
 const DEMO_REELS: Paginated<AdminReel> = {
   data: [
@@ -83,10 +84,34 @@ const DEMO_PRODUCTS: Paginated<AdminCatalogueProduct> = {
 const STATUS_FILTERS = ["All", "Active", "Inactive"] as const;
 
 export default function ReelsView() {
+  const session = useAdminSession();
   const [statusFilter, setStatusFilter] = useState<typeof STATUS_FILTERS[number]>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Check if user has required role for reels management
+  const hasReelsAccess = Boolean(
+    session.user?.roles?.some(role => 
+      ['catalog_manager', 'admin', 'super_admin'].includes(role)
+    )
+  );
+
+  // Show access denied message if user lacks required role
+  if (session.authenticated && !hasReelsAccess) {
+    return (
+      <div className="space-y-5">
+        <PageHeading
+          eyebrow="Content"
+          title="Reels"
+          subtitle="Access restricted"
+        />
+        <Alert tone="warning">
+          <strong>Access denied.</strong> Reels management requires catalog_manager, admin, or super_admin role.
+        </Alert>
+      </div>
+    );
+  }
 
   // Create/Edit modal state
   const [showModal, setShowModal] = useState(false);
