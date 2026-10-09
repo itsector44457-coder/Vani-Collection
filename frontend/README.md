@@ -15,6 +15,12 @@ npm run dev                    # http://localhost:3000  ·  admin console at /ad
   orders, catalogue/inventory and customers from the backend and shows a `Live API` badge.
   Every panel falls back to demo data with a `Demo data` badge when the API is unreachable.
 - Staff sign in at `/admin/login` (accounts are created with `npm run seed:admin` in the backend).
+- Admin authentication uses staff email/password and httpOnly session cookies; no authenticated API
+  key is required. After sign-in, the console verifies the staff session before rendering admin data,
+  and the API client rotates an expired access token using the refresh cookie.
+- For production, set `NEXT_PUBLIC_API_URL` to the HTTPS backend origin at frontend build time. Set
+  backend `CORS_ORIGINS` to the exact storefront origin and `COOKIE_SECURE=true`. If the storefront
+  and API are on different sites, use `COOKIE_SAMESITE=none`; for same-site subdomains, `lax` works.
 - `lib/api-client.ts` is the single API entry point; `lib/use-api.ts` provides the loading/fallback
   behaviour. Use them when wiring the storefront to the same API.
 - Roles enforced by the backend: support, warehouse, catalog_manager, finance, admin, super_admin.

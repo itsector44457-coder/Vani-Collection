@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 require('dotenv').config();
+
+// Local-dev only: some ISP resolvers refuse Atlas SRV lookups. Keep seed scripts consistent
+// with server.js when DNS_SERVERS is explicitly configured; never set this in production.
+if (process.env.DNS_SERVERS) {
+  const dns = require('dns');
+  const servers = process.env.DNS_SERVERS.split(',').map((server) => server.trim()).filter(Boolean);
+  if (servers.length) dns.setServers(servers);
+}
+
 const mongoose = require('mongoose');
 const User = require('../models/User');
 

@@ -7,7 +7,7 @@ function authMiddleware(config) {
     const token = req.cookies?.accessToken || req.headers.authorization?.replace(/^Bearer\s+/i, '');
     if (!token) throw new AppError(401, 'AUTH_REQUIRED', 'Authentication required');
     let payload;
-    try { payload = jwt.verify(token, config.JWT_ACCESS_SECRET); }
+    try { payload = jwt.verify(token, config.JWT_ACCESS_SECRET, { issuer: 'vani-api', audience: 'vani-web' }); }
     catch { throw new AppError(401, 'INVALID_TOKEN', 'Session is invalid or expired'); }
     const user = await User.findById(payload.sub);
     if (!user || user.status !== 'active') throw new AppError(401, 'ACCOUNT_UNAVAILABLE', 'Account is unavailable');
@@ -22,7 +22,7 @@ function optionalAuthMiddleware(config) {
     const token = req.cookies?.accessToken || req.headers.authorization?.replace(/^Bearer\s+/i, '');
     if (!token) return next();
     try {
-      const payload = jwt.verify(token, config.JWT_ACCESS_SECRET);
+      const payload = jwt.verify(token, config.JWT_ACCESS_SECRET, { issuer: 'vani-api', audience: 'vani-web' });
       const user = await User.findById(payload.sub);
       if (user && user.status === 'active') req.user = user;
     } catch {

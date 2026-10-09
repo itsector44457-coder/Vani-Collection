@@ -9,10 +9,10 @@ const { issueTokens, setAuthCookies, hashToken } = require('../services/tokens')
 const { queueEmail } = require('../services/email');
 const { applyReferralCode, ensureReferralCode, getLoyaltyConfig } = require('../services/loyalty');
 
-module.exports = ({ config, auth }) => {
+module.exports = ({ config, auth, authLimiter }) => {
   const router = express.Router();
   const credentials = z.object({ email: z.email(), password: z.string().min(8).max(128) });
-  router.post('/register', validate(credentials.extend({ firstName: z.string().min(1), lastName: z.string().optional(), phone: z.string().regex(/^[6-9]\d{9}$/).optional(), referralCode: z.string().max(24).optional() })), asyncHandler(async (req, res) => {
+  router.post('/register', authLimiter, validate(credentials.extend({ firstName: z.string().min(1), lastName: z.string().optional(), phone: z.string().regex(/^[6-9]\d{9}$/).optional(), referralCode: z.string().max(24).optional() })), asyncHandler(async (req, res) => {
     if (await User.exists({ email: req.body.email })) throw new AppError(409, 'EMAIL_EXISTS', 'Email is already registered');
     const { referralCode, ...profile } = req.body;
     const user = await User.create({ ...profile, passwordHash: await User.hashPassword(req.body.password), password: undefined, roles: ['customer'] });
@@ -35,7 +35,7 @@ module.exports = ({ config, auth }) => {
     await queueEmail({ to: user.email, template: 'welcome', data: { firstName: user.firstName, lastName: user.lastName, email: user.email, referralCode: ownReferralCode || undefined, referralBonusPoints: referral?.applied ? referral.bonus : getLoyaltyConfig().referralBonusPoints }, userId: user.id, tags: ['onboarding'], log: req.log });
     res.status(201).json({ data: user.toSafeJSON(), meta: { referral: referral || undefined, referralCode: ownReferralCode || undefined } });
   }));
-  router.post('/login', validate(credentials), asyncHandler(async (req, res) => {
+  router.post('/login', authLimiter, validate(credentials), asyncHandler(async (req, res) => {
     const user = await User.findOne({ email: req.body.email }).select('+passwordHash');
     if (!user || !(await user.verifyPassword(req.body.password)) || user.status !== 'active') throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password');
     const tokens = issueTokens(user, config);
@@ -68,7 +68,7 @@ module.exports = ({ config, auth }) => {
   // also carries it so the flow stays testable without a mail provider. The response is identical
   // whether or not the address exists — never leak which emails are registered.
   const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
-  router.post('/forgot-password', validate(z.object({ email: z.email() })), asyncHandler(async (req, res) => {
+  router.post('/forgot-password', authLimiter, validate(z.object({ email: z.email() })), asyncHandler(async (req, res) => {
     const user = await User.findOne({ email: req.body.email.toLowerCase() }).select('+passwordResetTokenHash +passwordResetExpiresAt');
     const meta = {};
     if (user && user.status === 'active') {
@@ -90,7 +90,7 @@ module.exports = ({ config, auth }) => {
     res.status(202).json({ message: 'If that email exists, a reset link has been sent.', meta });
   }));
 
-  router.post('/reset-password', validate(z.object({ token: z.string().min(20).max(200), password: z.string().min(8).max(128) })), asyncHandler(async (req, res) => {
+  router.post('/reset-password', authLimiter, validate(z.object({ token: z.string().min(20).max(200), password: z.string().min(8).max(128) })), asyncHandler(async (req, res) => {
     const user = await User.findOne({ passwordResetTokenHash: hashToken(req.body.token), passwordResetExpiresAt: { $gt: new Date() } }).select('+passwordResetTokenHash +passwordResetExpiresAt +passwordHash');
     if (!user) throw new AppError(400, 'INVALID_RESET_TOKEN', 'This reset link is invalid or has expired');
     user.passwordHash = await User.hashPassword(req.body.password);

@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, ApiError, hasStaffAccess, isApiConfigured } from "@/lib/api-client";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const configured = isApiConfigured();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +22,7 @@ export default function AdminLoginPage() {
         setError("This account does not have admin access. Ask a super admin for a staff role.");
         return;
       }
-      router.replace("/admin");
+      window.location.replace("/admin");
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Sign in failed. Please try again.");
     } finally {
@@ -106,6 +104,10 @@ export default function AdminLoginPage() {
           <Link href="/" className="font-semibold text-[#881337] hover:underline">
             ← Back to storefront
           </Link>
+        </p>
+        <p className="mt-3 text-center text-[11px] leading-relaxed text-stone-400">
+          Admin access uses your staff email and password with a secure session cookie. No API key is
+          required.
         </p>
       </div>
     </div>

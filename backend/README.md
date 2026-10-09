@@ -50,6 +50,9 @@ mongosh --eval "rs.initiate()"
 ```
 
 MongoDB Atlas works out of the box (it is always a replica set). Docker users: `docker compose up`.
+If an ISP resolver refuses Atlas SRV lookups during local development, add
+`DNS_SERVERS=8.8.8.8,1.1.1.1` to `.env` and retry. This local-only setting is honored by the API
+server and admin seed script; do not set it in production.
 
 ## 3. Scripts
 
@@ -89,6 +92,10 @@ MongoDB Atlas works out of the box (it is always a replica set). Docker users: `
 - Run behind TLS (Nginx/Caddy/Render/Railway). Set `COOKIE_SECURE=true` in production so auth cookies
   are `Secure`; the API expects to sit behind a proxy (`trust proxy` is enabled).
 - Add the storefront origin(s) to `CORS_ORIGINS`; cookies are sent with credentials.
+- Set the frontend build-time `NEXT_PUBLIC_API_URL` to the HTTPS API origin. Admin login uses staff
+  email/password and httpOnly session cookies; it does not require an API key.
+- Use `COOKIE_SAMESITE=none` with `COOKIE_SECURE=true` only when the storefront and API are cross-site.
+  For same-site deployments, including separate subdomains, `COOKIE_SAMESITE=lax` is sufficient.
 - Keep `JWT_*_SECRET` values ≥ 32 characters and rotate them by deploying a new value (all sessions
   then require re-login).
 - The integration worker starts with the server and drains `IntegrationEvent` rows every 60 seconds

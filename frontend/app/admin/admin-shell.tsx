@@ -2,8 +2,24 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ReactNode, type ReactElement } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode, type ReactElement } from "react";
 import { useAdminSession } from "@/lib/use-admin-session";
+
+const SIDEBAR_STORAGE_KEY = "vani-admin-sidebar-collapsed";
+const SIDEBAR_PREFERENCE_EVENT = "vani-admin-sidebar-preference";
+
+function subscribeSidebarPreference(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(SIDEBAR_PREFERENCE_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(SIDEBAR_PREFERENCE_EVENT, onChange);
+  };
+}
+
+function getSidebarPreference() {
+  return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
+}
 
 /* ---------------- Icons ---------------- */
 const s = 17;
@@ -225,6 +241,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [profileOpen, setProfileOpen] = useState(false);
+  const sidebarCollapsed = useSyncExternalStore(subscribeSidebarPreference, getSidebarPreference, () => false);
+  const [mobileSidebarPath, setMobileSidebarPath] = useState<string | null>(null);
+  const mobileSidebarOpen = mobileSidebarPath === pathname;
   const session = useAdminSession();
   const displayName = [session.user?.firstName, session.user?.lastName].filter(Boolean).join(" ") || "Demo Workspace";
   const displayEmail = session.user?.email || "demo@vanicollection.in";
@@ -238,6 +257,25 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const initials = (displayName.match(/\b\w/g) || ["V"]).slice(0, 2).join("").toUpperCase();
   const needsSignIn = session.configured && !session.loading && !session.isStaff;
 
+  useEffect(() => {
+    if (pathname === "/admin/login" || !session.configured || session.loading) return;
+    if (!session.isStaff) router.replace("/admin/login");
+  }, [pathname, router, session.configured, session.isStaff, session.loading]);
+
+  useEffect(() => {
+    if (!mobileSidebarOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileSidebarPath(null);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileSidebarOpen]);
+
+  const toggleSidebar = () => {
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(!sidebarCollapsed));
+    window.dispatchEvent(new Event(SIDEBAR_PREFERENCE_EVENT));
+  };
+
   const isActive = (item: NavItem) => {
     if (item.href === "/admin") return pathname === "/admin";
     return item.matchPrefix
@@ -245,13 +283,60 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       : pathname === item.href;
   };
 
+  if (pathname === "/admin/login") return <>{children}</>;
+
+  if (session.configured && session.loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#faf7f2] px-4 text-sm text-stone-600">
+        Verifying admin session…
+      </div>
+    );
+  }
+
+  if (session.configured && !session.isStaff) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#faf7f2] px-4">
+        <div className="max-w-md rounded-2xl border border-[#ebe6de] bg-white p-6 text-center shadow-sm">
+          <h1 className="font-serif text-xl font-semibold text-[#14100f]">Staff sign-in required</h1>
+          <p className="mt-2 text-sm text-stone-600">
+            Admin data and controls are available only to signed-in staff accounts.
+          </p>
+          <Link
+            href="/admin/login"
+            className="mt-5 inline-flex rounded-xl bg-[#881337] px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            Continue to sign in
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const isSidebarCollapsed = sidebarCollapsed && !mobileSidebarOpen;
+
   return (
     <div className="min-h-screen bg-[#faf7f2] text-[#14100f]">
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          onClick={() => setMobileSidebarPath(null)}
+          className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] lg:hidden"
+        />
+      )}
+
       {/* ============ SIDEBAR ============ */}
-      <aside className="fixed left-0 top-0 z-40 hidden h-screen w-[248px] flex-col border-r border-white/[0.06] bg-[#14100f] text-[#f5f1ea] lg:flex">
+      <aside
+        id="admin-sidebar"
+        className={[
+          "fixed left-0 top-0 z-50 flex h-dvh flex-col border-r border-white/[0.06] bg-[#14100f] text-[#f5f1ea] shadow-2xl transition-[width,transform] duration-300 ease-in-out lg:z-40 lg:translate-x-0",
+          isSidebarCollapsed ? "w-[280px] lg:w-[76px]" : "w-[280px] lg:w-[248px]",
+          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+        ].join(" ")}
+      >
         {/* Brand */}
-        <div className="px-5 pt-6 pb-5">
-          <Link href="/admin" className="flex items-center gap-3">
+        <div className={`flex items-center pt-5 pb-4 ${isSidebarCollapsed ? "flex-col gap-4 px-3" : "justify-between px-5"}`}>
+          <Link href="/admin" aria-label="Vani Admin dashboard" className={`flex min-w-0 items-center ${isSidebarCollapsed ? "justify-center" : "gap-3"}`}>
             <div className="relative flex h-10 w-10 items-center justify-center">
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#dfc28c] via-[#c9a56b] to-[#8a6d3f]" />
               <div className="absolute inset-[1.5px] rounded-[14px] bg-[#14100f]" />
@@ -259,24 +344,48 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                 V
               </span>
             </div>
-            <div className="leading-tight">
+            {!isSidebarCollapsed && <div className="min-w-0 leading-tight">
               <div className="font-serif text-[16px] font-semibold tracking-tight">
                 Vani
               </div>
               <div className="text-[8.5px] font-semibold uppercase tracking-[0.22em] text-[#dfc28c]/60">
                 Admin Console
               </div>
-            </div>
+            </div>}
           </Link>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] text-[#f5f1ea]/65 transition hover:border-[#dfc28c]/40 hover:bg-white/[0.06] hover:text-[#dfc28c] lg:inline-flex"
+          >
+            <svg className={isSidebarCollapsed ? "rotate-180" : ""} width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="m14 6-6 6 6 6" />
+              <path d="M20 4v16" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileSidebarPath(null)}
+            aria-label="Close navigation menu"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#f5f1ea]/65 transition hover:bg-white/[0.06] hover:text-white lg:hidden"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+              <path d="m18 6-12 12M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 pb-4">
+        <nav aria-label="Admin navigation" className={`flex-1 overflow-y-auto pb-4 ${isSidebarCollapsed ? "px-2" : "px-3"}`}>
           {SECTIONS.map((section, si) => (
             <div key={section.label} className={si > 0 ? "mt-5" : ""}>
-              <p className="px-3 pb-2 text-[9.5px] font-semibold uppercase tracking-[0.2em] text-[#f5f1ea]/30">
-                {section.label}
-              </p>
+              {!isSidebarCollapsed && (
+                <p className="px-3 pb-2 text-[9.5px] font-semibold uppercase tracking-[0.2em] text-[#f5f1ea]/30">
+                  {section.label}
+                </p>
+              )}
               <ul className="space-y-0.5">
                 {section.items.map((item) => {
                   const active = isActive(item);
@@ -285,8 +394,12 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                     <li key={item.name}>
                       <Link
                         href={item.href}
+                        onClick={() => setMobileSidebarPath(null)}
+                        title={isSidebarCollapsed ? item.name : undefined}
+                        aria-label={isSidebarCollapsed ? item.name : undefined}
                         className={[
-                          "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all",
+                          "group relative flex min-h-11 items-center rounded-xl py-2.5 transition-all",
+                          isSidebarCollapsed ? "justify-center px-0" : "gap-3 px-3",
                           active
                             ? "bg-[#dfc28c]/[0.08] text-[#dfc28c]"
                             : "text-[#f5f1ea]/55 hover:bg-white/[0.04] hover:text-[#f5f1ea]",
@@ -301,10 +414,10 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                         <span className={active ? "text-[#dfc28c]" : "text-[#f5f1ea]/45 group-hover:text-[#f5f1ea]"}>
                           <Icon />
                         </span>
-                        <span className={`flex-1 text-[13px] tracking-tight ${active ? "font-semibold" : "font-medium"}`}>
+                        {!isSidebarCollapsed && <span className={`flex-1 text-[13px] tracking-tight ${active ? "font-semibold" : "font-medium"}`}>
                           {item.name}
-                        </span>
-                        {item.badge && (
+                        </span>}
+                        {!isSidebarCollapsed && item.badge && (
                           <span
                             className={[
                               "rounded-full px-1.5 py-px text-[9.5px] font-bold tracking-wide",
@@ -326,18 +439,19 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         </nav>
 
         {/* Footer - user card */}
-        <div className="border-t border-white/[0.06] p-3">
-          <div className="flex items-center gap-3 rounded-xl bg-white/[0.03] p-2.5">
+        <div className={`border-t border-white/[0.06] ${isSidebarCollapsed ? "p-2" : "p-3"}`}>
+          <div className={`flex items-center rounded-xl bg-white/[0.03] ${isSidebarCollapsed ? "flex-col gap-2 p-2" : "gap-3 p-2.5"}`}>
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#881337] to-[#4c0a1f] text-[12px] font-bold text-white">
               {initials}
             </div>
-            <div className="min-w-0 flex-1 leading-tight">
+            {!isSidebarCollapsed && <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-[12px] font-semibold">{displayName}</p>
               <p className="truncate text-[10px] text-[#f5f1ea]/45">{displayRole}</p>
-            </div>
+            </div>}
             <button
               onClick={() => { void session.signOut().then(() => { if (session.configured) router.push("/admin/login"); }); }}
               aria-label="Sign out"
+              title="Sign out"
               className="rounded-lg p-1.5 text-[#f5f1ea]/40 transition hover:bg-white/[0.06] hover:text-[#f5f1ea]"
             >
               <LogoutIcon />
@@ -347,10 +461,24 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* ============ MAIN ============ */}
-      <div className="lg:pl-[248px]">
+      <div
+        className={`transition-[padding] duration-300 ease-in-out ${isSidebarCollapsed ? "lg:pl-[76px]" : "lg:pl-[248px]"}`}
+      >
         {/* Topbar */}
         <header className="sticky top-0 z-30 border-b border-[#ebe6de] bg-[#faf7f2]/85 backdrop-blur-md">
           <div className="flex h-16 items-center gap-4 px-6">
+            <button
+              type="button"
+              onClick={() => setMobileSidebarPath(pathname)}
+              aria-label="Open admin navigation"
+              aria-expanded={mobileSidebarOpen}
+              aria-controls="admin-sidebar"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#ebe6de] bg-white text-stone-600 transition hover:border-[#dfc28c] hover:text-[#881337] lg:hidden"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             {/* Search */}
             <div className="flex flex-1 items-center gap-2 rounded-xl border border-[#ebe6de] bg-white px-3 py-2 transition-colors focus-within:border-[#dfc28c] lg:max-w-md">
               <span className="text-stone-400">

@@ -19,6 +19,27 @@ export const API_BASE = RAW_BASE;
 /** True when a backend URL is configured for this deployment. */
 export const isApiConfigured = (): boolean => API_BASE.length > 0;
 
+let refreshPromise: Promise<boolean> | null = null;
+
+function refreshSession(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE}/api/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
+const canRefreshRequest = (path: string): boolean =>
+  !["/api/auth/login", "/api/auth/refresh", "/api/auth/logout"].includes(path);
+
 export interface ApiErrorPayload {
   error?: { code?: string; message?: string; details?: unknown; requestId?: string };
 }
@@ -69,6 +90,16 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    if (response.status === 401 && canRefreshRequest(path) && (await refreshSession())) {
+      response = await fetch(`${API_BASE}${path}`, {
+        method,
+        credentials: "include",
+        cache,
+        signal,
+        headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    }
   } catch (error) {
     if ((error as Error)?.name === "AbortError") throw error;
     throw new ApiError(0, "NETWORK_ERROR", "Could not reach the Vani Collection API");

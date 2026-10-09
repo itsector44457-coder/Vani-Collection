@@ -57,7 +57,7 @@ const buildApp = ({ config, logger }) => {
     registry.push({ base, router });
   };
 
-  mount('/api/auth', require('./routes/auth')({ config, auth }), authLimiter);
+  mount('/api/auth', require('./routes/auth')({ config, auth, authLimiter }));
   mount('/api/cart', require('./routes/cart')({ auth, optionalAuth }));
   mount('/api/products', require('./routes/products')({ auth }));
   mount('/api/orders', require('./routes/orders')({ config, auth }));

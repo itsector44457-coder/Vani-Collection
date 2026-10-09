@@ -117,10 +117,39 @@ test('http layer serves health, structured 404s and validation errors without a 
     const unauthenticated = await call('/api/admin/dashboard');
     assert.equal(unauthenticated.status, 401);
     assert.equal(unauthenticated.body.error.code, 'AUTH_REQUIRED');
+    const wrongAudienceToken = jwt.sign({ sub: 'user-1' }, process.env.JWT_ACCESS_SECRET, { expiresIn: '15m' });
+    const wrongAudience = await call('/api/admin/dashboard', { headers: { authorization: `Bearer ${wrongAudienceToken}` } });
+    assert.equal(wrongAudience.status, 401);
+    assert.equal(wrongAudience.body.error.code, 'INVALID_TOKEN');
     const securityHeaders = (await call('/health')).headers;
     assert.ok(securityHeaders.get('content-security-policy'));
   } finally {
     await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('auth attempt limit does not throttle session checks', async (t) => {
+  const config = { ...loadConfig(), NODE_ENV: 'production' };
+  const server = buildApp({ config, logger: silentLogger }).listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  t.after(async () => {
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  const loginAttempt = () => fetch(`${base}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: 'invalid', password: 'short' }),
+  });
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    assert.equal((await loginAttempt()).status, 422);
+  }
+  assert.equal((await loginAttempt()).status, 429, 'password attempts remain rate limited');
+
+  for (let check = 0; check < 25; check += 1) {
+    assert.equal((await fetch(`${base}/api/auth/me`)).status, 401, 'session checks should not consume the password-attempt limit');
   }
 });
 
