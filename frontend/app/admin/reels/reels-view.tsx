@@ -137,7 +137,7 @@ export default function ReelsView() {
         
         const matchesSearch = searchQuery === "" ||
           reel.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          (typeof reel.productId !== "string" && reel.productId.name?.toLowerCase().includes(searchQuery.toLowerCase()));
+          (typeof reel.productId !== "string" && reel.productId?.name?.toLowerCase().includes(searchQuery.toLowerCase()));
         
         return matchesStatus && matchesSearch;
       }),
@@ -155,8 +155,8 @@ export default function ReelsView() {
   }, [reelsList]);
 
   const productName = (reel: AdminReel) => {
-    if (typeof reel.productId === "string") return "Product";
-    return reel.productId?.name || "Product";
+    if (typeof reel.productId === "string") return "Product not found";
+    return reel.productId?.name || "Product not found";
   };
 
   const productImage = (reel: AdminReel) => {

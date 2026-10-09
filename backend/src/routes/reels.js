@@ -19,8 +19,15 @@ const createReelSchema = z.object({
         const allowedDomains = ['youtube.com', 'youtu.be', 'vimeo.com', 'cloudinary.com', 'amazonaws.com', 'localhost'];
         const allowedExtensions = ['.mp4', '.mov', '.avi', '.webm', '.m4v'];
         
-        return allowedDomains.some(domain => parsed.hostname.includes(domain)) ||
-               allowedExtensions.some(ext => parsed.pathname.toLowerCase().endsWith(ext));
+        // Use exact hostname matching or suffix matching for security
+        const isAllowedDomain = allowedDomains.some(domain => 
+          parsed.hostname === domain || parsed.hostname.endsWith('.' + domain)
+        );
+        const hasAllowedExtension = allowedExtensions.some(ext => 
+          parsed.pathname.toLowerCase().endsWith(ext)
+        );
+        
+        return isAllowedDomain || hasAllowedExtension;
       } catch {
         return false;
       }
@@ -35,8 +42,15 @@ const createReelSchema = z.object({
         const allowedDomains = ['cloudinary.com', 'amazonaws.com', 'localhost'];
         const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
         
-        return allowedDomains.some(domain => parsed.hostname.includes(domain)) ||
-               allowedExtensions.some(ext => parsed.pathname.toLowerCase().endsWith(ext));
+        // Use exact hostname matching or suffix matching for security
+        const isAllowedDomain = allowedDomains.some(domain => 
+          parsed.hostname === domain || parsed.hostname.endsWith('.' + domain)
+        );
+        const hasAllowedExtension = allowedExtensions.some(ext => 
+          parsed.pathname.toLowerCase().endsWith(ext)
+        );
+        
+        return isAllowedDomain || hasAllowedExtension;
       } catch {
         return false;
       }
