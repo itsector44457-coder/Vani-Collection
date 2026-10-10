@@ -1,11 +1,13 @@
 "use client";
 
 import { useCart } from "../context/CartContext";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function CartDrawer() {
+  const [cartItemsRef] = useAutoAnimate<HTMLDivElement>();
   const {
     cart,
     isCartOpen,
@@ -100,7 +102,7 @@ export default function CartDrawer() {
             </div>
 
             {/* Cart Items List */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-5 divide-y divide-stone-200">
+            <div ref={cartItemsRef} className="flex-1 overflow-y-auto p-6 space-y-5 divide-y divide-stone-200">
               {cart.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-8">
                   <div className="w-20 h-20 rounded-full bg-stone-100 flex items-center justify-center text-3xl mb-4 text-stone-400">

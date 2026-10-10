@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { apiFetch, ApiError, isApiConfigured } from "../lib/api-client";
+import { usePathname } from "next/navigation";
+import { apiFetch, ApiError, hasAuthSessionHint, isApiConfigured } from "../lib/api-client";
 import {
   createAddress,
   deleteAddress as deleteAddressRequest,
@@ -153,34 +154,61 @@ const toUiUser = (user: ApiUser): User => ({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const configured = isApiConfigured();
+  const pathname = usePathname();
+  const requiresSession = pathname === "/checkout"
+    || pathname.startsWith("/checkout/")
+    || pathname === "/account"
+    || pathname.startsWith("/account/")
+    || pathname === "/admin"
+    || pathname.startsWith("/admin/");
   /* In demo mode the visitor is restored from localStorage before paint, so nothing flashes. */
   const [user, setUser] = useState<User | null>(() => (configured ? null : readJson<User | null>(USER_KEY, null)));
-  const [isLoading, setIsLoading] = useState(configured);
+  const [isLoading, setIsLoading] = useState(configured && requiresSession);
+  const [checkedPath, setCheckedPath] = useState<string | null>(null);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
   const [lastResetUrl, setLastResetUrl] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
-  const refresh = useCallback(() => setNonce((value) => value + 1), []);
+  const refresh = useCallback(() => {
+    setSessionLoaded(false);
+    setIsLoading(true);
+    setCheckedPath(null);
+    setNonce((value) => value + 1);
+  }, []);
 
   /* --------------------------------------------------------------- session load */
 
   useEffect(() => {
     if (!configured) return;
+    if (
+      sessionLoaded
+      || checkedPath === pathname
+      || (!requiresSession && (!hasAuthSessionHint() || checkedPath !== null))
+    ) return;
     const controller = new AbortController();
     let cancelled = false;
     const load = async () => {
       await Promise.resolve();
       if (cancelled) return;
-      setIsLoading(true);
       try {
         const response = await apiFetch<{ data: ApiUser }>("/api/auth/me", { signal: controller.signal });
-        if (!cancelled) setUser(toUiUser(response.data));
+        if (!cancelled) {
+          setSessionLoaded(true);
+          setUser(toUiUser(response.data));
+        }
       } catch (cause) {
         if ((cause as Error)?.name === "AbortError") return;
         // 401 simply means "not signed in"; anything else keeps the visitor as a guest too.
-        if (!cancelled) setUser(null);
+        if (!cancelled) {
+          setSessionLoaded(false);
+          setUser(null);
+        }
         if (cause instanceof ApiError && cause.status !== 401) console.warn("Session check failed:", cause.message);
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+          setCheckedPath(pathname);
+        }
       }
     };
     void load();
@@ -188,7 +216,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       controller.abort();
     };
-  }, [configured, nonce]);
+  }, [checkedPath, configured, nonce, pathname, requiresSession, sessionLoaded]);
+
+  const sessionLoading = configured && requiresSession
+    && (isLoading || (!sessionLoaded && checkedPath !== pathname));
 
   const loadAddresses = useCallback(async () => {
     if (!configured) return;
@@ -205,6 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (configured) {
           const response = await apiFetch<{ data: ApiUser }>("/api/auth/login", { method: "POST", body: { email: email.trim(), password } });
           const nextUser = toUiUser(response.data);
+          setSessionLoaded(true);
           setUser(nextUser);
           await loadAddresses();
           return;
@@ -221,6 +253,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             preferences: readJson<UserPreferences | undefined>(PREFERENCES_KEY, undefined),
             createdAt: "2023-06-15T10:30:00Z",
           };
+          setSessionLoaded(true);
           setUser(demoUser);
           writeJson(USER_KEY, demoUser);
         } else {
@@ -248,6 +281,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               phone: userData.phone ? userData.phone.replace(/\D/g, "").slice(-10) : undefined,
             },
           });
+          setSessionLoaded(true);
           setUser(toUiUser(response.data));
           return;
         }
@@ -272,6 +306,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
+    setSessionLoaded(false);
     setUser(null);
     writeJson(USER_KEY, null);
     if (configured) apiFetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
@@ -381,7 +416,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextType>(
     () => ({
       user,
-      isLoading,
+      isLoading: sessionLoading,
       isAuthenticated: Boolean(user),
       login,
       signup,
@@ -397,7 +432,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       lastResetUrl,
       refresh,
     }),
-    [user, isLoading, login, signup, logout, updateProfile, addAddress, updateAddress, deleteAddress, setDefaultAddress, forgotPassword, resetPassword, configured, lastResetUrl, refresh]
+    [user, sessionLoading, login, signup, logout, updateProfile, addAddress, updateAddress, deleteAddress, setDefaultAddress, forgotPassword, resetPassword, configured, lastResetUrl, refresh]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

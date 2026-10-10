@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, ApiError, hasStaffAccess, isApiConfigured } from "@/lib/api-client";
 
 export default function AdminLoginPage() {
@@ -10,9 +10,12 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const submitIntent = useRef(false);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!submitIntent.current || submitting) return;
+    submitIntent.current = false;
     setError(null);
     setSubmitting(true);
     try {
@@ -51,7 +54,14 @@ export default function AdminLoginPage() {
           </p>
         )}
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+        <form
+          onSubmit={onSubmit}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && event.isTrusted) submitIntent.current = true;
+          }}
+          className="mt-6 space-y-4"
+          noValidate
+        >
           <div>
             <label htmlFor="admin-email" className="text-[12px] font-semibold text-stone-600">
               Work email
@@ -93,6 +103,9 @@ export default function AdminLoginPage() {
 
           <button
             type="submit"
+            onClick={(event) => {
+              if (event.isTrusted) submitIntent.current = true;
+            }}
             disabled={!configured || submitting}
             className="w-full rounded-xl bg-[#881337] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#6b0f2b] disabled:cursor-not-allowed disabled:bg-stone-300"
           >

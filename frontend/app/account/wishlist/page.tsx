@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { ButtonPrimary, Card, EmptyState, IconHeart, IconTrash, PageHeader } from "@/lib/account-ui";
 import { useCart } from "@/context/CartContext";
 import { useCatalogue } from "@/lib/use-storefront";
@@ -16,6 +17,7 @@ const DEMO_WISHLIST = [
 ];
 
 export default function WishlistPage() {
+  const [wishlistItemsRef] = useAutoAnimate<HTMLDivElement>();
   const { wishlist, toggleWishlist, addToCart } = useCart();
   const { data: products, source } = useCatalogue();
 
@@ -80,7 +82,7 @@ export default function WishlistPage() {
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div ref={wishlistItemsRef} className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
           <Card key={item.id} className="overflow-hidden !p-0">
             <div className="relative aspect-[4/5] bg-gradient-to-br from-[#faf7f2] to-[#f0ebe3]">

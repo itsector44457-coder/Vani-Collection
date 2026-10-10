@@ -19,6 +19,31 @@ export const API_BASE = RAW_BASE;
 /** True when a backend URL is configured for this deployment. */
 export const isApiConfigured = (): boolean => API_BASE.length > 0;
 
+const AUTH_SESSION_HINT_KEY = "vani-auth-session-hint";
+
+export function hasAuthSessionHint(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(AUTH_SESSION_HINT_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function updateAuthSessionHint(path: string, status: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    const succeeded = status >= 200 && status < 300;
+    if (succeeded && (path === "/api/auth/login" || path === "/api/auth/register" || path === "/api/auth/me")) {
+      window.localStorage.setItem(AUTH_SESSION_HINT_KEY, "true");
+    } else if ((succeeded && path === "/api/auth/logout") || (path === "/api/auth/me" && status === 401)) {
+      window.localStorage.removeItem(AUTH_SESSION_HINT_KEY);
+    }
+  } catch {
+    // Session hints are only an optimization; cookie authentication remains authoritative.
+  }
+}
+
 let refreshPromise: Promise<boolean> | null = null;
 
 function refreshSession(): Promise<boolean> {
@@ -39,6 +64,16 @@ function refreshSession(): Promise<boolean> {
 
 const canRefreshRequest = (path: string): boolean =>
   !["/api/auth/login", "/api/auth/refresh", "/api/auth/logout"].includes(path);
+
+async function hasInvalidAccessToken(response: Response): Promise<boolean> {
+  if (response.status !== 401) return false;
+  try {
+    const payload = (await response.clone().json()) as ApiErrorPayload;
+    return payload.error?.code === "INVALID_TOKEN";
+  } catch {
+    return false;
+  }
+}
 
 export interface ApiErrorPayload {
   error?: { code?: string; message?: string; details?: unknown; requestId?: string };
@@ -90,7 +125,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (response.status === 401 && canRefreshRequest(path) && (await refreshSession())) {
+    if (canRefreshRequest(path) && (await hasInvalidAccessToken(response)) && (await refreshSession())) {
       response = await fetch(`${API_BASE}${path}`, {
         method,
         credentials: "include",
@@ -105,12 +140,16 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     throw new ApiError(0, "NETWORK_ERROR", "Could not reach the Vani Collection API");
   }
 
-  if (response.status === 204) return undefined as T;
+  if (response.status === 204) {
+    updateAuthSessionHint(path, response.status);
+    return undefined as T;
+  }
 
   const text = await response.text();
   const payload = text ? (JSON.parse(text) as T & ApiErrorPayload) : ({} as T & ApiErrorPayload);
 
   if (!response.ok) {
+    updateAuthSessionHint(path, response.status);
     const apiError = payload.error;
     throw new ApiError(
       response.status,
@@ -120,6 +159,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       apiError?.requestId
     );
   }
+  updateAuthSessionHint(path, response.status);
   return payload as T;
 }
 
