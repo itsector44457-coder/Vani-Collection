@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
+import { useAuth } from "@/context/AuthContext";
 import {
   IconBox,
   IconCard,
@@ -52,7 +53,13 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
 
 export default function AccountShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const displayName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "My Account";
+  const initials = displayName === "My Account"
+    ? "VC"
+    : displayName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 
   const isActive = (item: NavItem) =>
     item.href === "/account"
@@ -94,10 +101,10 @@ export default function AccountShell({ children }: { children: ReactNode }) {
 
             <div className="flex items-center gap-2 rounded-full border border-[#ebe6de] bg-white py-1.5 pl-1.5 pr-3">
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#881337] to-[#4c0a1f] text-[10.5px] font-bold text-white">
-                PS
+                {initials}
               </span>
               <span className="hidden text-[12.5px] font-semibold sm:inline">
-                Priya Sharma
+                {displayName}
               </span>
             </div>
 
@@ -178,16 +185,20 @@ export default function AccountShell({ children }: { children: ReactNode }) {
               ))}
 
               <div className="mt-4 border-t border-[#f0ebe3] pt-3">
-                <Link
-                  href="/login"
-                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-stone-600 transition hover:bg-stone-100/70 hover:text-rose-600"
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    router.replace("/login");
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-stone-600 transition hover:bg-stone-100/70 hover:text-rose-600"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                     <path d="m16 17 5-5-5-5M21 12H9" />
                   </svg>
                   Sign out
-                </Link>
+                </button>
               </div>
             </nav>
           </aside>

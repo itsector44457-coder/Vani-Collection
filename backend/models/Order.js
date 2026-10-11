@@ -7,7 +7,7 @@ const orderItemSchema = new mongoose.Schema({
 const addressSchema = new mongoose.Schema({ fullName: String, phone: String, email: String, line1: String, line2: String, landmark: String, city: String, state: String, pincode: String, country: { type: String, default: 'IN' } }, { _id: false });
 const orderSchema = new mongoose.Schema({
   orderNumber: { type: String, unique: true, index: true },
-  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }, guestEmail: String,
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, guestEmail: String,
   items: { type: [orderItemSchema], required: true }, shippingAddress: { type: addressSchema, required: true }, billingAddress: addressSchema,
   amounts: { subtotal: Number, discount: { type: Number, default: 0 }, shipping: { type: Number, default: 0 }, tax: Number, total: Number, currency: { type: String, default: 'INR' } },
   couponCode: String,
@@ -18,6 +18,7 @@ const orderSchema = new mongoose.Schema({
   notes: String, source: { type: String, default: 'website' }, statusHistory: [{ status: String, at: { type: Date, default: Date.now }, actor: String, note: String }],
 }, { timestamps: true, optimisticConcurrency: true });
 orderSchema.index({ createdAt: -1 });
+orderSchema.index({ customerId: 1, createdAt: -1 });
 orderSchema.index({ 'items.productId': 1, status: 1 });
 orderSchema.pre('save', function () { if (!this.orderNumber) this.orderNumber = `VC${Date.now()}${Math.floor(Math.random() * 900 + 100)}`; });
 module.exports = mongoose.model('Order', orderSchema);

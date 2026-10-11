@@ -1,8 +1,6 @@
 require('dotenv').config();
 
-// Local-dev only: kuch ISP/router DNS resolvers SRV lookups refuse karte hain, jisse
-// `mongodb+srv://` URI fail hoti hai. .env me DNS_SERVERS set karo (e.g. 8.8.8.8,1.1.1.1).
-// PRODUCTION me DNS_SERVERS set MAT karo — wahan host ka resolver already sahi hota hai.
+
 if (process.env.DNS_SERVERS) {
   const dns = require('dns');
   const servers = process.env.DNS_SERVERS.split(',').map((s) => s.trim()).filter(Boolean);
@@ -15,7 +13,7 @@ const { loadConfig } = require('./src/config');
 const { buildApp } = require('./src/app');
 const { startIntegrationWorker } = require('./src/workers/integration-worker');
 
-const logger = pino({ level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'), redact: ['req.headers.authorization', 'req.headers.cookie', 'req.body.password'] });
+const logger = pino({ level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'warn'), redact: ['req.headers.authorization', 'req.headers.cookie', 'req.body.password'] });
 
 async function main() {
   const config = loadConfig();

@@ -12,6 +12,10 @@ function authMiddleware(config) {
     const user = await User.findById(payload.sub);
     if (!user || user.status !== 'active') throw new AppError(401, 'ACCOUNT_UNAVAILABLE', 'Account is unavailable');
     req.user = user;
+    const allowedDuringPasswordChange = ['/api/auth/me', '/api/auth/logout', '/api/auth/change-credentials'];
+    if (user.mustChangePassword && !allowedDuringPasswordChange.includes(req.originalUrl.split('?')[0])) {
+      throw new AppError(403, 'PASSWORD_CHANGE_REQUIRED', 'Change your temporary password before continuing');
+    }
     next();
   });
 }
@@ -21,12 +25,17 @@ function optionalAuthMiddleware(config) {
   return asyncHandler(async (req, _res, next) => {
     const token = req.cookies?.accessToken || req.headers.authorization?.replace(/^Bearer\s+/i, '');
     if (!token) return next();
+    let payload;
     try {
-      const payload = jwt.verify(token, config.JWT_ACCESS_SECRET, { issuer: 'vani-api', audience: 'vani-web' });
-      const user = await User.findById(payload.sub);
-      if (user && user.status === 'active') req.user = user;
+      payload = jwt.verify(token, config.JWT_ACCESS_SECRET, { issuer: 'vani-api', audience: 'vani-web' });
     } catch {
       /* an expired token simply means "guest" for optional routes */
+      return next();
+    }
+    const user = await User.findById(payload.sub);
+    if (user && user.status === 'active') {
+      if (user.mustChangePassword) throw new AppError(403, 'PASSWORD_CHANGE_REQUIRED', 'Change your temporary password before continuing');
+      req.user = user;
     }
     next();
   });

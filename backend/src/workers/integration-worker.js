@@ -5,6 +5,19 @@ const Order = require('../../models/Order');
 const email = require('../services/email');
 
 const BACKOFF_MS = [30_000, 120_000, 600_000, 3_600_000, 21_600_000];
+const SENSITIVE_EMAIL_TEMPLATES = new Set(['signup-otp', 'staff-invitation']);
+
+function scrubSensitiveEmailPayload(event) {
+  const payload = event.payload || {};
+  event.payload = {
+    type: payload.type,
+    emailLogId: payload.emailLogId,
+    template: payload.template,
+    to: payload.to,
+    subject: payload.subject,
+    tags: payload.tags,
+  };
+}
 
 async function handleEvent(event, { log = console } = {}) {
   const payload = event.payload || {};
@@ -30,7 +43,7 @@ async function handleEvent(event, { log = console } = {}) {
       return { modified };
     }
     case 'order.status': {
-      const order = await Order.findOneAndUpdate({ orderNumber: payload.orderNumber }, { $set: { erpOrderId: payload.erpOrderId, erpSyncStatus: 'synced' }, $push: { statusHistory: { status: payload.orderStatus || 'processing', actor: 'rishabh-erp', note: payload.note } } }, { new: true });
+      const order = await Order.findOneAndUpdate({ orderNumber: payload.orderNumber }, { $set: { erpOrderId: payload.erpOrderId, erpSyncStatus: 'synced' }, $push: { statusHistory: { status: payload.orderStatus || 'processing', actor: 'rishabh-erp', note: payload.note } } }, { returnDocument: 'after' });
       if (!order) throw new Error(`Order ${payload.orderNumber} not found for ERP status update`);
       return { orderNumber: order.orderNumber };
     }
@@ -86,17 +99,21 @@ async function processPendingEmails({ limit = 25, log = console } = {}) {
     const event = await IntegrationEvent.findOneAndUpdate(
       claimFilter,
       { $set: { status: 'processing' }, $inc: { attempts: 1 } },
-      { new: true, sort: { createdAt: 1 } }
+      { returnDocument: 'after', sort: { createdAt: 1 } }
     );
     if (!event) break;
     try {
       const response = await email.deliverOutboxEvent(event, { log });
-      event.status = 'succeeded'; event.response = response; event.lastError = undefined; await event.save();
+      event.status = 'succeeded'; event.response = response; event.lastError = undefined;
+      if (SENSITIVE_EMAIL_TEMPLATES.has(event.payload?.template)) scrubSensitiveEmailPayload(event);
+      await event.save();
       results.push({ id: event.id, status: 'succeeded' });
     } catch (error) {
       const delay = BACKOFF_MS[Math.min(event.attempts - 1, BACKOFF_MS.length - 1)];
       event.status = event.attempts >= BACKOFF_MS.length ? 'dead_letter' : 'failed';
-      event.lastError = error.message; event.nextAttemptAt = new Date(Date.now() + delay); await event.save();
+      event.lastError = error.message; event.nextAttemptAt = new Date(Date.now() + delay);
+      if (event.status === 'dead_letter' && SENSITIVE_EMAIL_TEMPLATES.has(event.payload?.template)) scrubSensitiveEmailPayload(event);
+      await event.save();
       results.push({ id: event.id, status: event.status, error: error.message });
       log.warn?.({ eventId: event.id, error: error.message }, 'email delivery attempt failed');
     }

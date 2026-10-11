@@ -91,6 +91,7 @@ const renderWithHostileInput = (name, extra = {}) =>
     adminNote: XSS,
     resetUrl: `https://shop.vanicollection.test/reset-password?token=${'a'.repeat(64)}`,
     verificationUrl: 'https://shop.vanicollection.test/verify?token=abc',
+    temporaryPassword: 'TempPass123!',
     status: 'shipped',
     ...extra,
   });
@@ -99,7 +100,7 @@ const renderWithHostileInput = (name, extra = {}) =>
 
 test('every template renders a subject, html and a plain-text alternative', () => {
   assert.ok(TEMPLATE_NAMES.length >= 9, `expected the full template set, saw ${TEMPLATE_NAMES.length}`);
-  for (const required of ['welcome', 'password-reset', 'password-changed', 'order-confirmation', 'order-status', 'order-cancelled', 'refund-processed', 'return-status', 'email-verification']) {
+  for (const required of ['welcome', 'password-reset', 'password-changed', 'order-confirmation', 'order-status', 'order-cancelled', 'refund-processed', 'return-status', 'email-verification', 'staff-invitation', 'account-email-changed']) {
     assert.ok(TEMPLATE_NAMES.includes(required), `missing template ${required}`);
   }
 
@@ -268,6 +269,15 @@ test('EMAIL_DEV_CAPTURE renders and logs the email without contacting SMTP', asy
   assert.equal(result.reason, 'DEV_CAPTURE');
   assert.equal(logs[0].status, 'skipped');
   assert.ok(captured.some((entry) => String(entry.html || '').includes(FIXTURE_ORDER.orderNumber)), 'the fully rendered email is written to the log');
+  const temporaryPassword = 'CaptureMustNotLog123!';
+  await email.sendEmail({
+    to: 'new-staff@example.com',
+    template: 'staff-invitation',
+    data: { firstName: 'New', email: 'new-staff@example.com', temporaryPassword },
+    log: { ...silentLogger, info: (payload) => captured.push(payload) },
+  });
+  assert.equal(logs[1].data, undefined, 'temporary credentials are not recorded in the email log');
+  assert.ok(!captured.some((entry) => JSON.stringify(entry).includes(temporaryPassword)), 'capture logs never include the temporary password');
   email.setTransportForTesting(null);
   email.resetEmailServiceForTesting();
   email.configureEmail(config);
@@ -367,6 +377,14 @@ test('queueEmail resolves even when the whole email stack throws', async (t) => 
   email.configureEmail(config);
 });
 
+test('sensitive verification emails cannot be replayed from the admin email log', async (t) => {
+  t.mock.method(EmailLog, 'findById', async () => fakeLogDoc({ template: 'staff-invitation', to: 'staff@example.com', data: undefined }));
+  await assert.rejects(
+    () => email.resendEmail('log-sensitive', { log: silentLogger }),
+    (error) => error.code === 'SENSITIVE_EMAIL_NOT_RESENDABLE' && error.status === 422
+  );
+});
+
 test('orderEmailData reduces a Mongoose document to a JSON-safe snapshot with an id', () => {
   const doc = new Order({ orderNumber: 'VC1', items: [{ sku: 'A', quantity: 1, unitPrice: 100, lineTotal: 100 }], shippingAddress: { fullName: 'Priya', email: 'p@example.com' }, amounts: { subtotal: 100, total: 100 } });
   const data = email.orderEmailData(doc, { firstName: 'Priya' });
@@ -430,7 +448,18 @@ maybeTest('placing an order enqueues order-confirmation and a broken transport c
   // The provider is configured but the transport is dead — the worst realistic case.
   email.setTransportForTesting({ sendMail: async () => { throw new Error('ESMTP connection refused'); } });
 
-  const register = await api('/api/auth/register', { method: 'POST', body: { email: 'email-shopper@example.com', password: 'StrongPass123', firstName: 'Priya' } });
+  const signupOtp = await api('/api/auth/register/request-otp', {
+    method: 'POST',
+    body: { email: 'email-shopper@example.com', password: 'StrongPass123', firstName: 'Priya' },
+  });
+  assert.equal(signupOtp.status, 202, JSON.stringify(signupOtp.body));
+  const otpEmail = await EmailLog.findOne({ to: 'email-shopper@example.com', template: 'signup-otp' });
+  assert.ok(otpEmail, 'signup verification email is enqueued before registration');
+  assert.equal(otpEmail.data, undefined, 'OTP is not retained in the general email audit log');
+  const otpEvent = await IntegrationEvent.findOne({ provider: 'email', 'payload.emailLogId': otpEmail.id });
+  const code = otpEvent.payload.text.match(/verification code is (\d{6})/i)?.[1];
+  assert.match(code, /^\d{6}$/);
+  const register = await api('/api/auth/register', { method: 'POST', body: { email: 'email-shopper@example.com', code } });
   assert.equal(register.status, 201, JSON.stringify(register.body));
   const token = accessTokenFrom(register.setCookie);
 
@@ -618,12 +647,13 @@ maybeTest('the admin email console lists, filters and resends', async () => {
 
 maybeTest('the mail worker dead-letters an undeliverable message after the backoff ladder', async () => {
   email.setTransportForTesting({ sendMail: async () => { throw new Error('recipient address rejected'); } });
+  const temporaryPassword = 'TempInvitationPassword123!';
   await IntegrationEvent.create({
     provider: 'email',
     direction: 'outbound',
     eventType: 'email.send',
     idempotencyKey: `email.deadletter.${Date.now()}`,
-    payload: { type: 'email.send', to: 'bounce@example.com', subject: 'Dead letter probe', html: '<p>probe</p>', text: 'probe' },
+    payload: { type: 'email.send', template: 'staff-invitation', to: 'bounce@example.com', subject: 'Dead letter probe', html: `<p>${temporaryPassword}</p>`, text: temporaryPassword },
     status: 'pending',
   });
   for (let attempt = 0; attempt < email.BACKOFF_MS.length; attempt += 1) {
@@ -635,6 +665,9 @@ maybeTest('the mail worker dead-letters an undeliverable message after the backo
   assert.equal(dead.status, 'dead_letter', 'exhausted retries become a dead letter instead of looping forever');
   assert.equal(dead.attempts, email.BACKOFF_MS.length);
   assert.match(dead.lastError, /recipient address rejected/);
+  assert.equal(dead.payload.html, undefined, 'terminal invitation failures scrub rendered credentials from the outbox');
+  assert.equal(dead.payload.text, undefined);
+  assert.ok(!JSON.stringify(dead.payload).includes(temporaryPassword));
   email.setTransportForTesting(null);
 });
 

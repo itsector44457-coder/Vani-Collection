@@ -20,7 +20,7 @@ module.exports = ({ auth }) => {
   router.use(auth, requireRoles('finance','admin','super_admin'));
   router.get('/', asyncHandler(async (_req, res) => res.json({ data: await Coupon.find().sort({ createdAt: -1 }) })));
   router.post('/', validate(couponSchema), audit('coupon.create','Coupon'), asyncHandler(async (req, res) => res.status(201).json({ data: await Coupon.create(req.body) })));
-  router.patch('/:id', validate(couponSchema.partial()), audit('coupon.update','Coupon'), asyncHandler(async (req, res) => { const coupon = await Coupon.findByIdAndUpdate(req.params.id, req.body, { new: true }); if (!coupon) throw new AppError(404,'COUPON_NOT_FOUND','Coupon not found'); res.json({ data: coupon }); }));
+  router.patch('/:id', validate(couponSchema.partial()), audit('coupon.update','Coupon'), asyncHandler(async (req, res) => { const coupon = await Coupon.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' }); if (!coupon) throw new AppError(404,'COUPON_NOT_FOUND','Coupon not found'); res.json({ data: coupon }); }));
   router.delete('/:id', requireRoles('admin','super_admin'), audit('coupon.delete','Coupon'), asyncHandler(async (req, res) => { await Coupon.findByIdAndDelete(req.params.id); res.status(204).end(); }));
   return router;
 };

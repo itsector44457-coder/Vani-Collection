@@ -109,7 +109,7 @@ module.exports = ({ auth }) => {
   router.delete('/wishlist/:productId', validate(z.object({ productId: z.string().regex(/^[0-9a-fA-F]{24}$/, 'productId must be a product id') }), 'params'), asyncHandler(async (req, res) => {
     // $pull matches every item for that product regardless of sku, so removing a wishlisted product
     // clears it completely instead of leaving a stale size behind.
-    const wishlist = await Wishlist.findOneAndUpdate({ userId: req.user.id }, { $pull: { items: { productId: req.params.productId } } }, { new: true }).populate('items.productId');
+    const wishlist = await Wishlist.findOneAndUpdate({ userId: req.user.id }, { $pull: { items: { productId: req.params.productId } } }, { returnDocument: 'after' }).populate('items.productId');
     const data = serializeWishlist(wishlist?.items);
     res.json({ data, meta: { total: data.length } });
   }));

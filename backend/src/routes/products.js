@@ -32,12 +32,12 @@ module.exports = ({ auth }) => {
     res.status(201).json({ data: product });
   }));
   router.patch('/:id', auth, requireRoles('catalog_manager', 'admin', 'super_admin'), validate(productInput.partial()), audit('product.update', 'Product'), asyncHandler(async (req, res) => {
-    const product = await Product.findByIdAndUpdate(req.params.id, { ...req.body, updatedBy: req.user.id }, { new: true, runValidators: true });
+    const product = await Product.findByIdAndUpdate(req.params.id, { ...req.body, updatedBy: req.user.id }, { returnDocument: 'after', runValidators: true });
     if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
     res.json({ data: product });
   }));
   router.delete('/:id', auth, requireRoles('admin', 'super_admin'), audit('product.archive', 'Product'), asyncHandler(async (req, res) => {
-    const product = await Product.findByIdAndUpdate(req.params.id, { status: 'archived', updatedBy: req.user.id }, { new: true });
+    const product = await Product.findByIdAndUpdate(req.params.id, { status: 'archived', updatedBy: req.user.id }, { returnDocument: 'after' });
     if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found'); res.json({ data: product });
   }));
   return router;

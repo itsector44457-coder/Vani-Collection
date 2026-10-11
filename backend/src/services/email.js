@@ -219,11 +219,11 @@ function buildMessage({ to, subject, html, text, replyTo, tags }) {
 }
 
 /** Writes the rendered message to the server log — the EMAIL_DEV_CAPTURE / unconfigured path. */
-function captureToLog(log, { to, subject, text, html, reason }) {
+function captureToLog(log, { to, subject, text, html, reason, redactBody = false }) {
   const config = getEmailConfig();
   const showBody = config.EMAIL_DEV_CAPTURE || config.NODE_ENV !== 'production';
   const payload = { to, subject, reason };
-  if (showBody) {
+  if (showBody && !redactBody) {
     payload.text = text;
     // HTML is large; keep the log readable but still fully inspectable in development.
     payload.html = config.EMAIL_DEV_CAPTURE ? html : `${String(html).slice(0, 2000)}…`;
@@ -282,7 +282,7 @@ async function sendEmail({ to, template, data = {}, replyTo, tags, orderId, user
       template,
       subject: rendered.subject,
       status: 'queued',
-      data,
+      data: ['signup-otp', 'staff-invitation'].includes(template) ? undefined : data,
       replyTo: replyTo || getEmailConfig().EMAIL_REPLY_TO || undefined,
       tags: tags || [],
       orderId: orderId || data?.order?.id || data?.order?._id || undefined,
@@ -298,7 +298,14 @@ async function sendEmail({ to, template, data = {}, replyTo, tags, orderId, user
       emailLog.error = reason;
       await emailLog.save().catch(() => {});
     }
-    captureToLog(log, { to: recipient, subject: rendered.subject, text: rendered.text, html: rendered.html, reason });
+    captureToLog(log, {
+      to: recipient,
+      subject: rendered.subject,
+      text: rendered.text,
+      html: rendered.html,
+      reason,
+      redactBody: ['signup-otp', 'staff-invitation'].includes(template),
+    });
     return { skipped: true, reason, id: emailLog?.id, subject: rendered.subject };
   }
 
@@ -334,6 +341,7 @@ async function enqueueDelivery({ emailLog, to, subject, html, text, replyTo, tag
       payload: {
         type: 'email.send',
         emailLogId: emailLog?.id,
+        template,
         to,
         subject,
         html,
@@ -448,6 +456,7 @@ async function deliverOutboxEvent(event, { log = noopLogger } = {}) {
       emailLog.sentAt = new Date();
       emailLog.attempts = attempts;
       emailLog.error = undefined;
+      if (['signup-otp', 'staff-invitation'].includes(payload.template)) emailLog.data = undefined;
       await emailLog.save().catch(() => {});
     }
     log.info({ to: payload.to, subject: payload.subject, messageId, attempts }, 'email sent');
@@ -477,6 +486,12 @@ async function resendEmail(emailLogId, { log = noopLogger } = {}) {
     const error = new Error('Email log entry not found');
     error.status = 404;
     error.code = 'EMAIL_NOT_FOUND';
+    throw error;
+  }
+  if (['signup-otp', 'staff-invitation'].includes(emailLog.template)) {
+    const error = new Error('Sensitive email credentials are not retained. Request a fresh code or invitation instead.');
+    error.status = 422;
+    error.code = 'SENSITIVE_EMAIL_NOT_RESENDABLE';
     throw error;
   }
 

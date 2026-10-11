@@ -55,14 +55,22 @@ const fullName = (user: StaffUser): string =>
 export default function StaffPage() {
   const session = useAdminSession();
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState<StaffUser | null>(null);
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [password, setPassword] = useState("");
   const [roles, setRoles] = useState<string[]>(["support"]);
+  const [editEmail, setEditEmail] = useState("");
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [editRoles, setEditRoles] = useState<string[]>([]);
+  const [editStatus, setEditStatus] = useState<"active" | "blocked">("active");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const isSuperAdmin = Boolean(session.user?.roles?.includes("super_admin"));
+  const assignableRoles = isSuperAdmin ? ASSIGNABLE_STAFF_ROLES : ASSIGNABLE_STAFF_ROLES.filter((role) => role !== "super_admin");
 
   const staff = useApiResource<{ data: StaffUser[] }>((signal) => api.staff(signal), { data: DEMO_STAFF });
   const rows = staff.data.data;
@@ -92,10 +100,6 @@ export default function StaffPage() {
       setError("A first name is required — it appears on audit entries and customer replies.");
       return;
     }
-    if (password.length < 8) {
-      setError("The temporary password needs at least 8 characters.");
-      return;
-    }
     if (roles.length === 0) {
       setError("Pick at least one role, otherwise the account cannot reach anything.");
       return;
@@ -107,25 +111,85 @@ export default function StaffPage() {
         email: email.trim(),
         firstName: firstName.trim(),
         lastName: lastName.trim() || undefined,
-        password,
         roles,
       });
-      setNotice(`${fullName(created.data)} can now sign in with the temporary password.`);
+      setNotice(`An invitation with a one-time temporary password was queued for ${created.data.email}.`);
       setInviteOpen(false);
       setEmail("");
       setFirstName("");
       setLastName("");
-      setPassword("");
       setRoles(["support"]);
       staff.refresh();
     } catch (cause) {
       setError(
         cause instanceof ApiError && cause.code === "EMAIL_EXISTS"
-          ? "That email already has an account. Change its roles from the Customers screen instead."
+          ? "That email already has an account. Staff accounts can only be created with a new email address."
           : cause instanceof ApiError
             ? cause.message
             : "Could not create this staff account"
       );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openEdit = (user: StaffUser) => {
+    setEditing(user);
+    setEditEmail(user.email);
+    setEditFirstName(user.firstName ?? "");
+    setEditLastName(user.lastName ?? "");
+    setEditRoles(user.roles.filter((role) => role !== "customer"));
+    setEditStatus(user.status === "blocked" ? "blocked" : "active");
+    setError(null);
+    setEditOpen(true);
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmail.trim())) {
+      setError("Enter a valid work email address.");
+      return;
+    }
+    if (!editFirstName.trim()) {
+      setError("A first name is required.");
+      return;
+    }
+    const isYou = session.user?.id === editing._id || session.user?.email?.toLowerCase() === editing.email.toLowerCase();
+    if (!isYou && editRoles.length === 0) {
+      setError("Pick at least one role.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api.updateStaff(editing._id, {
+        email: editEmail.trim(),
+        firstName: editFirstName.trim(),
+        lastName: editLastName.trim() || undefined,
+        ...(!isYou ? { roles: editRoles, status: editStatus } : {}),
+      });
+      setNotice(`${editFirstName.trim()}’s staff account was updated.`);
+      setEditOpen(false);
+      setEditing(null);
+      staff.refresh();
+      session.reload();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not update this staff account");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendInvitation = async (user: StaffUser) => {
+    if (!window.confirm(`Send a new temporary password to ${user.email}? The previous temporary password will stop working.`)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await api.resendStaffInvitation(user._id);
+      setNotice(response.message);
+      staff.refresh();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not resend the staff invitation");
     } finally {
       setBusy(false);
     }
@@ -182,12 +246,13 @@ export default function StaffPage() {
                   <th className="pb-3 pr-4">Status</th>
                   <th className="pb-3 pr-4">Last sign-in</th>
                   <th className="pb-3">Added</th>
+                  <th className="pb-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f0ebe3]">
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <EmptyState title="No staff accounts" hint="Add the first one to get started." />
                     </td>
                   </tr>
@@ -220,9 +285,12 @@ export default function StaffPage() {
                         </div>
                       </td>
                       <td className="py-3.5 pr-4">
-                        <Badge tone={user.status === "active" ? "success" : user.status === "blocked" ? "danger" : "warning"} dot>
-                          {user.status}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1.5">
+                          <Badge tone={user.status === "active" ? "success" : user.status === "blocked" ? "danger" : "warning"} dot>
+                            {user.status}
+                          </Badge>
+                          {user.mustChangePassword && <Badge tone="warning">Setup pending</Badge>}
+                        </div>
                       </td>
                       <td className="py-3.5 pr-4">
                         {user.lastLoginAt ? (
@@ -239,6 +307,18 @@ export default function StaffPage() {
                       <td className="py-3.5 text-[12px] text-stone-500">
                         {new Date(user.createdAt).toLocaleDateString("en-IN", { dateStyle: "medium" })}
                       </td>
+                      <td className="py-3.5">
+                        {(!user.roles.includes("super_admin") || isSuperAdmin) && (
+                          <div className="flex flex-wrap gap-2">
+                            <ButtonGhost onClick={() => openEdit(user)}>Edit</ButtonGhost>
+                            {user.mustChangePassword && (
+                              <ButtonGhost onClick={() => void resendInvitation(user)} disabled={busy}>
+                                Resend invite
+                              </ButtonGhost>
+                            )}
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
@@ -246,10 +326,8 @@ export default function StaffPage() {
             </table>
           </div>
           <p className="mt-4 border-t border-[#f0ebe3] pt-4 text-[11.5px] text-stone-500">
-            Backed by <code>GET /api/admin/staff</code> and <code>POST /api/admin/staff</code>, both restricted to admin
-            and super admin. Role changes to an existing account go through{" "}
-            <code>PATCH /api/admin/customers/:id</code> on the Customers screen; only a super admin can grant
-            super_admin.
+            New staff receive a one-time password by email and must change it at first sign-in. Only a super admin
+            can grant or edit the super_admin role.
           </p>
         </Card>
 
@@ -271,7 +349,7 @@ export default function StaffPage() {
 
           <Card title="Offboarding checklist">
             <ul className="space-y-2 text-[12px] leading-relaxed text-stone-500">
-              <li>Block the account from the Customers screen — it stops sign-in without losing history.</li>
+              <li>Block the staff account here — it stops sign-in without losing history.</li>
               <li>Filter the audit log by their email before you do, if you need to see what they changed.</li>
               <li>Reassign anything they owned: open returns, pending refunds, draft content blocks.</li>
               <li>Rotate any shared credentials they knew (ERP, Shiprocket, SMTP).</li>
@@ -284,7 +362,7 @@ export default function StaffPage() {
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         title="Add a staff account"
-        description="The account is created immediately with the password below. Share it over a separate channel and ask them to change it on first sign-in."
+        description="A random one-time password will be emailed to this person. They must set a new password before accessing the admin console."
         footer={
           <>
             <ButtonGhost onClick={() => setInviteOpen(false)}>Cancel</ButtonGhost>
@@ -308,14 +386,10 @@ export default function StaffPage() {
             </Field>
           </div>
 
-          <Field label="Temporary password" htmlFor="staff-password" hint="At least 8 characters. Stored as a bcrypt hash.">
-            <TextInput id="staff-password" type="text" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Jaipur2026!" className="font-mono" />
-          </Field>
-
           <div>
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Roles</p>
             <div className="space-y-2">
-              {ASSIGNABLE_STAFF_ROLES.map((role) => (
+              {assignableRoles.map((role) => (
                 <div key={role} className="rounded-xl border border-[#f0ebe3] px-3 py-2.5">
                   <Checkbox label={ROLE_LABELS[role] ?? role} checked={roles.includes(role)} onChange={() => toggleRole(role)} />
                   <p className="mt-1 pl-6 text-[11.5px] leading-relaxed text-stone-500">{ROLE_CAPABILITIES[role]}</p>
@@ -323,9 +397,61 @@ export default function StaffPage() {
               ))}
             </div>
             <p className="mt-2 text-[11px] text-stone-400">
-              <code>super_admin</code> cannot be granted here — it is reserved for the account seeded at install time.
+              {isSuperAdmin ? "Super admin access is powerful; grant it only when required." : "Only a super admin can grant super admin access."}
             </p>
           </div>
+        </div>
+      </Modal>
+      <Modal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Edit staff account"
+        description="Update staff details, access roles, or sign-in status."
+        footer={
+          <>
+            <ButtonGhost onClick={() => setEditOpen(false)}>Cancel</ButtonGhost>
+            <ButtonPrimary onClick={() => void saveEdit()} disabled={busy}>
+              {busy ? "Saving…" : "Save changes"}
+            </ButtonPrimary>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {error && <Alert>{error}</Alert>}
+          <Field label="Work email" htmlFor="staff-edit-email">
+            <TextInput id="staff-edit-email" type="email" value={editEmail} onChange={(event) => setEditEmail(event.target.value)} />
+          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="First name" htmlFor="staff-edit-first">
+              <TextInput id="staff-edit-first" value={editFirstName} onChange={(event) => setEditFirstName(event.target.value)} />
+            </Field>
+            <Field label="Last name" htmlFor="staff-edit-last">
+              <TextInput id="staff-edit-last" value={editLastName} onChange={(event) => setEditLastName(event.target.value)} />
+            </Field>
+          </div>
+          {editing && session.user?.email?.toLowerCase() !== editing.email.toLowerCase() && (
+            <>
+              <div>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-stone-500">Roles</p>
+                <div className="space-y-2">
+                  {assignableRoles.map((role) => (
+                    <Checkbox
+                      key={role}
+                      label={ROLE_LABELS[role] ?? role}
+                      checked={editRoles.includes(role)}
+                      onChange={() => setEditRoles((current) => current.includes(role) ? current.filter((item) => item !== role) : [...current, role])}
+                    />
+                  ))}
+                </div>
+              </div>
+              <Field label="Sign-in status" htmlFor="staff-edit-status">
+                <select id="staff-edit-status" value={editStatus} onChange={(event) => setEditStatus(event.target.value as "active" | "blocked")} className="w-full rounded-xl border border-[#ebe6de] bg-white px-3 py-2.5 text-sm">
+                  <option value="active">Active</option>
+                  <option value="blocked">Blocked</option>
+                </select>
+              </Field>
+            </>
+          )}
         </div>
       </Modal>
     </div>

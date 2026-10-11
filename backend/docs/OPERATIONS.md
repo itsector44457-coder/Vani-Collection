@@ -54,9 +54,17 @@ Rollout:
    single most common cause of silent drops.
 3. Set `STOREFRONT_URL` to the canonical storefront origin — every link in every template is built
    from it, and so is the password-reset URL.
-4. Keep `EMAIL_DEV_CAPTURE=true` for the first deploy, place a test order, read the fully rendered
-   email out of the logs, then flip it to `false`.
+4. Keep `EMAIL_DEV_CAPTURE=true` while checking non-signup templates from logs. Signup OTP delivery
+   is intentionally disabled in capture mode; set it to `false` on staging before testing account
+   verification and before enabling real customer registration.
 5. Publish SPF, DKIM and DMARC for the sending domain before going live, or the mail lands in spam.
+
+Staff invitations require live SMTP delivery (`EMAIL_DEV_CAPTURE=false`). The API generates the
+temporary password and enqueues it only in the delivery outbox; general email audit records omit it.
+Successful delivery and terminal dead-lettering scrub the rendered credentials from the outbox.
+Invited staff can sign in only to change the temporary password before using the admin console.
+If the invitation needs to be sent again before setup is complete, use **Resend invite** on
+`/admin/staff`; this rotates the temporary password and invalidates the earlier one.
 
 `DNS_SERVERS` in `backend/server.js` is a **local-development-only** workaround for ISP resolvers
 that refuse the SRV lookups a `mongodb+srv://` URI needs. It is opt-in (nothing happens when the

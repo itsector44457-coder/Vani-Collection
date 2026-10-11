@@ -23,11 +23,13 @@ Common codes: `AUTH_REQUIRED` 401, `FORBIDDEN` 403, `ROUTE_NOT_FOUND` 404, `VALI
 
 | Method | Path | Body | Notes |
 | --- | --- | --- | --- |
-| POST | `/auth/register` | email, password (≥8), firstName, lastName?, phone? | sets auth cookies, 409 on duplicate |
+| POST | `/auth/register/request-otp` | email, password (≥8), firstName, lastName?, phone? | queues a 6-digit email code; expires in 10 min, resend after 60 sec |
+| POST | `/auth/register` | email, code | creates a verified account and sets auth cookies; requires a valid, unused code |
 | POST | `/auth/login` | email, password | rate limited (20 / 15 min) |
 | POST | `/auth/refresh` | — (cookie) | rotates refresh token, 401 on reuse |
 | POST | `/auth/logout` | — | revokes refresh token |
 | GET | `/auth/me` | — | current user |
+| PATCH | `/auth/change-credentials` | currentPassword, email?, firstName?, lastName?, newPassword? | updates the signed-in account; clears a staff invitation's forced password change after a new password is set |
 
 ## Catalogue (public)
 
@@ -145,9 +147,10 @@ Writes are de-duplicated **by `productId`**, not by whole subdocument:
 | POST | `/refunds/:orderId` | finance, admin, super_admin |
 | GET | `/admin/dashboard` | any staff role |
 | GET | `/admin/catalogue?q&status&category&page&limit` | products with per-SKU availability, low-stock count, units sold, revenue |
-| GET | `/admin/customers`, GET `/admin/customers/:id` | support, admin, super_admin |
-| PATCH | `/admin/customers/:id` (status, roles) | admin, super_admin |
-| GET/POST | `/admin/staff` | admin, super_admin |
+| GET | `/admin/customers`, GET `/admin/customers/:id` | support, admin, super_admin — customer accounts only; staff are listed separately |
+| PATCH | `/admin/customers/:id` (status) | admin, super_admin |
+| GET/POST/PATCH | `/admin/staff`, `/admin/staff/:id` | admin, super_admin — invitations email a generated one-time password; super_admin assignment/editing is super-admin-only |
+| POST | `/admin/staff/:id/resend-invitation` | admin, super_admin — rotates and emails a new temporary password while first-time setup is pending |
 | GET | `/admin/orders/:id/packing-slip.pdf` | warehouse, support, catalog_manager, finance, admin, super_admin — pick/pack sheet with **no prices** on it |
 | GET | `/admin/audit-logs?action&limit` | admin, super_admin |
 | GET | `/admin/reports/sales?days=` | finance, admin, super_admin |
@@ -286,6 +289,8 @@ Consequences worth remembering:
 - With `EMAIL_ENABLED=false` (or no `SMTP_HOST`) every trigger logs the intent and stores a
   `skipped` EmailLog, so the API runs with zero email configuration.
 - `EMAIL_DEV_CAPTURE=true` renders the message and writes it to the log instead of sending it.
+- Signup is the exception: `/auth/register/request-otp` returns `503` unless SMTP delivery is
+  configured and `EMAIL_DEV_CAPTURE=false`; an account is never created without a sent code.
 - Triggers are idempotent: the outbox key is `email.send:<template>:<to>:<dedupeKey>`, so a
   double-submitted checkout cannot send two confirmations.
 

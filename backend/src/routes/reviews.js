@@ -33,7 +33,7 @@ module.exports = ({ auth }) => {
     res.json({ data, meta: { total: data.length, counts: Object.fromEntries(counts.map((row) => [row._id, row.count])) } });
   }));
   router.patch('/:id', auth, requireRoles('support','admin','super_admin'), validate(z.object({ status: z.enum(['pending','published','rejected']).optional(), adminReply: z.string().max(2000).optional() })), asyncHandler(async (req, res) => {
-    const review = await Review.findByIdAndUpdate(req.params.id, req.body, { new: true }); if (!review) throw new AppError(404, 'REVIEW_NOT_FOUND', 'Review not found'); res.json({ data: review });
+    const review = await Review.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after' }); if (!review) throw new AppError(404, 'REVIEW_NOT_FOUND', 'Review not found'); res.json({ data: review });
   }));
   router.get('/summary/:productId', asyncHandler(async (req, res) => {
     const [summary] = await Review.aggregate([{ $match: { productId: new (require('mongoose').Types.ObjectId)(req.params.productId), status: 'published' } }, { $group: { _id: null, average: { $avg: '$rating' }, count: { $sum: 1 }, ratings: { $push: '$rating' } } }]);

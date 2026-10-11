@@ -174,6 +174,7 @@ export interface SessionUser {
   roles: string[];
   status: string;
   lastLoginAt?: string;
+  mustChangePassword?: boolean;
 }
 
 export interface DashboardMetrics {
@@ -422,6 +423,7 @@ export interface StaffUser {
   status: string;
   lastLoginAt?: string;
   createdAt: string;
+  mustChangePassword?: boolean;
 }
 
 export interface AdminReel {
@@ -698,8 +700,14 @@ export const api = {
   integrationEvents: (signal?: AbortSignal) => apiFetch<{ data: IntegrationEventRow[] }>("/api/integrations/events", { signal }),
   retryIntegrationEvent: (id: string) => apiFetch<{ data: IntegrationEventRow }>(`/api/integrations/events/${id}/retry`, { method: "POST" }),
   staff: (signal?: AbortSignal) => apiFetch<{ data: StaffUser[] }>("/api/admin/staff", { signal }),
-  createStaff: (body: { email: string; firstName: string; lastName?: string; password: string; roles: string[] }) =>
+  createStaff: (body: { email: string; firstName: string; lastName?: string; roles: string[] }) =>
     apiFetch<{ data: StaffUser }>("/api/admin/staff", { method: "POST", body }),
+  resendStaffInvitation: (id: string) =>
+    apiFetch<{ data: StaffUser; message: string }>(`/api/admin/staff/${encodeURIComponent(id)}/resend-invitation`, { method: "POST" }),
+  updateStaff: (id: string, body: { email?: string; firstName?: string; lastName?: string; roles?: string[]; status?: "active" | "blocked" }) =>
+    apiFetch<{ data: StaffUser }>(`/api/admin/staff/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+  changeCredentials: (body: { currentPassword: string; email?: string; firstName?: string; lastName?: string; newPassword?: string }) =>
+    apiFetch<{ data: SessionUser }>("/api/auth/change-credentials", { method: "PATCH", body }),
 
   /* ------------------------------------------------------------------- content */
   // `import type` only — lib/content.ts reaches api-client through lib/seo.ts, so a runtime import
@@ -902,8 +910,8 @@ export const EVENT_STATUS_LABELS: Record<string, string> = {
   dead_letter: "Dead letter",
 };
 
-/** Staff roles an admin can grant (`super_admin` is deliberately not in this list). */
-export const ASSIGNABLE_STAFF_ROLES = ["support", "warehouse", "catalog_manager", "finance", "admin"] as const;
+/** Staff role choices; the UI and API limit `super_admin` assignment to super admins. */
+export const ASSIGNABLE_STAFF_ROLES = ["support", "warehouse", "catalog_manager", "finance", "admin", "super_admin"] as const;
 
 export const ROLE_LABELS: Record<string, string> = {
   customer: "Customer",

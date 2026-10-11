@@ -16,6 +16,9 @@ const templates = {
   'refund-processed': require('./refund-processed'),
   'return-status': require('./return-status'),
   'email-verification': require('./email-verification'),
+  'signup-otp': require('./signup-otp'),
+  'staff-invitation': require('./staff-invitation'),
+  'account-email-changed': require('./account-email-changed'),
 };
 
 /** Names accepted by `renderTemplate`. */

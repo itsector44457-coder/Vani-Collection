@@ -48,7 +48,7 @@ async function resolveCart({ user, guestToken, create = true }) {
 async function hydrateCart(cart) {
   if (!cart || cart.items.length === 0) return { lines: [], subtotal: 0, savings: 0, count: 0, hasUnavailable: false };
 
-  const products = await Product.find({ _id: { $in: cart.items.map((item) => item.productId) } }).select('+variants.costPrice').lean();
+  const products = await Product.find({ _id: { $in: cart.items.map((item) => item.productId) } }).lean();
   const byId = new Map(products.map((product) => [String(product._id), product]));
   const stockRows = await Inventory.find({ sku: { $in: cart.items.map((item) => item.sku) } }).lean();
   const stock = new Map(stockRows.map((row) => [row.sku, Math.max(0, row.onHand - row.reserved)]));

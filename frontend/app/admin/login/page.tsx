@@ -25,7 +25,7 @@ export default function AdminLoginPage() {
         setError("This account does not have admin access. Ask a super admin for a staff role.");
         return;
       }
-      window.location.replace("/admin");
+      window.location.replace(data.mustChangePassword ? "/admin/settings" : "/admin");
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Sign in failed. Please try again.");
     } finally {

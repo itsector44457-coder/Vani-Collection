@@ -245,7 +245,8 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (pathname === "/admin/login" || !session.configured || session.loading) return;
     if (!session.isStaff) router.replace("/admin/login");
-  }, [pathname, router, session.configured, session.isStaff, session.loading]);
+    else if (session.user?.mustChangePassword && pathname !== "/admin/settings") router.replace("/admin/settings");
+  }, [pathname, router, session.configured, session.isStaff, session.loading, session.user?.mustChangePassword]);
 
   useEffect(() => {
     if (!mobileSidebarOpen) return;
@@ -293,6 +294,14 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             Continue to sign in
           </Link>
         </div>
+      </div>
+    );
+  }
+
+  if (session.user?.mustChangePassword && pathname !== "/admin/settings") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#faf7f2] px-4 text-sm text-stone-600">
+        Redirecting to the required password update…
       </div>
     );
   }

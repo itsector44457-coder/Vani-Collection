@@ -95,6 +95,11 @@ server and admin seed script; do not set it in production.
 - Production disables Mongoose `autoIndex`; after deploying the admin catalogue product-sales index,
   create it during a controlled maintenance window with
   `db.orders.createIndex({ "items.productId": 1, status: 1 })`.
+- Customer order history is sorted by customer and newest-first. Before deploying the order-history
+  index change to an existing database, build the supporting index during a controlled maintenance
+  window with `db.orders.createIndex({ customerId: 1, createdAt: -1 })`. After verifying the query
+  plan, the older `customerId_1` index can be removed because this compound index also covers
+  customer-only lookups.
 - Set the frontend build-time `NEXT_PUBLIC_API_URL` to the HTTPS API origin. Admin login uses staff
   email/password and httpOnly session cookies; it does not require an API key.
 - Use `COOKIE_SAMESITE=none` with `COOKIE_SECURE=true` only when the storefront and API are cross-site.

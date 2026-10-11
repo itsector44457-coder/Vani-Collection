@@ -148,7 +148,7 @@ module.exports = ({ auth }) => {
         ...req.body,
         updatedBy: req.user._id,
       },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     )
       .populate('productId', 'name slug images')
       .populate('createdBy', 'email firstName lastName')
@@ -169,7 +169,7 @@ module.exports = ({ auth }) => {
         isActive: false,
         updatedBy: req.user._id,
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!reel) {

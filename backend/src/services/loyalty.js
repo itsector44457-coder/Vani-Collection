@@ -137,7 +137,7 @@ async function applyExpiry(userId, { session, log } = {}) {
     const claimed = await LoyaltyTransaction.findOneAndUpdate(
       { _id: batch._id, remaining: amount },
       { $set: { remaining: 0 } },
-      { new: true, ...(session ? { session } : {}) }
+      { returnDocument: 'after', ...(session ? { session } : {}) }
     );
     if (!claimed) continue;
     expired += amount;
@@ -409,7 +409,7 @@ async function redeemPoints({ userId, points, orderValue, requestId }, { log } =
       const reserved = await LoyaltyAccount.findOneAndUpdate(
         { userId, points: { $gte: spendPoints } },
         { $inc: { points: -spendPoints } },
-        { new: true, session }
+        { returnDocument: 'after', session }
       );
       if (!reserved) {
         throw new AppError(409, 'INSUFFICIENT_POINTS', 'Your balance changed while this was processing — please try again', { balance: account.points });

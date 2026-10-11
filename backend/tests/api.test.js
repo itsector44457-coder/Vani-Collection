@@ -10,6 +10,14 @@ process.env.JWT_ACCESS_SECRET = 'test-access-secret-value-that-is-long-enough';
 process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-value-that-is-long-enough';
 process.env.ERP_WEBHOOK_SECRET = 'test-erp-webhook-secret';
 process.env.ERP_ENABLED = 'false';
+process.env.EMAIL_ENABLED = 'true';
+process.env.EMAIL_FROM = 'Vani Collection <care@vanicollection.test>';
+process.env.SMTP_HOST = 'smtp.test.invalid';
+process.env.SMTP_PORT = '587';
+process.env.SMTP_SECURE = 'false';
+process.env.SMTP_USER = 'mailer';
+process.env.SMTP_PASS = 'mailer-secret';
+process.env.EMAIL_DEV_CAPTURE = 'false';
 
 const { loadConfig } = require('../src/config');
 const { buildApp } = require('../src/app');
@@ -19,6 +27,8 @@ const Product = require('../models/Product');
 const Inventory = require('../models/Inventory');
 const Order = require('../models/Order');
 const IntegrationEvent = require('../models/IntegrationEvent');
+const EmailLog = require('../models/EmailLog');
+const SignupVerification = require('../models/SignupVerification');
 
 let replset;
 let server;
@@ -54,8 +64,22 @@ const apiRaw = async (path, { method = 'GET', token, headers = {} } = {}) => {
   };
 };
 const accessTokenFrom = (setCookie) => setCookie.find((c) => c.startsWith('accessToken='))?.split(';')[0].split('=')[1];
+const requestSignupOtp = async (email) => {
+  const res = await api('/api/auth/register/request-otp', {
+    method: 'POST',
+    body: { email, password: 'StrongPass123', firstName: 'Test', phone: '9876543210' },
+  });
+  assert.equal(res.status, 202, JSON.stringify(res.body));
+  const emailLog = await EmailLog.findOne({ to: email, template: 'signup-otp' }).sort({ createdAt: -1 });
+  assert.ok(emailLog, 'signup verification email is queued');
+  const outboxEvent = await IntegrationEvent.findOne({ provider: 'email', 'payload.emailLogId': emailLog.id });
+  assert.ok(outboxEvent, 'signup verification email is in the delivery outbox');
+  assert.equal(emailLog.data, undefined, 'OTP is not retained in the general email audit log');
+  return outboxEvent.payload.text.match(/verification code is (\d{6})/i)?.[1];
+};
 const signup = async (email) => {
-  const res = await api('/api/auth/register', { method: 'POST', body: { email, password: 'StrongPass123', firstName: 'Test', phone: '9876543210' } });
+  const code = await requestSignupOtp(email);
+  const res = await api('/api/auth/register', { method: 'POST', body: { email, code } });
   assert.equal(res.status, 201, JSON.stringify(res.body));
   return accessTokenFrom(res.setCookie);
 };
@@ -104,6 +128,36 @@ maybeTest('registration and login issue working sessions', async () => {
   assert.equal(login.status, 200);
   const bad = await api('/api/auth/login', { method: 'POST', body: { email: 'buyer@example.com', password: 'WrongPass123' } });
   assert.equal(bad.status, 401);
+});
+
+maybeTest('signup verification rejects invalid codes and throttles resend requests', async () => {
+  const email = 'otp-check@example.com';
+  const code = await requestSignupOtp(email);
+  const invalidCode = code === '000000' ? '000001' : '000000';
+  const invalid = await api('/api/auth/register', { method: 'POST', body: { email, code: invalidCode } });
+  assert.equal(invalid.status, 400);
+  assert.equal(invalid.body.error.code, 'INVALID_OTP');
+
+  const resend = await api('/api/auth/register/request-otp', {
+    method: 'POST',
+    body: { email, password: 'StrongPass123', firstName: 'Test', phone: '9876543210' },
+  });
+  assert.equal(resend.status, 429);
+
+  const completed = await api('/api/auth/register', { method: 'POST', body: { email, code } });
+  assert.equal(completed.status, 201, JSON.stringify(completed.body));
+  assert.ok(completed.body.data.emailVerifiedAt);
+});
+
+maybeTest('signup verification codes expire before account creation', async () => {
+  const email = 'otp-expired@example.com';
+  const code = await requestSignupOtp(email);
+  await SignupVerification.updateOne({ email }, { $set: { expiresAt: new Date(Date.now() - 1_000) } });
+
+  const expired = await api('/api/auth/register', { method: 'POST', body: { email, code } });
+  assert.equal(expired.status, 400);
+  assert.equal(expired.body.error.code, 'OTP_EXPIRED');
+  assert.equal(await User.exists({ email }), null);
 });
 
 maybeTest('catalogue, checkout, stock reservation and idempotent ERP sync work end to end', async () => {
@@ -345,6 +399,108 @@ maybeTest('password reset issues a single-use token and revokes old sessions', a
   assert.equal(oldPassword.status, 401);
   const newPassword = await api('/api/auth/login', { method: 'POST', body: { email: 'reset-flow@example.com', password: 'BrandNewPass123' } });
   assert.equal(newPassword.status, 200);
+});
+
+maybeTest('staff invitations, role boundaries and first-login password changes work', async () => {
+  const suffix = Date.now();
+  const customerEmail = `role-customer-${suffix}@example.com`;
+  const customerToken = await signup(customerEmail);
+  const customer = await User.findOne({ email: customerEmail });
+  const adminLogin = await api('/api/auth/login', { method: 'POST', body: { email: 'admin@example.com', password: 'AdminPass12345' } });
+  const adminToken = accessTokenFrom(adminLogin.setCookie);
+  assert.ok(adminToken);
+
+  const mixedRoleUser = await User.create({
+    email: `mixed-role-${suffix}@example.com`,
+    roles: ['customer', 'support'],
+    passwordHash: await User.hashPassword('MixedPass12345'),
+  });
+  const customers = await api(`/api/admin/customers?q=${encodeURIComponent(mixedRoleUser.email)}`, { token: adminToken });
+  assert.equal(customers.status, 200);
+  assert.equal(customers.body.meta.total, 0, 'staff with a legacy customer role are not listed as customers');
+  const staffList = await api('/api/admin/staff', { token: adminToken });
+  assert.ok(staffList.body.data.some((user) => user._id === mixedRoleUser.id), 'staff list selects explicit staff roles');
+  assert.ok(!staffList.body.data.some((user) => user._id === customer.id), 'ordinary customers are excluded from staff');
+  assert.equal((await api('/api/admin/staff', { token: customerToken })).status, 403);
+
+  const invitedEmail = `invited-${suffix}@example.com`;
+  const invitation = await api('/api/admin/staff', {
+    method: 'POST',
+    token: adminToken,
+    body: { email: invitedEmail, firstName: 'Invited', roles: ['support'] },
+  });
+  assert.equal(invitation.status, 201, JSON.stringify(invitation.body));
+  assert.equal(invitation.body.data.mustChangePassword, true);
+  assert.equal(invitation.body.data.passwordHash, undefined);
+  const emailLog = await EmailLog.findOne({ to: invitedEmail, template: 'staff-invitation' }).sort({ createdAt: -1 });
+  assert.ok(emailLog);
+  assert.equal(emailLog.data, undefined, 'temporary credentials are not written to the general email log');
+  const event = await IntegrationEvent.findOne({ provider: 'email', 'payload.emailLogId': emailLog.id });
+  assert.ok(event);
+  let temporaryPassword = event.payload.text.match(/Temporary password: ([^\n]+)/)?.[1];
+  assert.ok(temporaryPassword, 'the queued invitation contains the generated temporary password');
+  const eventList = await api('/api/integrations/events?provider=email&limit=500', { token: adminToken });
+  const listedInvitation = eventList.body.data.find((row) => row._id === event.id);
+  assert.ok(listedInvitation);
+  assert.equal(listedInvitation.payload.text, undefined, 'admin event responses do not expose rendered invitation credentials');
+  assert.equal(listedInvitation.payload.html, undefined);
+
+  const resent = await api(`/api/admin/staff/${invitation.body.data._id}/resend-invitation`, { method: 'POST', token: adminToken });
+  assert.equal(resent.status, 200, JSON.stringify(resent.body));
+  const resentLog = await EmailLog.findOne({ to: invitedEmail, template: 'staff-invitation' }).sort({ createdAt: -1 });
+  const resentEvent = await IntegrationEvent.findOne({ provider: 'email', 'payload.emailLogId': resentLog.id });
+  const replacementPassword = resentEvent.payload.text.match(/Temporary password: ([^\n]+)/)?.[1];
+  assert.ok(replacementPassword && replacementPassword !== temporaryPassword);
+  const replacedPasswordLogin = await api('/api/auth/login', { method: 'POST', body: { email: invitedEmail, password: temporaryPassword } });
+  assert.equal(replacedPasswordLogin.status, 401, 'resending replaces the old temporary password');
+  temporaryPassword = replacementPassword;
+  const invitedLogin = await api('/api/auth/login', { method: 'POST', body: { email: invitedEmail, password: temporaryPassword } });
+  assert.equal(invitedLogin.status, 200);
+  const invitedToken = accessTokenFrom(invitedLogin.setCookie);
+  const blockedUntilChanged = await api('/api/admin/staff', { token: invitedToken });
+  assert.equal(blockedUntilChanged.status, 403);
+  assert.equal(blockedUntilChanged.body.error.code, 'PASSWORD_CHANGE_REQUIRED');
+
+  const changed = await api('/api/auth/change-credentials', {
+    method: 'PATCH',
+    token: invitedToken,
+    body: { currentPassword: temporaryPassword, newPassword: 'NewSecurePassword456', email: `invited-updated-${suffix}@example.com` },
+  });
+  assert.equal(changed.status, 200, JSON.stringify(changed.body));
+  assert.equal(changed.body.data.mustChangePassword, false);
+  assert.equal(changed.body.data.email, `invited-updated-${suffix}@example.com`);
+  assert.ok(await EmailLog.exists({ to: invitedEmail, template: 'account-email-changed' }));
+  assert.ok(await EmailLog.exists({ to: `invited-updated-${suffix}@example.com`, template: 'account-email-changed' }));
+  assert.equal((await api('/api/admin/customers', { token: invitedToken })).status, 200);
+
+  const edited = await api(`/api/admin/staff/${invitation.body.data._id}`, {
+    method: 'PATCH',
+    token: adminToken,
+    body: { email: `staff-edited-${suffix}@example.com`, firstName: 'Updated', roles: ['admin'], status: 'active' },
+  });
+  assert.equal(edited.status, 200, JSON.stringify(edited.body));
+  assert.deepEqual(edited.body.data.roles, ['admin']);
+  assert.equal(edited.body.data.email, `staff-edited-${suffix}@example.com`);
+  assert.ok(await EmailLog.exists({ to: invitedEmail, template: 'account-email-changed' }));
+  assert.ok(await EmailLog.exists({ to: `staff-edited-${suffix}@example.com`, template: 'account-email-changed' }));
+
+  const ordinaryAdmin = await User.create({
+    email: `ordinary-admin-${suffix}@example.com`,
+    roles: ['admin'],
+    passwordHash: await User.hashPassword('OrdinaryAdmin123'),
+  });
+  const ordinaryAdminLogin = await api('/api/auth/login', { method: 'POST', body: { email: ordinaryAdmin.email, password: 'OrdinaryAdmin123' } });
+  const ordinaryAdminToken = accessTokenFrom(ordinaryAdminLogin.setCookie);
+  const privilegeEscalation = await api('/api/admin/staff', {
+    method: 'POST',
+    token: ordinaryAdminToken,
+    body: { email: `forbidden-${suffix}@example.com`, firstName: 'Forbidden', roles: ['super_admin'] },
+  });
+  assert.equal(privilegeEscalation.status, 403);
+
+  const customersAfter = await api(`/api/admin/customers?q=${encodeURIComponent(customerEmail)}`, { token: adminToken });
+  assert.equal(customersAfter.body.meta.total, 1);
+  assert.equal(customersAfter.body.data[0].email, customerEmail);
 });
 
 maybeTest('customers can cancel their own pending order and reserved stock is released', async () => {

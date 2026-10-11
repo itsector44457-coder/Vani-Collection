@@ -24,6 +24,7 @@ export interface User {
   preferences?: UserPreferences;
   createdAt: string;
   roles?: string[];
+  mustChangePassword?: boolean;
 }
 
 export interface Address {
@@ -52,7 +53,8 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (userData: SignupData) => Promise<void>;
+  signup: (userData: SignupData & { otp: string }) => Promise<void>;
+  requestSignupOtp: (userData: SignupData) => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
   addAddress: (address: Omit<Address, "id">) => Promise<void>;
@@ -113,6 +115,7 @@ interface ApiUser {
   roles?: string[];
   createdAt?: string;
   addresses?: ApiAddress[];
+  mustChangePassword?: boolean;
 }
 
 const toUiAddress = (address: ApiAddress): Address => ({
@@ -150,6 +153,7 @@ const toUiUser = (user: ApiUser): User => ({
   preferences: readJson<UserPreferences | undefined>(PREFERENCES_KEY, undefined),
   createdAt: user.createdAt ?? new Date().toISOString(),
   roles: user.roles,
+  mustChangePassword: user.mustChangePassword,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -238,7 +242,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const nextUser = toUiUser(response.data);
           setSessionLoaded(true);
           setUser(nextUser);
-          await loadAddresses();
+          if (!nextUser.mustChangePassword) await loadAddresses();
           return;
         }
         await new Promise((resolve) => setTimeout(resolve, 400));
@@ -267,43 +271,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signup = useCallback(
-    async (userData: SignupData): Promise<void> => {
+    async (userData: SignupData & { otp: string }): Promise<void> => {
       setIsLoading(true);
       try {
-        if (configured) {
-          const response = await apiFetch<{ data: ApiUser }>("/api/auth/register", {
-            method: "POST",
-            body: {
-              email: userData.email.trim(),
-              password: userData.password,
-              firstName: userData.firstName,
-              lastName: userData.lastName,
-              phone: userData.phone ? userData.phone.replace(/\D/g, "").slice(-10) : undefined,
-            },
-          });
-          setSessionLoaded(true);
-          setUser(toUiUser(response.data));
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        const newUser: User = {
-          id: `user_${Date.now()}`,
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          phone: userData.phone,
-          addresses: [],
-          preferences: { newsletter: userData.newsletter ?? false, smsUpdates: true, whatsappUpdates: true, preferredSize: "M", favoriteCategories: [] },
-          createdAt: new Date().toISOString(),
-        };
-        setUser(newUser);
-        writeJson(USER_KEY, newUser);
+        if (!configured) throw new Error("Email-verified signup requires a connected backend.");
+        const response = await apiFetch<{ data: ApiUser }>("/api/auth/register", {
+          method: "POST",
+          body: { email: userData.email.trim(), code: userData.otp },
+        });
+        setSessionLoaded(true);
+        setUser(toUiUser(response.data));
       } finally {
         setIsLoading(false);
       }
     },
     [configured]
   );
+
+  const requestSignupOtp = useCallback(async (userData: SignupData): Promise<void> => {
+    if (!configured) throw new Error("Email-verified signup requires a connected backend.");
+    setIsLoading(true);
+    try {
+      await apiFetch("/api/auth/register/request-otp", {
+        method: "POST",
+        body: {
+          email: userData.email.trim(),
+          password: userData.password,
+          firstName: userData.firstName.trim(),
+          lastName: userData.lastName.trim(),
+          phone: userData.phone ? userData.phone.replace(/\D/g, "").slice(-10) : undefined,
+        },
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [configured]);
 
   const logout = useCallback(() => {
     setSessionLoaded(false);
@@ -420,6 +422,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(user),
       login,
       signup,
+      requestSignupOtp,
       logout,
       updateProfile,
       addAddress,
@@ -432,7 +435,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       lastResetUrl,
       refresh,
     }),
-    [user, sessionLoading, login, signup, logout, updateProfile, addAddress, updateAddress, deleteAddress, setDefaultAddress, forgotPassword, resetPassword, configured, lastResetUrl, refresh]
+    [user, sessionLoading, login, signup, requestSignupOtp, logout, updateProfile, addAddress, updateAddress, deleteAddress, setDefaultAddress, forgotPassword, resetPassword, configured, lastResetUrl, refresh]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

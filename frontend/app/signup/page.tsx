@@ -9,7 +9,7 @@ import type { SignupData } from "../../context/AuthContext";
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signup, isLoading } = useAuth();
+  const { signup, requestSignupOtp, isLoading } = useAuth();
   
   const [formData, setFormData] = useState<SignupData>({
     firstName: "",
@@ -20,8 +20,9 @@ export default function SignupPage() {
     newsletter: true,
   });
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
-  const [step, setStep] = useState(1); // 1: Basic Info, 2: Account Details
+  const [step, setStep] = useState(1); // 1: Contact details, 2: Credentials, 3: Email verification
 
   const handleNext = () => {
     if (!formData.firstName || !formData.lastName || !formData.phone) {
@@ -36,6 +37,20 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
+    if (step === 3) {
+      if (!/^\d{6}$/.test(otp)) {
+        setError("Enter the 6-digit code sent to your email.");
+        return;
+      }
+      try {
+        await signup({ ...formData, otp });
+        router.push("/account");
+      } catch (err: unknown) {
+        setError((err as Error)?.message || "Could not verify your email. Please try again.");
+      }
+      return;
+    }
+
     if (!formData.email || !formData.password) {
       setError("Please fill in all required fields.");
       return;
@@ -46,16 +61,27 @@ export default function SignupPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+    if (formData.password.length < 8) {
+      setError("Password must be at least 8 characters long.");
       return;
     }
 
     try {
-      await signup(formData);
-      router.push("/account");
+      await requestSignupOtp(formData);
+      setOtp("");
+      setStep(3);
     } catch (err: unknown) {
-      setError((err as Error)?.message || "Something went wrong. Please try again.");
+      setError((err as Error)?.message || "Could not send the verification code. Please try again.");
+    }
+  };
+
+  const resendOtp = async () => {
+    setError("");
+    try {
+      await requestSignupOtp(formData);
+      setOtp("");
+    } catch (err: unknown) {
+      setError((err as Error)?.message || "Could not resend the verification code.");
     }
   };
 
@@ -63,18 +89,18 @@ export default function SignupPage() {
     <div className="min-h-screen bg-[#faf7f2]">
       <div className="grid min-h-screen lg:grid-cols-2">
         {/* Left Side - Hero Image */}
-        <div className="relative hidden lg:block">
+        <div className="relative min-h-[220px] overflow-hidden sm:min-h-[260px] lg:min-h-screen">
           <div 
             className="absolute inset-0 bg-cover bg-center"
             style={{
-              backgroundImage: "url('https://images.unsplash.com/photo-1594736797933-d0d617949b16?q=80&w=1400&auto=format&fit=crop')",
+              backgroundImage: "url('/vani-store-front.jpg')",
             }}
           >
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
             <div className="absolute inset-0 bg-gradient-to-br from-[#881337]/30 via-transparent to-[#dfc28c]/20" />
           </div>
           
-          <div className="absolute bottom-8 left-8 z-10 max-w-md text-white">
+          <div className="absolute bottom-5 left-5 z-10 max-w-md text-white sm:bottom-8 sm:left-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-black/30 px-3 py-1.5 backdrop-blur-md mb-4">
               <span className="h-2 w-2 rounded-full bg-[#dfc28c]" />
               <span className="text-xs font-semibold uppercase tracking-wider">Join Our Family</span>
@@ -106,12 +132,13 @@ export default function SignupPage() {
 
             <div className="text-center mb-8">
               <h1 className="text-2xl font-serif font-semibold text-gray-900">Create Your Account</h1>
-              <p className="mt-2 text-sm text-gray-600">Join thousands of women who trust Vani Collection</p>
+              <p className="mt-2 text-sm text-gray-600">Verify your email to create your account</p>
               
               {/* Step Indicator */}
               <div className="flex items-center justify-center mt-4 gap-2">
                 <div className={`w-8 h-2 rounded-full transition-colors ${step >= 1 ? 'bg-[#881337]' : 'bg-gray-200'}`} />
                 <div className={`w-8 h-2 rounded-full transition-colors ${step >= 2 ? 'bg-[#881337]' : 'bg-gray-200'}`} />
+                <div className={`w-8 h-2 rounded-full transition-colors ${step >= 3 ? 'bg-[#881337]' : 'bg-gray-200'}`} />
               </div>
             </div>
           </div>
@@ -181,7 +208,7 @@ export default function SignupPage() {
                       </button>
                     </div>
                   </motion.div>
-                ) : (
+                ) : step === 2 ? (
                   <motion.div
                     key="step2"
                     initial={{ opacity: 0, x: 20 }}
@@ -217,7 +244,7 @@ export default function SignupPage() {
                           value={formData.password}
                           onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
                           className="w-full px-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#881337]/20 focus:border-[#881337] text-sm"
-                          placeholder="Create a password (min 6 characters)"
+                          placeholder="Create a password (min 8 characters)"
                         />
                       </div>
 
@@ -259,9 +286,69 @@ export default function SignupPage() {
                           disabled={isLoading}
                           className="flex-1 bg-[#881337] text-white py-3 px-4 rounded-xl text-sm font-semibold hover:bg-[#701a35] transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {isLoading ? "Creating..." : "Create Account"}
+                          {isLoading ? "Sending code..." : "Send verification code"}
                         </button>
                       </div>
+                    </form>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="step3"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                  >
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                      {error && (
+                        <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                          {error}
+                        </div>
+                      )}
+                      <div>
+                        <label htmlFor="signup-otp" className="block text-sm font-semibold text-gray-700 mb-2">
+                          Email verification code
+                        </label>
+                        <p className="mb-3 text-sm text-gray-500">
+                          Enter the 6-digit code sent to <strong>{formData.email}</strong>. It expires in 10 minutes.
+                        </p>
+                        <input
+                          id="signup-otp"
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          pattern="[0-9]{6}"
+                          maxLength={6}
+                          required
+                          value={otp}
+                          onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                          className="w-full rounded-xl border border-gray-300 px-3 py-3 text-center text-2xl font-semibold tracking-[0.5em] focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20"
+                          placeholder="000000"
+                        />
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => { setError(""); setStep(2); }}
+                          className="flex-1 border-2 border-gray-300 text-gray-700 py-3 px-4 rounded-xl text-sm font-semibold hover:bg-gray-50 transition"
+                        >
+                          ← Back
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isLoading || otp.length !== 6}
+                          className="flex-1 bg-[#881337] text-white py-3 px-4 rounded-xl text-sm font-semibold hover:bg-[#701a35] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isLoading ? "Verifying..." : "Verify & Create Account"}
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void resendOtp()}
+                        disabled={isLoading}
+                        className="w-full text-sm font-semibold text-[#881337] hover:underline disabled:opacity-50"
+                      >
+                        Resend code
+                      </button>
                     </form>
                   </motion.div>
                 )}

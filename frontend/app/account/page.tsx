@@ -7,11 +7,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
-import { PRODUCTS } from "../../data/products";
 import { productHref } from "../../lib/utils";
 import { isApiConfigured } from "../../lib/api-client";
 import { orderStatusLabel, type StoreOrder } from "../../lib/storefront-types";
-import { useMyOrders } from "../../lib/use-storefront";
+import { useCatalogue, useMyOrders } from "../../lib/use-storefront";
 
 /* ── Mock data ── */
 const MOCK_ORDERS = [
@@ -68,6 +67,11 @@ const MOCK_ORDERS = [
   },
 ];
 
+const DEMO_ADDRESSES = [
+  { label: "home", fullName: "Priya Sharma", line1: "42, Rose Garden Colony, Vaishali Nagar", city: "Jaipur", state: "Rajasthan", pincode: "302021", phone: "9001234567", isDefault: true },
+  { label: "work", fullName: "Priya Sharma", line1: "Level 3, Regus Business Centre, MG Road", city: "Jaipur", state: "Rajasthan", pincode: "302001", phone: "9001234567", isDefault: false },
+];
+
 const STATUS_COLORS: Record<string, string> = {
   emerald: "bg-emerald-100 text-emerald-700",
   blue: "bg-blue-100 text-blue-700",
@@ -114,21 +118,62 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 
 export default function AccountPage() {
   const { wishlist, toggleWishlist } = useCart();
-  const { user, isAuthenticated, logout, updateProfile } = useAuth();
+  const { user, isAuthenticated, isLoading, logout, updateProfile } = useAuth();
   const liveCatalogue = isApiConfigured();
-  const { data: liveOrders } = useMyOrders(isAuthenticated);
-  const ORDERS = liveCatalogue && liveOrders.length > 0 ? liveOrders.map(toDashboardOrder) : MOCK_ORDERS;
+  const ordersResource = useMyOrders(isAuthenticated);
+  const catalogueResource = useCatalogue();
+  const ORDERS = liveCatalogue ? ordersResource.data.map(toDashboardOrder) : MOCK_ORDERS;
+  const wishlistProducts = (liveCatalogue && catalogueResource.source !== "live" ? [] : catalogueResource.data)
+    .filter((product) => wishlist.includes(product.id));
+  const addresses: Array<{
+    id?: string;
+    label: string;
+    fullName: string;
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    pincode: string;
+    phone: string;
+    isDefault: boolean;
+  }> = liveCatalogue
+    ? (user?.addresses ?? []).map((address) => ({
+        id: address.id,
+        label: address.type,
+        fullName: address.fullName,
+        line1: address.address,
+        line2: address.landmark,
+        city: address.city,
+        state: address.state,
+        pincode: address.pincode,
+        phone: address.phone,
+        isDefault: address.isDefault,
+      }))
+    : DEMO_ADDRESSES;
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("orders");
-  const [profile, setProfile] = useState({
-    name: user?.firstName + " " + user?.lastName || "Guest User",
-    email: user?.email || "",
-    phone: user?.phone || "",
+  const [profileDraft, setProfile] = useState<{
+    name: string;
+    email: string;
+    phone: string;
+    dob: string;
+    gender: string;
+  } | null>(null);
+  const profile = profileDraft ?? {
+    name: [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Guest User",
+    email: user?.email ?? "",
+    phone: user?.phone ?? "",
     dob: "",
     gender: "female",
-  });
+  };
   const [profileSaved, setProfileSaved] = useState(false);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  if (liveCatalogue && isLoading) {
+    return <div className="flex min-h-[50vh] items-center justify-center text-sm text-stone-500">Loading your account…</div>;
+  }
 
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
@@ -157,9 +202,8 @@ export default function AccountPage() {
     );
   }
 
-  const wishlistProducts = PRODUCTS.filter((p) => wishlist.includes(p.id));
-
   const handleSaveProfile = async () => {
+    setProfileError(null);
     try {
       const [firstName, ...lastNameParts] = profile.name.split(" ");
       await updateProfile({
@@ -170,7 +214,7 @@ export default function AccountPage() {
       setProfileSaved(true);
       setTimeout(() => setProfileSaved(false), 2500);
     } catch (error) {
-      console.error("Error updating profile:", error);
+      setProfileError(error instanceof Error ? error.message : "Could not save your profile.");
     }
   };
 
@@ -264,7 +308,22 @@ export default function AccountPage() {
                 {activeTab === "orders" && (
                   <div className="space-y-4">
                     <h2 className="text-lg font-serif text-gray-900">Order History</h2>
-                    {ORDERS.map((order) => (
+                    {ORDERS.length === 0 ? (
+                      <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center">
+                        <p className="text-sm text-gray-600">
+                          {ordersResource.loading
+                            ? "Loading your orders…"
+                            : ordersResource.error
+                              ? "We couldn’t load your orders. Please refresh and try again."
+                              : "No orders yet. Your orders will appear here after checkout."}
+                        </p>
+                        {!ordersResource.loading && !ordersResource.error && (
+                          <Link href="/products" className="mt-4 inline-flex rounded-xl bg-[#881337] px-5 py-2.5 text-sm font-semibold text-white">
+                            Explore collection
+                          </Link>
+                        )}
+                      </div>
+                    ) : ORDERS.map((order) => (
                       <div key={order.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                         {/* Order header */}
                         <div
@@ -393,30 +452,31 @@ export default function AccountPage() {
                           { label: "Full Name", key: "name", type: "text" },
                           { label: "Email Address", key: "email", type: "email" },
                           { label: "Mobile Number", key: "phone", type: "tel" },
-                          { label: "Date of Birth", key: "dob", type: "date" },
+                          ...(!liveCatalogue ? [{ label: "Date of Birth", key: "dob", type: "date" }] : []),
                         ].map((field) => (
                           <div key={field.key}>
                             <label className="block text-xs font-semibold text-gray-700 mb-1.5">{field.label}</label>
                             <input
                               type={field.type}
                               value={profile[field.key as keyof typeof profile]}
-                              onChange={(e) => setProfile((p) => ({ ...p, [field.key]: e.target.value }))}
-                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#881337]/20 focus:border-[#881337]"
+                              readOnly={liveCatalogue && field.key === "email"}
+                              onChange={(e) => setProfile({ ...profile, [field.key]: e.target.value })}
+                              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#881337]/20 focus:border-[#881337] read-only:bg-gray-50"
                             />
                           </div>
                         ))}
-                        <div>
+                        {!liveCatalogue && <div>
                           <label className="block text-xs font-semibold text-gray-700 mb-1.5">Gender</label>
                           <select
                             value={profile.gender}
-                            onChange={(e) => setProfile((p) => ({ ...p, gender: e.target.value }))}
+                            onChange={(e) => setProfile({ ...profile, gender: e.target.value })}
                             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#881337]/20 focus:border-[#881337]"
                           >
                             <option value="female">Female</option>
                             <option value="male">Male</option>
                             <option value="other">Other / Prefer not to say</option>
                           </select>
-                        </div>
+                        </div>}
                       </div>
 
                       <div className="pt-2 flex items-center gap-3">
@@ -426,6 +486,7 @@ export default function AccountPage() {
                         >
                           Save Changes
                         </button>
+                        {profileError && <span role="alert" className="text-sm text-rose-700">{profileError}</span>}
                         {profileSaved && (
                           <motion.span
                             initial={{ opacity: 0, x: -8 }}
@@ -463,50 +524,33 @@ export default function AccountPage() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h2 className="text-lg font-serif text-gray-900">Saved Addresses</h2>
-                      <button className="text-sm text-[#881337] font-semibold hover:underline flex items-center gap-1">
-                        <span>+</span> Add New
-                      </button>
+                      <Link href="/account/addresses" className="text-sm text-[#881337] font-semibold hover:underline">+ Manage addresses</Link>
                     </div>
 
-                    {[
-                      {
-                        type: "🏠 Home", name: "Priya Sharma", address: "42, Rose Garden Colony, Vaishali Nagar",
-                        city: "Jaipur", state: "Rajasthan", pin: "302021", phone: "9001234567", default: true,
-                      },
-                      {
-                        type: "🏢 Work", name: "Priya Sharma", address: "Level 3, Regus Business Centre, MG Road",
-                        city: "Jaipur", state: "Rajasthan", pin: "302001", phone: "9001234567", default: false,
-                      },
-                    ].map((addr, i) => (
-                      <div key={i} className={`bg-white rounded-2xl border-2 p-5 ${addr.default ? "border-[#881337]/30" : "border-gray-200"}`}>
+                    {addresses.length === 0 ? (
+                      <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm text-gray-600">
+                        No saved addresses yet.
+                      </div>
+                    ) : addresses.map((addr) => (
+                      <div key={"id" in addr ? addr.id : `${addr.label}-${addr.pincode}`} className={`bg-white rounded-2xl border-2 p-5 ${addr.isDefault ? "border-[#881337]/30" : "border-gray-200"}`}>
                         <div className="flex items-start justify-between">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-bold text-gray-700">{addr.type}</span>
-                              {addr.default && (
+                              <span className="text-xs font-bold text-gray-700">{addr.label === "home" ? "🏠 Home" : addr.label === "work" ? "🏢 Work" : "📍 Other"}</span>
+                              {addr.isDefault && (
                                 <span className="text-[9px] bg-[#881337] text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
                                   Default
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm font-semibold text-gray-900">{addr.name}</p>
+                            <p className="text-sm font-semibold text-gray-900">{addr.fullName}</p>
                             <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                              {addr.address}, {addr.city}, {addr.state} – {addr.pin}
+                              {[addr.line1, addr.line2, addr.city, addr.state, addr.pincode].filter(Boolean).join(", ")}
                             </p>
                             <p className="text-xs text-gray-500 mt-0.5">📞 {addr.phone}</p>
                           </div>
-                          <div className="flex gap-2">
-                            <button className="text-xs text-[#881337] hover:underline font-medium">Edit</button>
-                            {!addr.default && (
-                              <button className="text-xs text-gray-400 hover:text-red-500 transition">Delete</button>
-                            )}
-                          </div>
+                          <Link href="/account/addresses" className="text-xs text-[#881337] hover:underline font-medium">Edit</Link>
                         </div>
-                        {!addr.default && (
-                          <button className="mt-3 text-xs text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition">
-                            Set as Default
-                          </button>
-                        )}
                       </div>
                     ))}
                   </div>

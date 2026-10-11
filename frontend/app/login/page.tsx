@@ -42,18 +42,18 @@ function LoginContent() {
     <div className="min-h-screen bg-[#faf7f2]">
       <div className="grid min-h-screen lg:grid-cols-2">
         {/* Left Side - Hero Image */}
-        <div className="relative hidden lg:block">
+        <div className="relative min-h-[220px] overflow-hidden sm:min-h-[260px] lg:min-h-screen">
           <div 
             className="absolute inset-0 bg-cover bg-center"
             style={{
-              backgroundImage: "url('https://images.unsplash.com/photo-1583391733956-6c78276477e3?q=80&w=1400&auto=format&fit=crop')",
+              backgroundImage: "url('/vani-store-front.jpg')",
             }}
           >
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
             <div className="absolute inset-0 bg-gradient-to-br from-[#881337]/30 via-transparent to-[#dfc28c]/20" />
           </div>
           
-          <div className="absolute bottom-8 left-8 z-10 max-w-md text-white">
+          <div className="absolute bottom-5 left-5 z-10 max-w-md text-white sm:bottom-8 sm:left-8">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-black/30 px-3 py-1.5 backdrop-blur-md mb-4">
               <span className="h-2 w-2 rounded-full bg-[#dfc28c]" />
               <span className="text-xs font-semibold uppercase tracking-wider">Customer Portal</span>

@@ -3,19 +3,106 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { z } = require('zod');
 const User = require('../../models/User');
+const SignupVerification = require('../../models/SignupVerification');
 const { validate } = require('../middleware/validate');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { issueTokens, setAuthCookies, hashToken } = require('../services/tokens');
-const { queueEmail } = require('../services/email');
+const { queueEmail, shouldDeliver } = require('../services/email');
 const { applyReferralCode, ensureReferralCode, getLoyaltyConfig } = require('../services/loyalty');
 
 module.exports = ({ config, auth, authLimiter }) => {
   const router = express.Router();
   const credentials = z.object({ email: z.email(), password: z.string().min(8).max(128) });
-  router.post('/register', authLimiter, validate(credentials.extend({ firstName: z.string().min(1), lastName: z.string().optional(), phone: z.string().regex(/^[6-9]\d{9}$/).optional(), referralCode: z.string().max(24).optional() })), asyncHandler(async (req, res) => {
-    if (await User.exists({ email: req.body.email })) throw new AppError(409, 'EMAIL_EXISTS', 'Email is already registered');
-    const { referralCode, ...profile } = req.body;
-    const user = await User.create({ ...profile, passwordHash: await User.hashPassword(req.body.password), password: undefined, roles: ['customer'] });
+  const signupProfile = credentials.extend({
+    firstName: z.string().trim().min(1).max(100),
+    lastName: z.string().trim().max(100).optional(),
+    phone: z.string().regex(/^[6-9]\d{9}$/).optional(),
+    referralCode: z.string().max(24).optional(),
+  });
+  const OTP_TTL_MS = 10 * 60 * 1000;
+  const OTP_RESEND_MS = 60 * 1000;
+  const OTP_MAX_ATTEMPTS = 5;
+  const genericOtpResponse = { message: 'If the address can be used, a verification code has been sent.' };
+  const otpHash = (email, code) => crypto.createHmac('sha256', config.JWT_REFRESH_SECRET).update(`${email}:${code}`).digest('hex');
+  const referralInput = z.object({ email: z.email(), code: z.string().regex(/^\d{6}$/) });
+
+  router.post('/register/request-otp', authLimiter, validate(signupProfile), asyncHandler(async (req, res) => {
+    if (!shouldDeliver()) throw new AppError(503, 'EMAIL_NOT_CONFIGURED', 'Email verification is temporarily unavailable. Please try again later.');
+    const { password, ...profileFields } = req.body;
+    const profile = { ...profileFields, email: req.body.email.toLowerCase() };
+    if (await User.exists({ email: profile.email })) return res.status(202).json(genericOtpResponse);
+
+    const now = new Date();
+    const existing = await SignupVerification.findOne({ email: profile.email });
+    if (existing && now - existing.lastSentAt < OTP_RESEND_MS) {
+      throw new AppError(429, 'OTP_RESEND_WAIT', 'Please wait before requesting another verification code.');
+    }
+
+    const code = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
+    const passwordHash = await User.hashPassword(password);
+    const verification = await SignupVerification.findOneAndUpdate(
+      { email: profile.email },
+      {
+        ...profile,
+        passwordHash,
+        codeHash: otpHash(profile.email, code),
+        expiresAt: new Date(now.getTime() + OTP_TTL_MS),
+        lastSentAt: now,
+        attempts: 0,
+      },
+      { upsert: true, returnDocument: 'after', runValidators: true, setDefaultsOnInsert: true }
+    );
+    const result = await queueEmail({
+      to: profile.email,
+      template: 'signup-otp',
+      data: { firstName: profile.firstName, code },
+      tags: ['security', 'signup'],
+      dedupeKey: `signup-otp-${verification.id}-${now.getTime()}`,
+      log: req.log,
+    });
+    if (!result.queued) {
+      await SignupVerification.deleteOne({ _id: verification._id });
+      throw new AppError(503, 'EMAIL_NOT_QUEUED', 'Could not send the verification code. Please try again later.');
+    }
+    res.status(202).json(genericOtpResponse);
+  }));
+
+  router.post('/register', authLimiter, validate(referralInput), asyncHandler(async (req, res) => {
+    const email = req.body.email.toLowerCase();
+    const now = new Date();
+    const verification = await SignupVerification.findOneAndUpdate(
+      { email, expiresAt: { $gt: now }, attempts: { $lt: OTP_MAX_ATTEMPTS } },
+      { $inc: { attempts: 1 } },
+      { returnDocument: 'after' }
+    ).select('+passwordHash +codeHash');
+    if (!verification) throw new AppError(400, 'OTP_EXPIRED', 'Verification code is invalid or expired. Request a new code.');
+    const expectedHash = Buffer.from(otpHash(email, req.body.code), 'hex');
+    const actualHash = Buffer.from(verification.codeHash, 'hex');
+    if (expectedHash.length !== actualHash.length || !crypto.timingSafeEqual(expectedHash, actualHash)) {
+      throw new AppError(400, 'INVALID_OTP', 'Verification code is incorrect.');
+    }
+    if (await User.exists({ email })) {
+      await SignupVerification.deleteOne({ _id: verification._id });
+      throw new AppError(409, 'EMAIL_EXISTS', 'Email is already registered');
+    }
+
+    const { referralCode } = verification;
+    let user;
+    try {
+      user = await User.create({
+        email,
+        firstName: verification.firstName,
+        lastName: verification.lastName,
+        phone: verification.phone,
+        passwordHash: verification.passwordHash,
+        roles: ['customer'],
+        emailVerifiedAt: now,
+      });
+    } catch (error) {
+      if (error?.code === 11000) throw new AppError(409, 'EMAIL_EXISTS', 'Email is already registered');
+      throw error;
+    }
+    await SignupVerification.deleteOne({ _id: verification._id });
 
     // A referral is a bonus, not a precondition for having an account: an expired, mistyped or
     // self-referential code is reported back but must never fail sign-up. The code can still be
@@ -42,6 +129,81 @@ module.exports = ({ config, auth, authLimiter }) => {
     user.refreshTokenHashes = user.refreshTokenHashes.filter((t) => t.expiresAt > new Date()).slice(-4);
     user.refreshTokenHashes.push({ hash: hashToken(tokens.refreshToken), expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_TTL_DAYS * 86400000), userAgent: req.get('user-agent') });
     user.lastLoginAt = new Date(); await user.save(); setAuthCookies(res, tokens, config);
+    res.json({ data: user.toSafeJSON() });
+  }));
+  const credentialsUpdate = z.object({
+    currentPassword: z.string().min(1).max(128),
+    email: z.email().optional(),
+    firstName: z.string().trim().min(1).max(100).optional(),
+    lastName: z.string().trim().max(100).optional(),
+    newPassword: z.string().min(8).max(128).optional(),
+  }).refine((data) => data.email !== undefined || data.firstName !== undefined || data.lastName !== undefined || data.newPassword !== undefined, {
+    message: 'Provide at least one account change',
+  });
+  router.patch('/change-credentials', auth, validate(credentialsUpdate), asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user.id).select('+passwordHash +refreshTokenHashes');
+    if (!user || !(await user.verifyPassword(req.body.currentPassword))) {
+      throw new AppError(401, 'INVALID_CURRENT_PASSWORD', 'Current password is incorrect');
+    }
+    if (user.mustChangePassword && !req.body.newPassword) {
+      throw new AppError(422, 'NEW_PASSWORD_REQUIRED', 'Set a new password before continuing');
+    }
+
+    const previousEmail = user.email;
+    const nextEmail = req.body.email?.toLowerCase();
+    if (nextEmail && nextEmail !== previousEmail) {
+      if (await User.exists({ email: nextEmail, _id: { $ne: user._id } })) {
+        throw new AppError(409, 'EMAIL_EXISTS', 'That email address is already in use');
+      }
+      user.email = nextEmail;
+    }
+    if (req.body.firstName !== undefined) user.firstName = req.body.firstName;
+    if (req.body.lastName !== undefined) user.lastName = req.body.lastName;
+    if (req.body.newPassword) {
+      user.passwordHash = await User.hashPassword(req.body.newPassword);
+      user.mustChangePassword = false;
+    }
+
+    const emailChanged = user.email !== previousEmail;
+    const passwordChanged = Boolean(req.body.newPassword);
+    user.refreshTokenHashes = [];
+    const tokens = issueTokens(user, config);
+    user.refreshTokenHashes.push({
+      hash: hashToken(tokens.refreshToken),
+      expiresAt: new Date(Date.now() + config.REFRESH_TOKEN_TTL_DAYS * 86400000),
+      userAgent: req.get('user-agent'),
+    });
+    await user.save();
+    setAuthCookies(res, tokens, config);
+
+    if (passwordChanged) {
+      await queueEmail({
+        to: previousEmail,
+        template: 'password-changed',
+        data: { firstName: user.firstName, changedAt: new Date(), ip: req.ip },
+        userId: user.id,
+        tags: ['security'],
+        log: req.log,
+      });
+    }
+    if (emailChanged) {
+      await queueEmail({
+        to: previousEmail,
+        template: 'account-email-changed',
+        data: { firstName: user.firstName, email: nextEmail },
+        userId: user.id,
+        tags: ['security'],
+        log: req.log,
+      });
+      await queueEmail({
+        to: nextEmail,
+        template: 'account-email-changed',
+        data: { firstName: user.firstName, email: nextEmail },
+        userId: user.id,
+        tags: ['security'],
+        log: req.log,
+      });
+    }
     res.json({ data: user.toSafeJSON() });
   }));
   router.post('/refresh', asyncHandler(async (req, res) => {

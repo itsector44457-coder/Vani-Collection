@@ -53,7 +53,7 @@ module.exports = ({ config, auth }) => {
         for (const requested of req.body.items) {
           const product = map.get(requested.productId), selected = product?.variants.find((v) => v.sku === requested.sku && v.active);
           if (!product || !selected) throw new AppError(422, 'INVALID_ITEM', `Product/SKU ${requested.sku} is unavailable`);
-          const reserved = await Inventory.findOneAndUpdate({ sku: selected.sku, $expr: { $gte: [{ $subtract: ['$onHand', '$reserved'] }, requested.quantity] } }, { $inc: { reserved: requested.quantity } }, { new: true, session });
+          const reserved = await Inventory.findOneAndUpdate({ sku: selected.sku, $expr: { $gte: [{ $subtract: ['$onHand', '$reserved'] }, requested.quantity] } }, { $inc: { reserved: requested.quantity } }, { returnDocument: 'after', session });
           if (!reserved) throw new AppError(409, 'OUT_OF_STOCK', `${selected.sku} has insufficient stock`);
           const lineTotal = selected.price * requested.quantity, includedTax = Math.round((lineTotal * (product.gstRate || 0) / (100 + (product.gstRate || 0))) * 100) / 100;
           subtotal += lineTotal; tax += includedTax;
@@ -80,7 +80,7 @@ module.exports = ({ config, auth }) => {
     await notifyOrder(req, 'order-confirmation', order, { actor: req.user });
     res.status(201).json({ data: order, payment: paymentOrder && { id: paymentOrder.id, amount: paymentOrder.amount, currency: paymentOrder.currency, keyId: config.RAZORPAY_KEY_ID } });
   }));
-  router.get('/mine', auth, asyncHandler(async (req, res) => res.json({ data: await Order.find({ customerId: req.user.id }).sort({ createdAt: -1 }) })));
+  router.get('/mine', auth, asyncHandler(async (req, res) => res.json({ data: await Order.find({ customerId: req.user.id }).sort({ createdAt: -1 }).lean() })));
   router.get('/:id', auth, asyncHandler(async (req, res) => {
     const filter = req.user.roles.some((r) => ['support','admin','super_admin'].includes(r)) ? { _id: req.params.id } : { _id: req.params.id, customerId: req.user.id };
     const order = await Order.findOne(filter); if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found'); res.json({ data: order });

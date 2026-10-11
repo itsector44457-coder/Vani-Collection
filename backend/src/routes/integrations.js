@@ -8,6 +8,19 @@ const IntegrationEvent = require('../../models/IntegrationEvent');
 const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
+
+const SENSITIVE_EMAIL_TEMPLATES = new Set(['signup-otp', 'staff-invitation']);
+
+function safeIntegrationEvent(event) {
+  const data = event.toObject();
+  if (SENSITIVE_EMAIL_TEMPLATES.has(data.payload?.template)) {
+    data.payload = { ...data.payload };
+    delete data.payload.html;
+    delete data.payload.text;
+    delete data.payload.replyTo;
+  }
+  return data;
+}
 const { RishabhErpClient } = require('../services/rishabh-erp');
 
 module.exports = ({ config, auth }) => {
@@ -39,7 +52,7 @@ module.exports = ({ config, auth }) => {
       IntegrationEvent.find(filter).sort({ createdAt: -1 }).limit(limit),
       IntegrationEvent.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
     ]);
-    res.json({ data, meta: { total: data.length, counts: Object.fromEntries(statusRows.map((row) => [row._id, row.count])) } });
+    res.json({ data: data.map(safeIntegrationEvent), meta: { total: data.length, counts: Object.fromEntries(statusRows.map((row) => [row._id, row.count])) } });
   }));
   // Manual replay for a dead letter or a stuck failure. Attempts are reset so the row gets the
   // full backoff ladder again instead of being dead-lettered on the very next tick.
@@ -47,9 +60,12 @@ module.exports = ({ config, auth }) => {
     const event = await IntegrationEvent.findById(req.params.id);
     if (!event) throw new AppError(404, 'EVENT_NOT_FOUND', 'Integration event not found');
     if (event.status === 'processing') throw new AppError(409, 'EVENT_IN_FLIGHT', 'This event is being processed right now');
+    if (SENSITIVE_EMAIL_TEMPLATES.has(event.payload?.template) && (!event.payload.html || !event.payload.text)) {
+      throw new AppError(409, 'SENSITIVE_EVENT_SCRUBBED', 'Sensitive email content was removed. Request a fresh code or invitation instead.');
+    }
     event.status = 'pending'; event.attempts = 0; event.nextAttemptAt = new Date(); event.lastError = undefined;
     await event.save();
-    res.json({ data: event });
+    res.json({ data: safeIntegrationEvent(event) });
   }));
   return router;
 };

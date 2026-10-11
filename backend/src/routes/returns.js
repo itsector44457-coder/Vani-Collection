@@ -57,7 +57,7 @@ module.exports = ({ auth }) => {
     refundId: z.string().max(120).optional(),
     items: z.array(z.object({ sku: z.string().optional(), quantity: z.number().int().min(1).optional(), reason: z.string().optional(), condition: z.string().optional(), images: z.array(z.url()).max(6).optional() })).optional(),
   })), audit('return.status', 'ReturnRequest'), asyncHandler(async (req, res) => {
-    const record = await ReturnRequest.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const record = await ReturnRequest.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true });
     if (!record) throw new AppError(404, 'RETURN_NOT_FOUND', 'Return request not found');
 
     const [order, customer] = await Promise.all([

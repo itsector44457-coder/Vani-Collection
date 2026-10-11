@@ -12,7 +12,6 @@ const DEMO_CUSTOMERS: Paginated<AdminCustomer> = {
     { _id: "c2", email: "meera@example.com", firstName: "Meera", lastName: "Iyer", phone: "9876500002", roles: ["customer"], status: "active", createdAt: new Date("2024-06-02").toISOString() },
     { _id: "c3", email: "ananya@example.com", firstName: "Ananya", lastName: "Bose", phone: "9876500003", roles: ["customer"], status: "active", createdAt: new Date("2024-01-19").toISOString() },
     { _id: "c4", email: "riya@example.com", firstName: "Riya", lastName: "Kapoor", phone: "9876500004", roles: ["customer"], status: "blocked", createdAt: new Date("2024-09-06").toISOString() },
-    { _id: "c5", email: "support@vanicollection.in", firstName: "Vani", lastName: "Support", phone: "9876500005", roles: ["support", "admin"], status: "active", createdAt: new Date("2024-02-01").toISOString() },
   ],
   meta: { total: 5 },
 };
@@ -38,14 +37,13 @@ export default function CustomersPage() {
 
   const rows = customers.data.data;
   const segments = useMemo(() => {
-    const staff = rows.filter((customer) => customer.roles.some((role) => role !== "customer"));
     const blocked = rows.filter((customer) => customer.status === "blocked");
     const newThisMonth = rows.filter((customer) => {
       const created = new Date(customer.createdAt);
       const now = new Date();
       return created.getMonth() === now.getMonth() && created.getFullYear() === now.getFullYear();
     });
-    return { total: rows.length, staff: staff.length, blocked: blocked.length, newThisMonth: newThisMonth.length };
+    return { total: rows.length, blocked: blocked.length, newThisMonth: newThisMonth.length };
   }, [rows]);
 
   const filtered = useMemo(
@@ -67,22 +65,17 @@ export default function CustomersPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">Audience</p>
           <h1 className="mt-1 font-serif text-[26px] font-semibold tracking-tight">Customers</h1>
           <p className="mt-1 text-[13px] text-stone-500">
-            {segments.total} accounts · {segments.newThisMonth} joined this month
+            {segments.total} customers · {segments.newThisMonth} joined this month
           </p>
         </div>
         <AdminDataBadge resource={customers} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">Total accounts</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">Customers shown</p>
           <p className="mt-2 font-serif text-[26px] font-semibold">{segments.total}</p>
-          <p className="mt-1 text-[11.5px] text-stone-500">Registered customers and staff</p>
-        </Card>
-        <Card>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">Staff accounts</p>
-          <p className="mt-2 font-serif text-[26px] font-semibold">{segments.staff}</p>
-          <p className="mt-1 text-[11.5px] text-stone-500">Roles managed in the backend</p>
+          <p className="mt-1 text-[11.5px] text-stone-500">Staff accounts are managed separately</p>
         </Card>
         <Card>
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">Blocked</p>

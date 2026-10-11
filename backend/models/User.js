@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema({
   firstName: { type: String, trim: true }, lastName: { type: String, trim: true },
   roles: [{ type: String, enum: ['customer', 'support', 'warehouse', 'catalog_manager', 'finance', 'admin', 'super_admin'], default: 'customer' }],
   status: { type: String, enum: ['active', 'blocked', 'invited'], default: 'active', index: true },
+  emailVerifiedAt: Date,
+  mustChangePassword: { type: Boolean, default: false },
   addresses: [addressSchema],
   refreshTokenHashes: [{ hash: String, expiresAt: Date, userAgent: String, createdAt: { type: Date, default: Date.now } }],
   lastLoginAt: Date,

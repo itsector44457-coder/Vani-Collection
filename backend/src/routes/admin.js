@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const { z } = require('zod');
 const User = require('../../models/User');
 const Order = require('../../models/Order');
@@ -14,9 +15,10 @@ const { validate } = require('../middleware/validate');
 const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
-const { resendEmail } = require('../services/email');
+const { resendEmail, queueEmail, shouldDeliver } = require('../services/email');
 const { getLoyaltyConfig, tierFor, adjustPoints, applyExpiry, getSummary } = require('../services/loyalty');
 const { renderPackingSlipPdf, loadHsnBySku } = require('../services/invoice');
+const { STAFF_ROLES, customerAccountFilter, staffAccountFilter } = require('../lib/user-roles');
 
 module.exports = ({ auth, config }) => {
   const router = express.Router();
@@ -35,8 +37,8 @@ module.exports = ({ auth, config }) => {
     ]);
     const [products, customers, newCustomers, byCategory] = await Promise.all([
       Product.countDocuments({ status: 'active' }),
-      User.countDocuments({ roles: 'customer' }),
-      User.countDocuments({ roles: 'customer', createdAt: { $gte: since } }),
+      User.countDocuments({ ...customerAccountFilter() }),
+      User.countDocuments({ ...customerAccountFilter(), createdAt: { $gte: since } }),
       Order.aggregate([{ $match: { createdAt: { $gte: since }, status: { $nin: ['cancelled'] } } }, { $unwind: '$items' }, { $lookup: { from: 'products', localField: 'items.productId', foreignField: '_id', as: 'product' } }, { $unwind: { path: '$product', preserveNullAndEmptyArrays: true } }, { $group: { _id: { $ifNull: ['$product.category', 'other'] }, revenue: { $sum: '$items.lineTotal' }, units: { $sum: '$items.quantity' } } }, { $sort: { revenue: -1 } }, { $limit: 6 }]),
     ]);
     const grossRevenue = revenue[0]?.total || 0, paidOrders = revenue[0]?.count || 0;
@@ -45,19 +47,24 @@ module.exports = ({ auth, config }) => {
 
   router.get('/customers', asyncHandler(async (req, res) => {
     const page = Math.max(1, Number(req.query.page) || 1), limit = Math.min(100, Number(req.query.limit) || 25);
-    const filter = req.query.q ? { $or: [{ email: new RegExp(req.query.q, 'i') }, { phone: new RegExp(req.query.q, 'i') }] } : {};
+    const filter = customerAccountFilter();
+    if (req.query.q) {
+      const query = String(req.query.q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$and.push({ $or: [{ email: new RegExp(query, 'i') }, { phone: new RegExp(query, 'i') }, { firstName: new RegExp(query, 'i') }, { lastName: new RegExp(query, 'i') }] });
+    }
     const [data, total] = await Promise.all([User.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit), User.countDocuments(filter)]);
     res.json({ data: data.map((u) => u.toSafeJSON()), meta: { page, limit, total } });
   }));
   router.get('/customers/:id', requireRoles('admin','super_admin','support'), asyncHandler(async (req, res) => {
-    const user = await User.findById(req.params.id); if (!user) throw new AppError(404, 'CUSTOMER_NOT_FOUND', 'Customer not found');
+    const user = await User.findOne({ _id: req.params.id, ...customerAccountFilter() }); if (!user) throw new AppError(404, 'CUSTOMER_NOT_FOUND', 'Customer not found');
     const orders = await Order.find({ customerId: user.id }).sort({ createdAt: -1 });
     const spend = orders.filter((o) => o.payment.status === 'paid').reduce((s, o) => s + o.amounts.total, 0);
     res.json({ data: { customer: user.toSafeJSON(), orders, lifetimeValue: spend } });
   }));
-  router.patch('/customers/:id', requireRoles('admin','super_admin'), validate(z.object({ status: z.enum(['active','blocked']).optional(), roles: z.array(z.enum(['customer','support','warehouse','catalog_manager','finance','admin','super_admin'])).optional() })), audit('customer.update','User'), asyncHandler(async (req, res) => {
-    if (req.body.roles && req.user.roles.includes('admin') && !req.user.roles.includes('super_admin') && req.body.roles.includes('super_admin')) throw new AppError(403, 'ROLE_ESCALATION', 'Only a super admin can grant super admin');
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true }); if (!user) throw new AppError(404, 'CUSTOMER_NOT_FOUND', 'Customer not found'); res.json({ data: user.toSafeJSON() });
+  router.patch('/customers/:id', requireRoles('admin','super_admin'), validate(z.object({ status: z.enum(['active','blocked']).optional() })), audit('customer.update','User'), asyncHandler(async (req, res) => {
+    const user = await User.findOneAndUpdate({ _id: req.params.id, ...customerAccountFilter() }, req.body, { returnDocument: 'after', runValidators: true });
+    if (!user) throw new AppError(404, 'CUSTOMER_NOT_FOUND', 'Customer not found');
+    res.json({ data: user.toSafeJSON() });
   }));
 
   router.get('/catalogue', requireRoles('catalog_manager','warehouse','support','finance','admin','super_admin'), asyncHandler(async (req, res) => {
@@ -99,11 +106,115 @@ module.exports = ({ auth, config }) => {
     res.json({ data, meta: { page, limit, total, pages: Math.ceil(total / limit) } });
   }));
 
-  router.get('/staff', requireRoles('admin','super_admin'), asyncHandler(async (_req, res) => res.json({ data: (await User.find({ roles: { $ne: 'customer' } })).map((u) => u.toSafeJSON()) })));
-  router.post('/staff', requireRoles('admin','super_admin'), validate(z.object({ email: z.email(), firstName: z.string().min(1), lastName: z.string().optional(), password: z.string().min(8), roles: z.array(z.enum(['support','warehouse','catalog_manager','finance','admin'])).min(1) })), audit('staff.create','User'), asyncHandler(async (req, res) => {
-    if (await User.exists({ email: req.body.email })) throw new AppError(409, 'EMAIL_EXISTS', 'User already exists');
-    const user = await User.create({ email: req.body.email, firstName: req.body.firstName, lastName: req.body.lastName, roles: req.body.roles, passwordHash: await User.hashPassword(req.body.password) });
+  router.get('/staff', requireRoles('admin','super_admin'), asyncHandler(async (_req, res) => res.json({ data: (await User.find(staffAccountFilter()).sort({ createdAt: -1 })).map((u) => u.toSafeJSON()) })));
+  const staffRole = z.enum(STAFF_ROLES);
+  router.post('/staff', requireRoles('admin','super_admin'), validate(z.object({ email: z.email(), firstName: z.string().trim().min(1).max(100), lastName: z.string().trim().max(100).optional(), roles: z.array(staffRole).min(1) })), audit('staff.create','User'), asyncHandler(async (req, res) => {
+    const email = req.body.email.toLowerCase();
+    if (req.body.roles.includes('super_admin') && !req.user.roles.includes('super_admin')) {
+      throw new AppError(403, 'ROLE_ESCALATION', 'Only a super admin can grant super admin');
+    }
+    if (!shouldDeliver()) throw new AppError(503, 'EMAIL_NOT_CONFIGURED', 'Staff invitations require working email delivery');
+    if (await User.exists({ email })) throw new AppError(409, 'EMAIL_EXISTS', 'User already exists');
+    const temporaryPassword = crypto.randomBytes(18).toString('base64url');
+    const user = await User.create({
+      email,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      roles: req.body.roles,
+      passwordHash: await User.hashPassword(temporaryPassword),
+      mustChangePassword: true,
+    });
+    const invitation = await queueEmail({
+      to: email,
+      template: 'staff-invitation',
+      data: { firstName: user.firstName, email, temporaryPassword },
+      userId: user.id,
+      tags: ['security', 'staff-invitation'],
+      dedupeKey: `staff-invitation-${user.id}`,
+      log: req.log,
+    });
+    if (!invitation.queued) {
+      await user.deleteOne();
+      throw new AppError(503, 'INVITATION_NOT_QUEUED', 'Could not send the staff invitation. No account was created.');
+    }
     res.status(201).json({ data: user.toSafeJSON() });
+  }));
+  router.post('/staff/:id/resend-invitation', requireRoles('admin','super_admin'), audit('staff.invitation.resend','User'), asyncHandler(async (req, res) => {
+    const user = await User.findOne({ _id: req.params.id, ...staffAccountFilter() }).select('+passwordHash +refreshTokenHashes');
+    if (!user) throw new AppError(404, 'STAFF_NOT_FOUND', 'Staff account not found');
+    if (user.roles.includes('super_admin') && !req.user.roles.includes('super_admin')) {
+      throw new AppError(403, 'ROLE_ESCALATION', 'Only a super admin can resend a super admin invitation');
+    }
+    if (!user.mustChangePassword) throw new AppError(409, 'INVITATION_ALREADY_ACCEPTED', 'This account has already completed its initial password change');
+    if (user.status !== 'active') throw new AppError(409, 'STAFF_ACCOUNT_BLOCKED', 'Unblock the staff account before resending its invitation');
+    if (!shouldDeliver()) throw new AppError(503, 'EMAIL_NOT_CONFIGURED', 'Staff invitations require working email delivery');
+
+    const previousPasswordHash = user.passwordHash;
+    const previousRefreshTokenHashes = user.refreshTokenHashes;
+    const temporaryPassword = crypto.randomBytes(18).toString('base64url');
+    user.passwordHash = await User.hashPassword(temporaryPassword);
+    user.refreshTokenHashes = [];
+    await user.save();
+
+    const invitation = await queueEmail({
+      to: user.email,
+      template: 'staff-invitation',
+      data: { firstName: user.firstName, email: user.email, temporaryPassword },
+      userId: user.id,
+      tags: ['security', 'staff-invitation'],
+      dedupeKey: `staff-invitation-resend-${user.id}-${crypto.randomUUID()}`,
+      log: req.log,
+    });
+    if (!invitation.queued) {
+      user.passwordHash = previousPasswordHash;
+      user.refreshTokenHashes = previousRefreshTokenHashes;
+      await user.save();
+      throw new AppError(503, 'INVITATION_NOT_QUEUED', 'Could not send the staff invitation. The account was left unchanged.');
+    }
+    res.json({ data: user.toSafeJSON(), message: 'A new temporary password was emailed to the staff member.' });
+  }));
+  router.patch('/staff/:id', requireRoles('admin','super_admin'), validate(z.object({
+    email: z.email().optional(),
+    firstName: z.string().trim().min(1).max(100).optional(),
+    lastName: z.string().trim().max(100).optional(),
+    roles: z.array(staffRole).min(1).optional(),
+    status: z.enum(['active', 'blocked']).optional(),
+  }).refine((data) => Object.keys(data).length > 0, { message: 'Provide at least one staff change' })), audit('staff.update','User'), asyncHandler(async (req, res) => {
+    const user = await User.findOne({ _id: req.params.id, ...staffAccountFilter() });
+    if (!user) throw new AppError(404, 'STAFF_NOT_FOUND', 'Staff account not found');
+    const isSuperAdmin = req.user.roles.includes('super_admin');
+    const isSelf = user.id === req.user.id;
+    const hadSuperAdmin = user.roles.includes('super_admin');
+    if (hadSuperAdmin && !isSuperAdmin) throw new AppError(403, 'ROLE_ESCALATION', 'Only a super admin can edit a super admin account');
+    if (isSelf && (req.body.roles || req.body.status)) throw new AppError(422, 'SELF_ROLE_CHANGE', 'You cannot change your own staff roles or status here');
+    if (req.body.roles?.includes('super_admin') && !isSuperAdmin) throw new AppError(403, 'ROLE_ESCALATION', 'Only a super admin can grant super admin');
+
+    const previousEmail = user.email;
+    if (req.body.email) {
+      const email = req.body.email.toLowerCase();
+      if (await User.exists({ email, _id: { $ne: user._id } })) throw new AppError(409, 'EMAIL_EXISTS', 'That email address is already in use');
+      user.email = email;
+    }
+    if (req.body.firstName !== undefined) user.firstName = req.body.firstName;
+    if (req.body.lastName !== undefined) user.lastName = req.body.lastName;
+    if (req.body.roles) user.roles = req.body.roles;
+    if (req.body.status) user.status = req.body.status;
+
+    const remainsActiveSuperAdmin = user.roles.includes('super_admin') && user.status === 'active';
+    if (hadSuperAdmin && !remainsActiveSuperAdmin) {
+      const otherActiveSuperAdmin = await User.exists({ _id: { $ne: user._id }, roles: 'super_admin', status: 'active' });
+      if (!otherActiveSuperAdmin) throw new AppError(409, 'LAST_SUPER_ADMIN', 'At least one active super admin must remain');
+    }
+
+    await user.save();
+    if (previousEmail !== user.email) {
+      const notice = { firstName: user.firstName, email: user.email };
+      await Promise.all([
+        queueEmail({ to: previousEmail, template: 'account-email-changed', data: notice, userId: user.id, tags: ['security'], log: req.log }),
+        queueEmail({ to: user.email, template: 'account-email-changed', data: notice, userId: user.id, tags: ['security'], log: req.log }),
+      ]);
+    }
+    res.json({ data: user.toSafeJSON() });
   }));
 
   /**
