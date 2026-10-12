@@ -88,6 +88,15 @@ const blocksToText = (blocks: unknown): string => {
   }
 };
 
+interface FormPin {
+  id: string;
+  title: string;
+  price: string;
+  tag: string;
+  top: number;
+  left: number;
+}
+
 interface FormState {
   key: string;
   kind: ContentKind;
@@ -117,6 +126,8 @@ interface FormState {
   seoDescription: string;
   // Product collection
   collectionProductIds: string;
+  // Lookbook Hotspot Pins (friendly visual list, no raw JSON)
+  lookbookPins: FormPin[];
 }
 
 const EMPTY_FORM: FormState = {
@@ -144,12 +155,27 @@ const EMPTY_FORM: FormState = {
   seoTitle: "",
   seoDescription: "",
   collectionProductIds: "",
+  lookbookPins: [
+    { id: "pin-1", title: "", price: "", tag: "", top: 35, left: 50 },
+  ],
 };
 
 const toForm = (doc: ContentDoc): FormState => {
   const blocks = doc.blocks && typeof doc.blocks === "object" && !Array.isArray(doc.blocks)
     ? doc.blocks as Record<string, unknown>
     : {};
+  const rawPins = Array.isArray(blocks.pins) ? (blocks.pins as Record<string, unknown>[]) : [];
+  const lookbookPins: FormPin[] = rawPins.length
+    ? rawPins.map((p, idx) => ({
+        id: typeof p.id === "string" ? p.id : `pin-${idx + 1}`,
+        title: typeof p.title === "string" ? p.title : "",
+        price: typeof p.price === "string" ? p.price : "",
+        tag: typeof p.tag === "string" ? p.tag : "",
+        top: typeof p.top === "string" ? parseInt(p.top, 10) || 50 : typeof p.top === "number" ? p.top : 50,
+        left: typeof p.left === "string" ? parseInt(p.left, 10) || 50 : typeof p.left === "number" ? p.left : 50,
+      }))
+    : [{ id: "pin-1", title: "", price: "", tag: "", top: 35, left: 50 }];
+
   return {
     key: doc.key,
     kind: doc.kind,
@@ -179,6 +205,7 @@ const toForm = (doc: ContentDoc): FormState => {
     seoDescription: typeof blocks.seoDescription === "string" ? blocks.seoDescription : "",
     // Product collection
     collectionProductIds: Array.isArray(blocks.productIds) ? blocks.productIds.join(", ") : "",
+    lookbookPins,
   };
 };
 
@@ -217,6 +244,40 @@ export default function ContentPage() {
   }, [all, counts]);
 
   const set = <K extends keyof FormState>(field: K, value: FormState[K]) => setForm((current) => ({ ...current, [field]: value }));
+
+  const updatePin = (index: number, changes: Partial<FormPin>) => {
+    setForm((current) => {
+      const nextPins = [...current.lookbookPins];
+      if (nextPins[index]) {
+        nextPins[index] = { ...nextPins[index], ...changes };
+      }
+      return { ...current, lookbookPins: nextPins };
+    });
+  };
+
+  const addPin = () => {
+    setForm((current) => ({
+      ...current,
+      lookbookPins: [
+        ...current.lookbookPins,
+        {
+          id: `pin-${current.lookbookPins.length + 1}`,
+          title: "",
+          price: "",
+          tag: "",
+          top: 50,
+          left: 50,
+        },
+      ],
+    }));
+  };
+
+  const removePin = (index: number) => {
+    setForm((current) => ({
+      ...current,
+      lookbookPins: current.lookbookPins.filter((_, i) => i !== index),
+    }));
+  };
 
   const nextKeyForKind = (k: ContentKind) => {
     const prefix = k === "page" ? "page." : k === "policy" ? "policy." : `home.${k}.`;
@@ -362,14 +423,17 @@ export default function ContentPage() {
         setError("Lookbook title is required.");
         return;
       }
-      if (form.blocksText.trim()) {
-        try {
-          blocks = JSON.parse(form.blocksText);
-        } catch {
-          setError("The lookbook pins JSON is not valid.");
-          return;
-        }
-      }
+      const pins = form.lookbookPins
+        .filter((p) => p.title.trim())
+        .map((p, idx) => ({
+          id: p.id || `pin-${idx + 1}`,
+          title: p.title.trim(),
+          price: p.price.trim(),
+          tag: p.tag.trim(),
+          top: `${Math.min(100, Math.max(0, p.top))}%`,
+          left: `${Math.min(100, Math.max(0, p.left))}%`,
+        }));
+      blocks = { pins };
     }
 
     const media = textToMedia(form.mediaText);
@@ -814,34 +878,174 @@ export default function ContentPage() {
           {/* ================= 5. SHOPPABLE LOOKBOOK ================= */}
           {form.kind === "lookbook" && (
             <div className="space-y-4">
-              <Field label="Lookbook Title *" htmlFor="content-title" hint="Headline on the lookbook banner">
+              <Field label="Lookbook Title *" htmlFor="content-title" hint="Headline on the lookbook banner (e.g. The Royal Bagru Edit)">
                 <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. The Royal Bagru Edit" />
               </Field>
 
-              <Field label="Lookbook Subtitle" htmlFor="content-subtitle" hint="Subheading or badge">
+              <Field label="Lookbook Subtitle" htmlFor="content-subtitle" hint="Subheading badge (e.g. Summer Festive Edit 2026)">
                 <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Summer Festive Edit 2026" />
               </Field>
 
-              <Field label="Lookbook Image *" htmlFor="content-media" hint="Upload or paste URL for the lookbook hero photograph">
+              <Field label="Lookbook Editorial Image *" htmlFor="content-media" hint="Upload image or paste image URL">
                 <Textarea id="content-media" rows={2} value={form.mediaText} onChange={(e) => set("mediaText", e.target.value)} placeholder="https://cdn.example.com/lookbook.jpg | Lookbook photo | image" className="font-mono !text-[12px]" />
                 <div className="mt-2">
                   <MediaUploadField type="image" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | image`)].filter(Boolean).join("\n"))} disabled={busy} />
                 </div>
-                {textToMedia(form.mediaText).filter((item) => item.kind !== "video").slice(0, 1).map((item) => (
-                  <div key={item.url} className="mt-3 overflow-hidden rounded-xl border border-[#ebe6de] max-w-sm">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={item.url} alt={item.alt || "Lookbook preview"} className="h-40 w-full object-cover" />
-                  </div>
-                ))}
               </Field>
 
-              <Field
-                label="Shoppable Hotspot Pins (JSON)"
-                htmlFor="content-blocks"
-                hint='Format: { "pins": [{ "id": "pin-1", "top": "28%", "left": "48%", "title": "Mul Anarkali", "price": "₹1,899", "tag": "Pure Mul" }] }'
-              >
-                <Textarea id="content-blocks" rows={5} value={form.blocksText} onChange={(e) => set("blocksText", e.target.value)} placeholder='{ "pins": [{ "id": "pin-1", "top": "28%", "left": "48%", "title": "Mul Anarkali", "price": "₹1,899", "tag": "Pure Mul" }] }' className="font-mono !text-[12px]" />
-              </Field>
+              {/* Visual Lookbook Image Preview with Interactive Hotspot Pins */}
+              {textToMedia(form.mediaText).filter((item) => item.kind !== "video")[0]?.url && (
+                <div className="rounded-xl border border-[#ebe6de] bg-[#faf7f2] p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#881337]">Live Lookbook Preview (Hotspot Pins)</p>
+                    <span className="text-[11px] text-stone-500">Gold dots show where pins appear on the site</span>
+                  </div>
+                  <div className="relative overflow-hidden rounded-xl border border-[#ebe6de] bg-black/5 aspect-4/3 max-h-[300px] w-full flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={textToMedia(form.mediaText).filter((item) => item.kind !== "video")[0]?.url}
+                      alt="Lookbook preview"
+                      className="h-full w-full object-cover"
+                    />
+                    {/* Pins rendered over image */}
+                    {form.lookbookPins.map((pin, index) => (
+                      <div
+                        key={pin.id || index}
+                        style={{ top: `${pin.top}%`, left: `${pin.left}%` }}
+                        className="absolute -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center pointer-events-none"
+                      >
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#dfc28c] text-[#1c1917] font-bold text-xs shadow-lg ring-4 ring-[#dfc28c]/40 animate-pulse">
+                          +
+                        </div>
+                        {pin.title && (
+                          <div className="mt-1 rounded bg-black/85 px-2 py-0.5 text-[10px] font-medium text-white shadow backdrop-blur whitespace-nowrap">
+                            {pin.title} {pin.price ? `(${pin.price})` : ""}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Friendly Pins Builder (NO JSON REQUIRED) */}
+              <div className="space-y-3 rounded-xl border border-[#ebe6de] bg-[#faf7f2]/80 p-4">
+                <div className="flex items-center justify-between border-b border-[#ebe6de] pb-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[#881337]">Shoppable Hotspot Pins</p>
+                    <p className="text-[11px] text-stone-500">Tag products on this photo. No code or JSON needed!</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addPin}
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#881337] px-3 py-1.5 text-[11px] font-semibold text-white shadow-xs hover:bg-[#9f1239] transition"
+                  >
+                    + Add Hotspot Pin
+                  </button>
+                </div>
+
+                {form.lookbookPins.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#ebe6de] p-6 text-center">
+                    <p className="text-xs text-stone-500">No hotspot pins added yet.</p>
+                    <button
+                      type="button"
+                      onClick={addPin}
+                      className="mt-2 inline-flex items-center gap-1 rounded-lg border border-[#ebe6de] bg-white px-3 py-1.5 text-xs font-semibold text-[#881337] hover:border-[#881337]"
+                    >
+                      + Add first pin
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {form.lookbookPins.map((pin, index) => (
+                      <div key={pin.id || index} className="rounded-xl border border-[#ebe6de] bg-white p-3.5 shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between border-b border-[#f0ebe3] pb-2">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#881337]">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#881337] text-[10px] font-bold text-white">
+                              {index + 1}
+                            </span>
+                            Hotspot Pin #{index + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removePin(index)}
+                            className="text-xs font-semibold text-rose-600 hover:text-rose-800"
+                          >
+                            ✕ Remove
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <Field label="Product Name *" htmlFor={`pin-title-${index}`} hint="e.g. Mul Anarkali">
+                            <TextInput
+                              id={`pin-title-${index}`}
+                              value={pin.title}
+                              onChange={(e) => updatePin(index, { title: e.target.value })}
+                              placeholder="e.g. Mul Anarkali"
+                            />
+                          </Field>
+                          <Field label="Price" htmlFor={`pin-price-${index}`} hint="e.g. ₹1,899">
+                            <TextInput
+                              id={`pin-price-${index}`}
+                              value={pin.price}
+                              onChange={(e) => updatePin(index, { price: e.target.value })}
+                              placeholder="e.g. ₹1,899"
+                            />
+                          </Field>
+                          <Field label="Badge / Tag" htmlFor={`pin-tag-${index}`} hint="e.g. Pure Mul">
+                            <TextInput
+                              id={`pin-tag-${index}`}
+                              value={pin.tag}
+                              onChange={(e) => updatePin(index, { tag: e.target.value })}
+                              placeholder="e.g. Pure Mul"
+                            />
+                          </Field>
+                        </div>
+
+                        {/* Position sliders */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-[#f7f4ee]">
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-[11px] font-semibold text-stone-600" htmlFor={`pin-top-${index}`}>
+                                Top Position (Vertical)
+                              </label>
+                              <span className="text-[11px] font-mono font-bold text-[#881337]">{pin.top}%</span>
+                            </div>
+                            <input
+                              id={`pin-top-${index}`}
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={pin.top}
+                              onChange={(e) => updatePin(index, { top: Number(e.target.value) })}
+                              className="w-full accent-[#881337]"
+                            />
+                            <p className="text-[10px] text-stone-400">0% = Top edge, 100% = Bottom edge</p>
+                          </div>
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="text-[11px] font-semibold text-stone-600" htmlFor={`pin-left-${index}`}>
+                                Left Position (Horizontal)
+                              </label>
+                              <span className="text-[11px] font-mono font-bold text-[#881337]">{pin.left}%</span>
+                            </div>
+                            <input
+                              id={`pin-left-${index}`}
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={pin.left}
+                              onChange={(e) => updatePin(index, { left: Number(e.target.value) })}
+                              className="w-full accent-[#881337]"
+                            />
+                            <p className="text-[10px] text-stone-400">0% = Left edge, 100% = Right edge</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
