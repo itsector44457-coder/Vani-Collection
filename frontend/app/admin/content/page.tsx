@@ -109,6 +109,14 @@ interface FormState {
   testiVerified: boolean;
   testiProduct: string;
   testiDate: string;
+  // Section / Story specific fields
+  sectionFilterKey: string;
+  sectionCount: string;
+  // Page SEO fields
+  seoTitle: string;
+  seoDescription: string;
+  // Product collection
+  collectionProductIds: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -131,6 +139,11 @@ const EMPTY_FORM: FormState = {
   testiVerified: true,
   testiProduct: "",
   testiDate: "",
+  sectionFilterKey: "",
+  sectionCount: "",
+  seoTitle: "",
+  seoDescription: "",
+  collectionProductIds: "",
 };
 
 const toForm = (doc: ContentDoc): FormState => {
@@ -158,6 +171,14 @@ const toForm = (doc: ContentDoc): FormState => {
     testiVerified: typeof blocks.verified === "boolean" ? blocks.verified : true,
     testiProduct: typeof blocks.product === "string" ? blocks.product : "",
     testiDate: typeof blocks.date === "string" ? blocks.date : "",
+    // Section / Story fields
+    sectionFilterKey: typeof blocks.filterKey === "string" ? blocks.filterKey : "",
+    sectionCount: typeof blocks.count === "string" ? blocks.count : "",
+    // Page SEO fields
+    seoTitle: typeof blocks.seoTitle === "string" ? blocks.seoTitle : "",
+    seoDescription: typeof blocks.seoDescription === "string" ? blocks.seoDescription : "",
+    // Product collection
+    collectionProductIds: Array.isArray(blocks.productIds) ? blocks.productIds.join(", ") : "",
   };
 };
 
@@ -197,11 +218,13 @@ export default function ContentPage() {
 
   const set = <K extends keyof FormState>(field: K, value: FormState[K]) => setForm((current) => ({ ...current, [field]: value }));
 
-  const nextBannerKey = () => {
-    const used = new Set(all.filter((doc) => doc.kind === "banner").map((doc) => doc.key));
+  const nextKeyForKind = (k: ContentKind) => {
+    const prefix = k === "page" ? "page." : k === "policy" ? "policy." : `home.${k}.`;
+    const matching = all.filter((doc) => doc.kind === k).map((doc) => doc.key);
+    const used = new Set(matching);
     let number = 1;
-    while (used.has(`home.banner.${number}`)) number += 1;
-    return `home.banner.${number}`;
+    while (used.has(`${prefix}${number}`)) number += 1;
+    return `${prefix}${number}`;
   };
 
   const openCreate = () => {
@@ -210,8 +233,8 @@ export default function ContentPage() {
     setForm({
       ...EMPTY_FORM,
       kind: nextKind,
-      key: nextKind === "banner" ? nextBannerKey() : "",
-      position: String(nextKind === "banner" ? all.filter((doc) => doc.kind === "banner").length : all.length),
+      key: nextKeyForKind(nextKind),
+      position: String(all.filter((doc) => doc.kind === nextKind).length),
     });
     setError(null);
     setFormOpen(true);
@@ -219,9 +242,22 @@ export default function ContentPage() {
 
   const openCreateBanner = () => {
     setEditing(null);
-    setForm({ ...EMPTY_FORM, kind: "banner", key: nextBannerKey(), position: String(all.filter((doc) => doc.kind === "banner").length) });
+    setForm({
+      ...EMPTY_FORM,
+      kind: "banner",
+      key: nextKeyForKind("banner"),
+      position: String(all.filter((doc) => doc.kind === "banner").length),
+    });
     setError(null);
     setFormOpen(true);
+  };
+
+  const onKindChange = (newKind: ContentKind) => {
+    setForm((current) => ({
+      ...current,
+      kind: newKind,
+      key: editing ? current.key : nextKeyForKind(newKind),
+    }));
   };
 
   const openEdit = (doc: ContentDoc) => {
@@ -241,17 +277,16 @@ export default function ContentPage() {
       setError("Use letters, numbers, dots, dashes and underscores only, e.g. `home.banner.1`.");
       return;
     }
-    // Validate the JSON before sending: a malformed `blocks` string would otherwise be stored as a
-    // string and silently stop driving the section it configures.
+
     let blocks: unknown;
+
     if (form.kind === "testimonial") {
-      // Build blocks from dedicated testimonial fields — no raw JSON needed.
       if (!form.testiName.trim()) {
         setError("Customer name is required.");
         return;
       }
       if (!form.body.trim()) {
-        setError("Review text is required.");
+        setError("Review text / comment is required.");
         return;
       }
       const rating = Number(form.testiRating);
@@ -263,29 +298,81 @@ export default function ContentPage() {
         product: form.testiProduct.trim() || undefined,
         date: form.testiDate.trim() || undefined,
       };
-    } else if (form.blocksText.trim()) {
-      try {
-        blocks = JSON.parse(form.blocksText);
-      } catch {
-        setError("The blocks field is not valid JSON.");
+    } else if (form.kind === "faq") {
+      if (!form.title.trim()) {
+        setError("Question is required.");
         return;
       }
-    }
-    if (form.kind === "banner") {
-      const existingBlocks = blocks && typeof blocks === "object" && !Array.isArray(blocks)
-        ? blocks as Record<string, unknown>
-        : {};
+      if (!form.body.trim()) {
+        setError("Answer is required.");
+        return;
+      }
+      blocks = undefined;
+    } else if (form.kind === "banner") {
+      if (!form.title.trim()) {
+        setError("Headline / Title is required.");
+        return;
+      }
       blocks = {
-        ...existingBlocks,
-        tag: form.heroTag.trim(),
-        position: form.focalPosition,
+        tag: form.heroTag.trim() || undefined,
+        position: form.focalPosition || "object-center",
       };
+    } else if (form.kind === "section") {
+      if (!form.title.trim()) {
+        setError("Collection / Story name is required.");
+        return;
+      }
+      blocks = {
+        filterKey: form.sectionFilterKey.trim() || undefined,
+        count: form.sectionCount.trim() || undefined,
+        tagline: form.subtitle.trim() || undefined,
+        description: form.body.trim() || undefined,
+      };
+    } else if (form.kind === "page") {
+      if (!form.title.trim()) {
+        setError("Page title is required.");
+        return;
+      }
+      blocks = {
+        ...(form.seoTitle.trim() ? { seoTitle: form.seoTitle.trim() } : {}),
+        ...(form.seoDescription.trim() ? { seoDescription: form.seoDescription.trim() } : {}),
+      };
+    } else if (form.kind === "policy") {
+      if (!form.title.trim()) {
+        setError("Policy title is required.");
+        return;
+      }
+      if (!form.body.trim()) {
+        setError("Policy content is required.");
+        return;
+      }
+      blocks = undefined;
+    } else if (form.kind === "product_collection") {
+      if (!form.title.trim()) {
+        setError("Collection title is required.");
+        return;
+      }
+      const productIds = form.collectionProductIds
+        .split(/[\n,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      blocks = { productIds };
+    } else if (form.kind === "lookbook") {
+      if (!form.title.trim()) {
+        setError("Lookbook title is required.");
+        return;
+      }
+      if (form.blocksText.trim()) {
+        try {
+          blocks = JSON.parse(form.blocksText);
+        } catch {
+          setError("The lookbook pins JSON is not valid.");
+          return;
+        }
+      }
     }
+
     const media = textToMedia(form.mediaText);
-    if (media.some((item) => !/^(https?:\/\/|\/)/i.test(item.url))) {
-      setError("Every media entry needs an absolute URL or a path starting with /.");
-      return;
-    }
     const position = Number(form.position);
     if (!Number.isFinite(position)) {
       setError("Position must be a number.");
@@ -295,14 +382,24 @@ export default function ContentPage() {
     const payload: ContentInput = {
       kind: form.kind,
       title: form.title.trim() || undefined,
-      subtitle: form.subtitle.trim() || undefined,
-      body: form.body.trim() || undefined,
-      ctaLabel: form.ctaLabel.trim() || undefined,
-      ctaHref: form.ctaHref.trim() || undefined,
+      subtitle: (form.kind === "banner" || form.kind === "section" || form.kind === "page" || form.kind === "policy" || form.kind === "product_collection" || form.kind === "lookbook")
+        ? (form.subtitle.trim() || undefined)
+        : undefined,
+      body: (form.kind === "banner" || form.kind === "faq" || form.kind === "section" || form.kind === "page" || form.kind === "policy" || form.kind === "testimonial")
+        ? (form.body.trim() || undefined)
+        : undefined,
+      ctaLabel: (form.kind === "banner" || form.kind === "section" || form.kind === "page")
+        ? (form.ctaLabel.trim() || undefined)
+        : undefined,
+      ctaHref: (form.kind === "banner" || form.kind === "page")
+        ? (form.ctaHref.trim() || undefined)
+        : undefined,
       position,
       status: form.status,
       ...(blocks !== undefined ? { blocks } : {}),
-      ...(form.kind === "banner" || media.length ? { media } : {}),
+      ...(form.kind === "banner" || form.kind === "section" || form.kind === "lookbook" || form.kind === "page"
+        ? (media.length ? { media } : {})
+        : {}),
     };
 
     setBusy(true);
@@ -523,131 +620,50 @@ export default function ContentPage() {
             </Field>
           </div>
 
-          <Field label="Title" htmlFor="content-title" hint={form.kind === "faq" ? "The question" : "Heading"}>
-            <TextInput id="content-title" value={form.title} onChange={(event) => set("title", event.target.value)} />
-          </Field>
+          {/* ================= 1. TESTIMONIAL ================= */}
+          {form.kind === "testimonial" && (
+            <div className="space-y-4 rounded-xl border border-[#ebe6de] bg-[#faf7f2]/80 p-4">
+              <div className="flex items-center justify-between border-b border-[#ebe6de] pb-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#881337]">Customer Review Details</p>
+                <span className="text-[11px] text-stone-500">Homepage testimonial card</span>
+              </div>
 
-          <Field label="Subtitle" htmlFor="content-subtitle">
-            <TextInput id="content-subtitle" value={form.subtitle} onChange={(event) => set("subtitle", event.target.value)} placeholder={form.kind === "section" ? "Short story tagline" : undefined} />
-          </Field>
-
-          <Field label="Body" htmlFor="content-body" hint={form.kind === "faq" ? "The answer — shown in the accordion and in FAQPage structured data" : form.kind === "section" ? "Description displayed inside this story when opened." : "Copy"}>
-            <Textarea id="content-body" rows={4} value={form.body} onChange={(event) => set("body", event.target.value)} />
-          </Field>
-
-          {(form.kind === "banner" || form.kind === "page" || form.kind === "section") && (
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="CTA label" htmlFor="content-cta-label">
-                <TextInput id="content-cta-label" value={form.ctaLabel} onChange={(event) => set("ctaLabel", event.target.value)} placeholder="Shop the edit" />
-              </Field>
-              <Field label="CTA link" htmlFor="content-cta-href">
-                <TextInput id="content-cta-href" value={form.ctaHref} onChange={(event) => set("ctaHref", event.target.value)} placeholder="#products" />
-              </Field>
-            </div>
-          )}
-
-          {form.kind === "banner" && (
-            <>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Eyebrow / tag" htmlFor="content-hero-tag" hint="Small label above the headline">
-                  <TextInput id="content-hero-tag" value={form.heroTag} onChange={(event) => set("heroTag", event.target.value)} placeholder="New season · Handcrafted in Jaipur" />
+                <Field label="Customer Name *" htmlFor="testi-name" hint="Full name of reviewer">
+                  <TextInput id="testi-name" value={form.testiName} onChange={(e) => set("testiName", e.target.value)} placeholder="e.g. Dr. Ananya Roy" />
                 </Field>
-                <Field label="Image focal point" htmlFor="content-hero-position" hint="Controls how the image is cropped">
-                  <Select id="content-hero-position" value={form.focalPosition} onChange={(event) => set("focalPosition", event.target.value)}>
-                    <option value="object-center">Center</option>
-                    <option value="object-top">Top</option>
-                    <option value="object-bottom">Bottom</option>
-                    <option value="object-left">Left</option>
-                    <option value="object-right">Right</option>
-                  </Select>
+                <Field label="City" htmlFor="testi-city" hint="Customer location">
+                  <TextInput id="testi-city" value={form.testiCity} onChange={(e) => set("testiCity", e.target.value)} placeholder="e.g. Bengaluru" />
                 </Field>
               </div>
-              <Field label="Hero slide media" htmlFor="content-media" hint="Add multiple photo URLs (one per line) or upload several photos together. Every photo becomes a rotating slide. Optional format: url | alt text | image. Add a video URL with kind video.">
-                <Textarea id="content-media" rows={5} value={form.mediaText} onChange={(event) => set("mediaText", event.target.value)} placeholder={"https://cdn.example.com/hero-front.jpg | Front photo | image\nhttps://cdn.example.com/hero-detail.jpg | Detail photo | image\nhttps://cdn.example.com/hero.mp4 | Hero video | video"} className="font-mono !text-[12px]" />
-                <div className="flex flex-wrap gap-4">
-                    <MediaUploadField type="image" multiple onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | image`)].filter(Boolean).join("\n"))} disabled={busy} />
-                  <MediaUploadField type="video" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | video`)].filter(Boolean).join("\n"))} disabled={busy} />
-                </div>
-                {textToMedia(form.mediaText).length > 0 && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {textToMedia(form.mediaText).filter((item) => item.kind === "image").map((item) => (
-                      <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={item.url} alt={item.alt || "Hero slide image preview"} className="h-36 w-full object-cover" />
-                        <p className="truncate px-3 py-2 text-[11px] text-stone-500">{item.alt || "Hero image"}</p>
-                      </div>
-                    ))}
-                    {textToMedia(form.mediaText).filter((item) => item.kind === "video").map((item) => (
-                      <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
-                        <video src={item.url} controls muted playsInline preload="metadata" className="h-36 w-full bg-black object-cover" />
-                        <p className="truncate px-3 py-2 text-[11px] text-stone-500">{item.alt || "Hero video"}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Field>
-            </>
-          )}
-          {form.kind !== "banner" && (
-            <Field
-              label={form.kind === "section" ? "Story photos and video" : "Media"}
-              htmlFor="content-media"
-              hint={form.kind === "section" ? "Upload a cover photo and an optional video. The first photo is the cover; mark the video kind as video." : "One per line: url | alt text | kind. The first entry is the main image."}
-            >
-              <Textarea id="content-media" rows={3} value={form.mediaText} onChange={(event) => set("mediaText", event.target.value)} placeholder={"https://cdn.example.com/image.jpg | Image description | image"} className="font-mono !text-[12px]" />
-              <div className="flex flex-wrap gap-4">
-                <MediaUploadField type="image" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | image`)].filter(Boolean).join("\n"))} disabled={busy} />
-                <MediaUploadField type="video" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | video`)].filter(Boolean).join("\n"))} disabled={busy} />
-              </div>
-              {form.kind === "section" && textToMedia(form.mediaText).length > 0 && (
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  {textToMedia(form.mediaText).filter((item) => item.kind !== "video").map((item) => (
-                    <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={item.url} alt={item.alt || "Story cover preview"} className="h-36 w-full object-cover" />
-                      <p className="truncate px-3 py-2 text-[11px] text-stone-500">{item.alt || "Story cover photo"}</p>
-                    </div>
-                  ))}
-                  {textToMedia(form.mediaText).filter((item) => item.kind === "video").map((item) => (
-                    <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
-                      <video src={item.url} controls muted playsInline preload="metadata" className="h-36 w-full object-cover" />
-                      <p className="truncate px-3 py-2 text-[11px] text-stone-500">{item.alt || "Story video"}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Field>
-          )}
 
-          {/* ---- TESTIMONIAL: dedicated fields instead of raw JSON ---- */}
-          {form.kind === "testimonial" ? (
-            <div className="space-y-4 rounded-xl border border-[#ebe6de] bg-[#faf7f2] p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#881337]">Customer Review Details</p>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Customer Name *" htmlFor="testi-name" hint="Full name of the reviewer">
-                  <TextInput id="testi-name" value={form.testiName} onChange={(e) => set("testiName", e.target.value)} placeholder="e.g. Priya Sharma" />
-                </Field>
-                <Field label="City" htmlFor="testi-city" hint="Where the customer is from">
-                  <TextInput id="testi-city" value={form.testiCity} onChange={(e) => set("testiCity", e.target.value)} placeholder="e.g. Jaipur" />
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Rating (1–5 stars)" htmlFor="testi-rating">
+                <Field label="Rating (1–5 Stars)" htmlFor="testi-rating">
                   <Select id="testi-rating" value={form.testiRating} onChange={(e) => set("testiRating", e.target.value)}>
-                    <option value="5">⭐⭐⭐⭐⭐ — 5 stars</option>
-                    <option value="4">⭐⭐⭐⭐ — 4 stars</option>
-                    <option value="3">⭐⭐⭐ — 3 stars</option>
-                    <option value="2">⭐⭐ — 2 stars</option>
-                    <option value="1">⭐ — 1 star</option>
+                    <option value="5">⭐⭐⭐⭐⭐ — 5 Stars</option>
+                    <option value="4">⭐⭐⭐⭐ — 4 Stars</option>
+                    <option value="3">⭐⭐⭐ — 3 Stars</option>
+                    <option value="2">⭐⭐ — 2 Stars</option>
+                    <option value="1">⭐ — 1 Star</option>
                   </Select>
                 </Field>
                 <Field label="Date" htmlFor="testi-date" hint="Display date (e.g. Oct 2026)">
                   <TextInput id="testi-date" value={form.testiDate} onChange={(e) => set("testiDate", e.target.value)} placeholder="e.g. Oct 2026" />
                 </Field>
               </div>
-              <Field label="Product Purchased" htmlFor="testi-product" hint="Which product did they buy?">
+
+              <Field label="Review Headline" htmlFor="content-title" hint="Catchy headline / title (optional)">
+                <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Softest Mul Cotton I Have Ever Worn!" />
+              </Field>
+
+              <Field label="Review Text / Comment *" htmlFor="content-body" hint="Full customer feedback">
+                <Textarea id="content-body" rows={4} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="The Gulab Bagh Anarkali is pure bliss in summer heat. Featherlight fabric and stunning finish!" />
+              </Field>
+
+              <Field label="Product Purchased" htmlFor="testi-product" hint="Which product did they buy? (optional)">
                 <TextInput id="testi-product" value={form.testiProduct} onChange={(e) => set("testiProduct", e.target.value)} placeholder="e.g. Gulab Bagh Anarkali Set" />
               </Field>
+
               <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#ebe6de] bg-white px-4 py-3" htmlFor="testi-verified">
                 <input
                   id="testi-verified"
@@ -660,24 +676,251 @@ export default function ContentPage() {
                 <span className="text-[11px] text-stone-400">(shows a green badge on the review card)</span>
               </label>
             </div>
-          ) : (
-            <Field
-              label="Blocks (JSON)"
-              htmlFor="content-blocks"
-              hint={form.kind === "lookbook" ? '{ "pins": [{ "id": "pin-1", "top": "28%", "left": "48%", "title": "…", "price": "₹1,899", "tag": "…" }] }' : form.kind === "section" ? '{ "filterKey": "festive", "count": "New collection", "tagline": "Occasion-ready styles" }' : "Optional free-form JSON"}
-            >
-              <Textarea id="content-blocks" rows={5} value={form.blocksText} onChange={(event) => set("blocksText", event.target.value)} className="font-mono !text-[12px]" />
-            </Field>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Position" htmlFor="content-position" hint="Lower sorts first">
+          {/* ================= 2. FAQ ================= */}
+          {form.kind === "faq" && (
+            <div className="space-y-4">
+              <Field label="Question *" htmlFor="content-title" hint="Question displayed in the accordion">
+                <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. How long does delivery take?" />
+              </Field>
+              <Field label="Answer *" htmlFor="content-body" hint="Answer shown in the accordion and in Google FAQPage structured data">
+                <Textarea id="content-body" rows={5} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="Orders are dispatched within 2–3 working days from Jaipur and usually arrive in 3–7 days..." />
+              </Field>
+            </div>
+          )}
+
+          {/* ================= 3. BANNER (HERO SLIDE) ================= */}
+          {form.kind === "banner" && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Eyebrow / Tag" htmlFor="content-hero-tag" hint="Small label above the headline">
+                  <TextInput id="content-hero-tag" value={form.heroTag} onChange={(e) => set("heroTag", e.target.value)} placeholder="e.g. The Summer Bagru Edit 2026" />
+                </Field>
+                <Field label="Image Focal Point" htmlFor="content-hero-position" hint="Where the slide image is focused">
+                  <Select id="content-hero-position" value={form.focalPosition} onChange={(e) => set("focalPosition", e.target.value)}>
+                    <option value="object-center">Center</option>
+                    <option value="object-top">Top</option>
+                    <option value="object-bottom">Bottom</option>
+                    <option value="object-left">Left</option>
+                    <option value="object-right">Right</option>
+                  </Select>
+                </Field>
+              </div>
+
+              <Field label="Headline *" htmlFor="content-title" hint="Main headline">
+                <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Poetry in Pure Mul Cotton" />
+              </Field>
+
+              <Field label="Subtitle" htmlFor="content-subtitle" hint="Secondary tagline">
+                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted Jaipur Weaves" />
+              </Field>
+
+              <Field label="Description" htmlFor="content-body" hint="Brief summary copy below the headline">
+                <Textarea id="content-body" rows={3} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="e.g. Featherlight 100-count handspun cotton woven for everyday grace." />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="CTA Button Label" htmlFor="content-cta-label">
+                  <TextInput id="content-cta-label" value={form.ctaLabel} onChange={(e) => set("ctaLabel", e.target.value)} placeholder="Shop Pure Mul Sets" />
+                </Field>
+                <Field label="CTA Button Link" htmlFor="content-cta-href">
+                  <TextInput id="content-cta-href" value={form.ctaHref} onChange={(e) => set("ctaHref", e.target.value)} placeholder="#products" />
+                </Field>
+              </div>
+
+              <Field label="Hero Slide Media" htmlFor="content-media" hint="Upload photos or add image/video URLs (one per line). Format: url | alt text | image/video">
+                <Textarea id="content-media" rows={3} value={form.mediaText} onChange={(e) => set("mediaText", e.target.value)} placeholder={"https://cdn.example.com/hero.jpg | Hero photo | image"} className="font-mono !text-[12px]" />
+                <div className="flex flex-wrap gap-4 mt-2">
+                  <MediaUploadField type="image" multiple onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | image`)].filter(Boolean).join("\n"))} disabled={busy} />
+                  <MediaUploadField type="video" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | video`)].filter(Boolean).join("\n"))} disabled={busy} />
+                </div>
+                {textToMedia(form.mediaText).length > 0 && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {textToMedia(form.mediaText).filter((item) => item.kind === "image").map((item) => (
+                      <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={item.url} alt={item.alt || "Hero slide preview"} className="h-32 w-full object-cover" />
+                        <p className="truncate px-3 py-1.5 text-[11px] text-stone-500">{item.alt || "Hero image"}</p>
+                      </div>
+                    ))}
+                    {textToMedia(form.mediaText).filter((item) => item.kind === "video").map((item) => (
+                      <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
+                        <video src={item.url} controls muted playsInline preload="metadata" className="h-32 w-full bg-black object-cover" />
+                        <p className="truncate px-3 py-1.5 text-[11px] text-stone-500">{item.alt || "Hero video"}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Field>
+            </div>
+          )}
+
+          {/* ================= 4. CATEGORY STORY TILE (SECTION) ================= */}
+          {form.kind === "section" && (
+            <div className="space-y-4">
+              <Field label="Category / Story Name *" htmlFor="content-title" hint="Title on the story tile (e.g. Pure Mul Cotton)">
+                <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Pure Mul Cotton" />
+              </Field>
+
+              <Field label="Tagline" htmlFor="content-subtitle" hint="Short tagline shown below name">
+                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted everyday grace" />
+              </Field>
+
+              <Field label="Description" htmlFor="content-body" hint="Story copy displayed inside the reel modal">
+                <Textarea id="content-body" rows={3} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="Description displayed when story is opened..." />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Category Filter Key *" htmlFor="section-filter-key" hint="Matches category tab (e.g. mul-cotton, festive, anarkali, suits)">
+                  <TextInput id="section-filter-key" value={form.sectionFilterKey} onChange={(e) => set("sectionFilterKey", e.target.value)} placeholder="e.g. mul-cotton" />
+                </Field>
+                <Field label="Badge / Count" htmlFor="section-count" hint="Tag on tile (e.g. 18 Styles or New Arrival)">
+                  <TextInput id="section-count" value={form.sectionCount} onChange={(e) => set("sectionCount", e.target.value)} placeholder="e.g. 18 Styles" />
+                </Field>
+              </div>
+
+              <Field label="CTA Button Label" htmlFor="content-cta-label" hint="Button text inside the story reel">
+                <TextInput id="content-cta-label" value={form.ctaLabel} onChange={(e) => set("ctaLabel", e.target.value)} placeholder="Shop this collection" />
+              </Field>
+
+              <Field label="Story Media (Cover Photo & Optional Video)" htmlFor="content-media" hint="Upload cover photo and optional video (first image is cover).">
+                <Textarea id="content-media" rows={3} value={form.mediaText} onChange={(e) => set("mediaText", e.target.value)} placeholder={"https://cdn.example.com/story.jpg | Story cover | image"} className="font-mono !text-[12px]" />
+                <div className="flex flex-wrap gap-4 mt-2">
+                  <MediaUploadField type="image" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | image`)].filter(Boolean).join("\n"))} disabled={busy} />
+                  <MediaUploadField type="video" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | video`)].filter(Boolean).join("\n"))} disabled={busy} />
+                </div>
+                {textToMedia(form.mediaText).length > 0 && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {textToMedia(form.mediaText).filter((item) => item.kind !== "video").map((item) => (
+                      <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={item.url} alt={item.alt || "Story cover preview"} className="h-32 w-full object-cover" />
+                        <p className="truncate px-3 py-1.5 text-[11px] text-stone-500">{item.alt || "Story cover photo"}</p>
+                      </div>
+                    ))}
+                    {textToMedia(form.mediaText).filter((item) => item.kind === "video").map((item) => (
+                      <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
+                        <video src={item.url} controls muted playsInline preload="metadata" className="h-32 w-full object-cover" />
+                        <p className="truncate px-3 py-1.5 text-[11px] text-stone-500">{item.alt || "Story video"}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Field>
+            </div>
+          )}
+
+          {/* ================= 5. SHOPPABLE LOOKBOOK ================= */}
+          {form.kind === "lookbook" && (
+            <div className="space-y-4">
+              <Field label="Lookbook Title *" htmlFor="content-title" hint="Headline on the lookbook banner">
+                <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. The Royal Bagru Edit" />
+              </Field>
+
+              <Field label="Lookbook Subtitle" htmlFor="content-subtitle" hint="Subheading or badge">
+                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Summer Festive Edit 2026" />
+              </Field>
+
+              <Field label="Lookbook Image *" htmlFor="content-media" hint="Upload or paste URL for the lookbook hero photograph">
+                <Textarea id="content-media" rows={2} value={form.mediaText} onChange={(e) => set("mediaText", e.target.value)} placeholder="https://cdn.example.com/lookbook.jpg | Lookbook photo | image" className="font-mono !text-[12px]" />
+                <div className="mt-2">
+                  <MediaUploadField type="image" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | image`)].filter(Boolean).join("\n"))} disabled={busy} />
+                </div>
+                {textToMedia(form.mediaText).filter((item) => item.kind !== "video").slice(0, 1).map((item) => (
+                  <div key={item.url} className="mt-3 overflow-hidden rounded-xl border border-[#ebe6de] max-w-sm">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={item.url} alt={item.alt || "Lookbook preview"} className="h-40 w-full object-cover" />
+                  </div>
+                ))}
+              </Field>
+
+              <Field
+                label="Shoppable Hotspot Pins (JSON)"
+                htmlFor="content-blocks"
+                hint='Format: { "pins": [{ "id": "pin-1", "top": "28%", "left": "48%", "title": "Mul Anarkali", "price": "₹1,899", "tag": "Pure Mul" }] }'
+              >
+                <Textarea id="content-blocks" rows={5} value={form.blocksText} onChange={(e) => set("blocksText", e.target.value)} placeholder='{ "pins": [{ "id": "pin-1", "top": "28%", "left": "48%", "title": "Mul Anarkali", "price": "₹1,899", "tag": "Pure Mul" }] }' className="font-mono !text-[12px]" />
+              </Field>
+            </div>
+          )}
+
+          {/* ================= 6. STANDALONE PAGE ================= */}
+          {form.kind === "page" && (
+            <div className="space-y-4">
+              <Field label="Page Title *" htmlFor="content-title">
+                <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Our Heritage & Craft" />
+              </Field>
+
+              <Field label="Subtitle" htmlFor="content-subtitle">
+                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted in Jaipur since 2018" />
+              </Field>
+
+              <Field label="Page Content *" htmlFor="content-body" hint="Full body copy / story">
+                <Textarea id="content-body" rows={6} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="Write page content here..." />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="SEO Meta Title" htmlFor="seo-title" hint="Browser tab & Google title">
+                  <TextInput id="seo-title" value={form.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} placeholder="e.g. Heritage | Vani Collection" />
+                </Field>
+                <Field label="SEO Meta Description" htmlFor="seo-desc" hint="Google search snippet">
+                  <TextInput id="seo-desc" value={form.seoDescription} onChange={(e) => set("seoDescription", e.target.value)} placeholder="e.g. Explore our traditional artisanal weaving..." />
+                </Field>
+              </div>
+
+              <Field label="Page Banner Image (Optional)" htmlFor="content-media">
+                <Textarea id="content-media" rows={2} value={form.mediaText} onChange={(e) => set("mediaText", e.target.value)} placeholder="https://cdn.example.com/banner.jpg | Header photo | image" className="font-mono !text-[12px]" />
+                <div className="mt-2">
+                  <MediaUploadField type="image" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | image`)].filter(Boolean).join("\n"))} disabled={busy} />
+                </div>
+              </Field>
+            </div>
+          )}
+
+          {/* ================= 7. POLICY ================= */}
+          {form.kind === "policy" && (
+            <div className="space-y-4">
+              <Field label="Policy Heading *" htmlFor="content-title" hint="Name of the policy (e.g. Shipping Policy, Returns & Refund Policy)">
+                <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Shipping & Delivery Policy" />
+              </Field>
+
+              <Field label="Last Updated / Subtitle" htmlFor="content-subtitle" hint="Display date or tagline">
+                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Last updated October 2026" />
+              </Field>
+
+              <Field label="Policy Terms & Guidelines *" htmlFor="content-body" hint="Full policy text">
+                <Textarea id="content-body" rows={8} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="Write full policy terms, conditions, timelines, and guidelines here..." />
+              </Field>
+            </div>
+          )}
+
+          {/* ================= 8. PRODUCT COLLECTION ================= */}
+          {form.kind === "product_collection" && (
+            <div className="space-y-4">
+              <Field label="Section Title *" htmlFor="content-title" hint="Heading on homepage (e.g. Curated Festive Edit)">
+                <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Curated Festive Edit" />
+              </Field>
+
+              <Field label="Section Subtitle" htmlFor="content-subtitle" hint="Subheading text">
+                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Pure Mul Cotton & Festive Weaves" />
+              </Field>
+
+              <Field label="Featured Product IDs / Slugs" htmlFor="collection-products" hint="Enter product IDs or slugs separated by commas or line breaks">
+                <Textarea id="collection-products" rows={3} value={form.collectionProductIds} onChange={(e) => set("collectionProductIds", e.target.value)} placeholder="prod_1, prod_2, prod_3" className="font-mono !text-[12px]" />
+              </Field>
+            </div>
+          )}
+
+          {/* Common Sort Order & Status */}
+          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-[#ebe6de]">
+            <Field label="Sort Position" htmlFor="content-position" hint="Order number (0 sorts first)">
               <TextInput id="content-position" type="number" step={1} value={form.position} onChange={(event) => set("position", event.target.value)} />
             </Field>
-            <Field label="Status" htmlFor="content-status">
+            <Field label="Publish Status" htmlFor="content-status" hint="Live or draft">
               <Select id="content-status" value={form.status} onChange={(event) => set("status", event.target.value as "draft" | "published")}>
-                <option value="published">Published</option>
-                <option value="draft">Draft</option>
+                <option value="published">Published (Visible on site)</option>
+                <option value="draft">Draft (Hidden)</option>
               </Select>
             </Field>
           </div>
