@@ -1,9 +1,8 @@
 /**
  * Real API client for the Vani Collection backend (/backend).
  *
- * The admin console talks to this client when NEXT_PUBLIC_API_URL is set. When it is not set the
- * console keeps rendering its built-in demo data, so the storefront demo remains deployable on its
- * own while the real backend is wired up.
+ * The admin console talks to this client when NEXT_PUBLIC_API_URL is set. Without it, screens show
+ * empty states rather than fabricated records.
  */
 
 import type { ContentDoc } from "./content";
@@ -46,18 +45,21 @@ function updateAuthSessionHint(path: string, status: number): void {
 
 let refreshPromise: Promise<boolean> | null = null;
 
-function refreshSession(): Promise<boolean> {
+async function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE}/api/auth/refresh`, {
+    refreshPromise = (async () => {
+      const refresh = () => fetch(`${API_BASE}/api/auth/refresh`, {
       method: "POST",
       credentials: "include",
       cache: "no-store",
-    })
-      .then((response) => response.ok)
-      .catch(() => false)
-      .finally(() => {
-        refreshPromise = null;
       });
+      if (typeof navigator !== "undefined" && navigator.locks) {
+        return await navigator.locks.request("vani-auth-refresh", async () => (await refresh()).ok);
+      }
+      return (await refresh()).ok;
+    })().finally(() => {
+      refreshPromise = null;
+    });
   }
   return refreshPromise;
 }
@@ -65,11 +67,11 @@ function refreshSession(): Promise<boolean> {
 const canRefreshRequest = (path: string): boolean =>
   !["/api/auth/login", "/api/auth/refresh", "/api/auth/logout"].includes(path);
 
-async function hasInvalidAccessToken(response: Response): Promise<boolean> {
+async function needsSessionRefresh(response: Response): Promise<boolean> {
   if (response.status !== 401) return false;
   try {
     const payload = (await response.clone().json()) as ApiErrorPayload;
-    return payload.error?.code === "INVALID_TOKEN";
+    return payload.error?.code === "INVALID_TOKEN" || payload.error?.code === "AUTH_REQUIRED";
   } catch {
     return false;
   }
@@ -110,6 +112,19 @@ export interface Paginated<T> {
   meta?: { page?: number; limit?: number; total?: number; pages?: number };
 }
 
+export interface CloudinaryMediaAsset {
+  assetId: string;
+  publicId: string;
+  url: string;
+  resourceType: "image" | "video";
+  format: string;
+  bytes: number;
+  width?: number;
+  height?: number;
+  duration?: number;
+  createdAt: string;
+}
+
 /** Performs an authenticated JSON request against the backend. */
 export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
   if (!isApiConfigured()) throw new ApiError(503, "API_NOT_CONFIGURED", "NEXT_PUBLIC_API_URL is not configured");
@@ -125,7 +140,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (canRefreshRequest(path) && (await hasInvalidAccessToken(response)) && (await refreshSession())) {
+    if (canRefreshRequest(path) && (await needsSessionRefresh(response)) && (await refreshSession())) {
       response = await fetch(`${API_BASE}${path}`, {
         method,
         credentials: "include",
@@ -161,6 +176,44 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
   }
   updateAuthSessionHint(path, response.status);
   return payload as T;
+}
+
+export async function uploadAdminMedia(files: File[], type: "image" | "video"): Promise<string[]> {
+  if (!isApiConfigured()) throw new ApiError(503, "API_NOT_CONFIGURED", "NEXT_PUBLIC_API_URL is not configured");
+  if (files.length === 0) throw new ApiError(422, "NO_FILES", "Choose a file to upload");
+  if (type === "video" && files.length !== 1) throw new ApiError(422, "INVALID_FILE_COUNT", "Upload one video at a time");
+  if (type === "image" && files.length > 6) throw new ApiError(422, "INVALID_FILE_COUNT", "Upload up to 6 images at a time");
+
+  const path = `/api/uploads/${type === "image" ? "images" : "videos"}`;
+  const send = () => {
+    const form = new FormData();
+    if (type === "image") files.forEach((file) => form.append("files", file));
+    else form.append("file", files[0]);
+    return fetch(`${API_BASE}${path}`, { method: "POST", credentials: "include", cache: "no-store", body: form });
+  };
+
+  let response: Response;
+  try {
+    response = await send();
+    if ((await needsSessionRefresh(response)) && (await refreshSession())) response = await send();
+  } catch (cause) {
+    throw new ApiError(0, "NETWORK_ERROR", "Could not upload media to the Vani Collection API", cause);
+  }
+
+  const text = await response.text();
+  const payload = text ? (JSON.parse(text) as { data?: { url?: string }[] } & ApiErrorPayload) : {};
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      payload.error?.code || "UPLOAD_FAILED",
+      payload.error?.message || `Media upload failed with status ${response.status}`,
+      payload.error?.details,
+      payload.error?.requestId,
+    );
+  }
+  const urls = payload.data?.map((item) => item.url).filter((url): url is string => typeof url === "string" && Boolean(url)) ?? [];
+  if (urls.length !== files.length) throw new ApiError(502, "INVALID_UPLOAD_RESPONSE", "The media upload response did not contain all uploaded URLs");
+  return urls;
 }
 
 /* ------------------------------------------------------------------ types */
@@ -239,6 +292,91 @@ export interface AdminCatalogueProduct {
   unitsSold: number;
   revenue: number;
   updatedAt: string;
+}
+
+export interface AdminEditableProduct {
+  _id: string;
+  name: string;
+  slug: string;
+  category: string;
+  subcategory?: string;
+  brand?: string;
+  fabric?: string;
+  craft?: string;
+  hsnCode?: string;
+  gstRate?: number;
+  description?: string;
+  shortDescription?: string;
+  sizeGuide?: string;
+  images: { url: string; alt?: string; position?: number }[];
+  hoverImage?: string;
+  videos: { url: string; kind?: string }[];
+  tags: string[];
+  badges: string[];
+  status: "draft" | "active" | "archived";
+  featured: boolean;
+  seo?: { title?: string; description?: string };
+  variants: {
+    _id?: string;
+    sku: string;
+    barcode?: string;
+    size?: string;
+    color?: string;
+    images?: { url: string; alt?: string; position?: number }[];
+    mrp: number;
+    price: number;
+    weightGrams?: number;
+    active?: boolean;
+  }[];
+}
+
+export interface StoreCategory {
+  _id?: string;
+  name: string;
+  slug: string;
+  description?: string;
+  navigationGroup: string;
+  position: number;
+  isActive: boolean;
+}
+
+export interface NavigationMenuLink {
+  label: string;
+  href?: string;
+  categorySlug?: string;
+}
+
+export interface NavigationMenuColumn {
+  title: string;
+  items: NavigationMenuLink[];
+}
+
+export interface NavigationMenu {
+  key: "lookbook" | "shop-by-price";
+  label: string;
+  position: number;
+  isActive: boolean;
+  columns: NavigationMenuColumn[];
+}
+
+export interface NavigationSettings {
+  theme: "atelier" | "midnight" | "forest" | "custom";
+  brandName: string;
+  brandTagline: string;
+  logoUrl: string;
+  collectionLabel: string;
+  announcements: string[];
+  links: { label: string; href: string; isActive: boolean }[];
+  colors: {
+    announcementBg: string;
+    announcementText: string;
+    announcementBorder: string;
+    headerBg: string;
+    headerText: string;
+    accent: string;
+    mobileDrawerBg: string;
+    mobileBottomBg: string;
+  };
 }
 
 export interface AdminCustomer {
@@ -579,7 +717,7 @@ export const LOYALTY_TIERS: { name: LoyaltyTierName; label: string }[] = [
  * the backend does not enforce.
  */
 export interface ContentInput {
-  kind?: "page" | "section" | "banner" | "faq" | "policy" | "testimonial" | "lookbook";
+  kind?: "page" | "section" | "banner" | "faq" | "policy" | "testimonial" | "lookbook" | "product_collection";
   title?: string;
   subtitle?: string;
   body?: string;
@@ -615,6 +753,17 @@ export const api = {
   logout: () => apiFetch<void>("/api/auth/logout", { method: "POST" }),
   me: (signal?: AbortSignal) => apiFetch<{ data: SessionUser }>("/api/auth/me", { signal }),
   dashboard: (signal?: AbortSignal) => apiFetch<{ data: DashboardMetrics }>("/api/admin/dashboard", { signal }),
+  cloudinaryAssets: (params: { type?: "image" | "video"; cursor?: string } = {}, signal?: AbortSignal) => {
+    const query = new URLSearchParams();
+    if (params.type) query.set("type", params.type);
+    if (params.cursor) query.set("cursor", params.cursor);
+    return apiFetch<{ data: CloudinaryMediaAsset[]; meta: { total: number; nextCursor: string | null } }>(
+      `/api/uploads/assets?${query.toString()}`,
+      { signal },
+    );
+  },
+  cloudinaryAssetCounts: (signal?: AbortSignal) =>
+    apiFetch<{ data: { images: number; videos: number; total: number } }>("/api/uploads/assets/counts", { signal }),
   orders: (params: { status?: string; limit?: number } = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (params.status && params.status !== "All") query.set("status", mapStatusFilter(params.status));
@@ -628,6 +777,26 @@ export const api = {
     query.set("limit", String(params.limit ?? 50));
     return apiFetch<Paginated<AdminCatalogueProduct>>(`/api/admin/catalogue?${query.toString()}`, { signal });
   },
+  editableProduct: (id: string, signal?: AbortSignal) =>
+    apiFetch<{ data: AdminEditableProduct }>(`/api/admin/catalogue/${encodeURIComponent(id)}`, { signal }),
+  categories: (signal?: AbortSignal) => apiFetch<{ data: StoreCategory[] }>("/api/categories", { signal }),
+  managedCategories: (signal?: AbortSignal) => apiFetch<{ data: StoreCategory[] }>("/api/categories/manage", { signal }),
+  createCategory: (body: Omit<StoreCategory, "_id">) =>
+    apiFetch<{ data: StoreCategory }>("/api/categories/manage", { method: "POST", body }),
+  updateCategory: (id: string, body: Partial<Omit<StoreCategory, "_id" | "slug">>) =>
+    apiFetch<{ data: StoreCategory }>(`/api/categories/manage/${encodeURIComponent(id)}`, { method: "PATCH", body }),
+  deleteCategory: (id: string) =>
+    apiFetch<void>(`/api/categories/manage/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  navigationMenus: (signal?: AbortSignal) =>
+    apiFetch<{ data: NavigationMenu[] }>("/api/navigation/manage", { signal }),
+  saveNavigationMenu: (key: NavigationMenu["key"], body: Omit<NavigationMenu, "key">) =>
+    apiFetch<{ data: NavigationMenu }>(`/api/navigation/manage/${key}`, { method: "PUT", body }),
+  navigationSettings: (signal?: AbortSignal) =>
+    apiFetch<{ data: NavigationSettings }>("/api/navigation/manage/settings", { signal }),
+  saveNavigationSettings: (body: NavigationSettings) =>
+    apiFetch<{ data: NavigationSettings }>("/api/navigation/manage/settings", { method: "PUT", body }),
+  storefrontNavigation: (signal?: AbortSignal) =>
+    apiFetch<{ data: { categories: StoreCategory[]; menus: NavigationMenu[]; settings: NavigationSettings } }>("/api/navigation", { signal }),
   customers: (params: { q?: string; limit?: number } = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (params.q) query.set("q", params.q);
@@ -714,6 +883,9 @@ export const api = {
   // here would close a cycle. Types are erased, so this stays acyclic in the bundle.
   content: (kind?: string, signal?: AbortSignal) =>
     apiFetch<{ data: ContentDoc[] }>(`/api/content${kind && kind !== "all" ? `?kind=${encodeURIComponent(kind)}` : ""}`, { signal }),
+  managedContent: (signal?: AbortSignal) => apiFetch<{ data: ContentDoc[] }>("/api/admin/content", { signal }),
+  contentRevisions: (key: string, signal?: AbortSignal) =>
+    apiFetch<{ data: { createdAt: string; changedBy?: { email?: string; firstName?: string; lastName?: string }; changes: { field: string; before?: unknown; after?: unknown }[] }[] }>(`/api/content/manage/${encodeURIComponent(key)}/revisions`, { signal }),
   contentByKey: (key: string, signal?: AbortSignal) => apiFetch<{ data: ContentDoc }>(`/api/content/${encodeURIComponent(key)}`, { signal }),
   /** `PUT /api/content/:key` upserts, so "save" works whether or not the block exists yet. */
   upsertContent: (key: string, body: ContentInput) => apiFetch<{ data: ContentDoc }>(`/api/content/${encodeURIComponent(key)}`, { method: "PUT", body }),

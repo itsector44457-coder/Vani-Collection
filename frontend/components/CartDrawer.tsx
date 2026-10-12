@@ -3,7 +3,6 @@
 import { useCart } from "../context/CartContext";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function CartDrawer() {
@@ -20,23 +19,9 @@ export default function CartDrawer() {
   } = useCart();
 
   const router = useRouter();
-  const [promoCode, setPromoCode] = useState("");
-  const [promoApplied, setPromoApplied] = useState(false);
-  const [discountAmount, setDiscountAmount] = useState(0);
 
   const amountLeftForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
   const freeShippingProgress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
-
-  const handleApplyPromo = () => {
-    if (promoCode.trim().toUpperCase() === "FIRST10" || promoCode.trim().toUpperCase() === "VANI10") {
-      setPromoApplied(true);
-      setDiscountAmount(Math.round(subtotal * 0.1));
-    } else {
-      alert("Invalid coupon! Try using code 'FIRST10' for 10% off.");
-    }
-  };
-
-  const finalTotal = subtotal - discountAmount;
 
   return (
     <AnimatePresence>
@@ -137,7 +122,7 @@ export default function CartDrawer() {
                             {item.title}
                           </h4>
                           <button
-                            onClick={() => removeFromCart(item.id, item.size)}
+                            onClick={() => removeFromCart(item.id, item.size, item.color)}
                             className="text-stone-400 hover:text-rose-700 text-xs transition"
                             title="Remove"
                           >
@@ -156,7 +141,7 @@ export default function CartDrawer() {
                         {/* Quantity selector */}
                         <div className="flex items-center border border-stone-300 rounded bg-white overflow-hidden text-xs">
                           <button
-                            onClick={() => updateQuantity(item.id, item.size, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.id, item.size, item.quantity - 1, item.color)}
                             className="px-2.5 py-1 text-stone-600 hover:bg-stone-100 transition"
                           >
                             -
@@ -165,7 +150,7 @@ export default function CartDrawer() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => updateQuantity(item.id, item.size, item.quantity + 1)}
+                            onClick={() => updateQuantity(item.id, item.size, item.quantity + 1, item.color)}
                             className="px-2.5 py-1 text-stone-600 hover:bg-stone-100 transition"
                           >
                             +
@@ -193,42 +178,12 @@ export default function CartDrawer() {
             {/* Footer / Checkout */}
             {cart.length > 0 && (
               <div className="p-4 sm:p-6 pb-24 sm:pb-6 bg-white border-t border-[#e8dfd5] space-y-3 sm:space-y-4 shadow-inner">
-                {/* Coupon input */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Coupon (e.g. FIRST10)"
-                    value={promoCode}
-                    onChange={(e) => setPromoCode(e.target.value)}
-                    className="flex-1 px-3 py-2 border border-stone-300 rounded text-xs uppercase tracking-wider focus:outline-none focus:border-[#881337]"
-                  />
-                  <button
-                    onClick={handleApplyPromo}
-                    className="px-4 py-2 bg-stone-100 border border-stone-300 rounded text-xs font-semibold text-stone-800 hover:bg-stone-200 transition"
-                  >
-                    Apply
-                  </button>
-                </div>
-
-                {promoApplied && (
-                  <div className="flex justify-between text-xs text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-200">
-                    <span>Coupon &apos;FIRST10&apos; Applied (10% OFF)</span>
-                    <span>-₹{discountAmount}</span>
-                  </div>
-                )}
-
                 {/* Subtotals */}
                 <div className="space-y-1.5 text-xs text-stone-600">
                   <div className="flex justify-between">
                     <span>Subtotal</span>
                     <span className="font-semibold text-stone-900">₹{subtotal}</span>
                   </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-emerald-700">
-                      <span>Discount</span>
-                      <span>-₹{discountAmount}</span>
-                    </div>
-                  )}
                   <div className="flex justify-between">
                     <span>Shipping</span>
                     <span>
@@ -242,11 +197,11 @@ export default function CartDrawer() {
                   <div className="flex justify-between text-sm font-bold text-stone-900 pt-2 border-t border-stone-200">
                     <span>Estimated Total</span>
                     <span className="text-[#881337] text-base">
-                      ₹{amountLeftForFreeShipping === 0 ? finalTotal : finalTotal + 99}
+                      ₹{amountLeftForFreeShipping === 0 ? subtotal : subtotal + 99}
                     </span>
                   </div>
                   <p className="text-[10px] text-stone-400 text-center">
-                    Taxes included · Free returns & 7-day exchanges
+                    Coupon codes can be applied at checkout.
                   </p>
                 </div>
 

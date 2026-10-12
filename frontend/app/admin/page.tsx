@@ -71,19 +71,18 @@ export default function AdminDashboard() {
   const metrics = dashboard.data;
   const revenueSeries = useMemo(() => {
     const points = metrics.daily.slice(-12).map((day) => Math.round(day.revenue));
-    return points.some((value) => value > 0) ? points : DEMO_DASHBOARD.daily.map((day) => Math.round(day.revenue));
+    return points;
   }, [metrics.daily]);
 
   const orderSeries = useMemo(() => {
     const points = metrics.daily.slice(-7).map((day) => day.orders);
-    return points.some((value) => value > 0) ? points : [4, 7, 5, 9, 8, 12, 10];
+    return points;
   }, [metrics.daily]);
 
   const categories = useMemo(() => {
     const rows = metrics.salesByCategory.filter((row) => row.revenue > 0).slice(0, 4);
-    const source = rows.length ? rows : DEMO_DASHBOARD.salesByCategory;
-    const total = source.reduce((sum, row) => sum + row.revenue, 0) || 1;
-    return source.map((row, index) => ({
+    const total = rows.reduce((sum, row) => sum + row.revenue, 0) || 1;
+    return rows.map((row, index) => ({
       label: row._id.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
       value: Math.max(1, Math.round((row.revenue / total) * 100)),
       color: DONUT_COLORS[index % DONUT_COLORS.length],
@@ -110,7 +109,7 @@ export default function AdminDashboard() {
           <p className="mt-1 text-[13px] text-stone-500">
             {dashboard.source === "live"
               ? "Live figures from the Vani Collection backend (last 30 days)."
-              : "Demo figures — connect the backend to see real orders, stock and revenue."}
+              : "Live figures are unavailable until the backend connection succeeds."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

@@ -31,11 +31,7 @@ export default function LivingProductCard({
   const [isMobile, setIsMobile] = useState(false);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
   const [addedAnimation, setAddedAnimation] = useState(false);
-
-  // Fallback video if product has none
-  const videoSrc =
-    product.videoUrl ||
-    "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4";
+  const hasAlternatePhoto = Boolean(product.hoverImage && product.hoverImage !== product.image);
 
   // Product motion is desktop-only and opt-in on hover. Avoiding viewport
   // autoplay saves substantial bandwidth and battery on mobile devices.
@@ -53,7 +49,7 @@ export default function LivingProductCard({
 
   // Desktop Hover Handlers
   const handleMouseEnter = () => {
-    if (isMobile) return;
+    if (isMobile || !product.videoUrl || hasAlternatePhoto) return;
     setShouldLoadVideo(true);
     // Wait for the opt-in video element to mount before playback.
     requestAnimationFrame(() => {
@@ -101,17 +97,32 @@ export default function LivingProductCard({
           src={product.image}
           alt={product.title}
           fill
+          unoptimized
           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-          className={`object-cover object-top transition-opacity duration-700 ease-in-out ${
+          className={`object-cover object-top transition-all duration-700 ease-in-out group-hover:scale-[1.06] ${
             showVideo ? "opacity-0" : "opacity-100"
           }`}
         />
+
+        {/* Swap to the product's second photo on hover; keep the primary photo when no alternate exists. */}
+        {hasAlternatePhoto && (
+          <Image
+            src={product.hoverImage}
+            alt={`${product.title} alternate view`}
+            fill
+            unoptimized
+            sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+            className={`absolute inset-0 object-cover object-top transition-all duration-700 ease-in-out group-hover:scale-[1.06] ${
+              showVideo ? "opacity-0" : "opacity-0 group-hover:opacity-100"
+            }`}
+          />
+        )}
 
         {/* Motion preview is created only after a desktop hover. */}
         {shouldLoadVideo && (
           <video
             ref={videoRef}
-            src={videoSrc}
+            src={product.videoUrl}
             loop
             muted
             playsInline

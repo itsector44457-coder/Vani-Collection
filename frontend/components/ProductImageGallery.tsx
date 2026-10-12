@@ -14,7 +14,6 @@ export default function ProductImageGallery({ images, productTitle, videoUrl }: 
   const [currentImage, setCurrentImage] = useState(0);
   const [showZoom, setShowZoom] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
-
   const allMedia = [...images];
   if (videoUrl) allMedia.push(videoUrl);
 
@@ -36,6 +35,7 @@ export default function ProductImageGallery({ images, productTitle, videoUrl }: 
             src={images[currentImage]}
             alt={`${productTitle} - Image ${currentImage + 1}`}
             fill
+            unoptimized
             priority
             sizes="(min-width: 1024px) 45vw, 92vw"
             className="object-cover cursor-zoom-in transition-transform group-hover:scale-105"
@@ -115,6 +115,7 @@ export default function ProductImageGallery({ images, productTitle, videoUrl }: 
               src={image}
               alt={`${productTitle} thumbnail ${index + 1}`}
               fill
+              unoptimized
               sizes="96px"
               className="object-cover"
             />
@@ -167,6 +168,7 @@ export default function ProductImageGallery({ images, productTitle, videoUrl }: 
                 alt={`${productTitle} - Zoomed`}
                 width={1200}
                 height={1600}
+                unoptimized
                 sizes="(min-width: 896px) 896px, 92vw"
                 className="max-w-full max-h-[86vh] w-auto h-auto object-contain rounded-xl"
               />

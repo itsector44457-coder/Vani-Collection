@@ -189,13 +189,21 @@ export default function ProductsPage() {
                       </Badge>
                     </td>
                     <td className="py-3.5 text-right">
-                      <div className="flex justify-end gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+                      <div className="flex justify-end gap-1">
                         <Link
                           href={`/product/${product.slug}`}
                           className="rounded-lg px-2.5 py-1.5 text-[11.5px] font-medium text-stone-600 hover:bg-[#f0ebe3]"
                         >
                           View
                         </Link>
+                        {catalogue.source === "live" && (
+                          <Link
+                            href={`/admin/products/${product._id}/edit`}
+                            className="rounded-lg px-2.5 py-1.5 text-[11.5px] font-medium text-[#881337] hover:bg-rose-50"
+                          >
+                            Edit
+                          </Link>
+                        )}
                         {catalogue.source === "live" && (
                           <button
                             disabled={busyId === product._id}
@@ -218,7 +226,7 @@ export default function ProductsPage() {
           <span>
             Showing {filtered.length} of {products.length}
           </span>
-          <span>{catalogue.source === "live" ? "Live inventory from the backend" : "Demo catalogue"}</span>
+          <span>{catalogue.source === "live" ? "Live inventory from the backend" : "Live catalogue unavailable"}</span>
         </div>
       </Card>
     </div>

@@ -15,45 +15,19 @@ const EMPTY_FORM = {
   type: "home" as Address["type"],
 };
 
-const DEMO_ADDRESSES: Address[] = [
-  {
-    id: "demo-1",
-    type: "home",
-    fullName: "Priya Sharma",
-    phone: "+91 98XXX 12345",
-    address: "42, Vasant Vihar",
-    city: "New Delhi",
-    state: "Delhi",
-    pincode: "110057",
-    isDefault: true,
-  },
-  {
-    id: "demo-2",
-    type: "work",
-    fullName: "Priya Sharma",
-    phone: "+91 98XXX 12345",
-    address: "WeWork, Cyber Hub, Tower B",
-    city: "Gurugram",
-    state: "Haryana",
-    pincode: "122002",
-    isDefault: false,
-  },
-];
-
 const LABELS: Record<Address["type"], string> = { home: "Home", work: "Office", other: "Other" };
 
 export default function AddressesPage() {
   const { user, isAuthenticated, mode, addAddress, updateAddress, deleteAddress, setDefaultAddress } = useAuth();
   const live = mode === "live" && isAuthenticated;
 
-  const [demoItems, setDemoItems] = useState<Address[]>(DEMO_ADDRESSES);
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const items = live ? (user?.addresses ?? []) : demoItems;
+  const items = live ? (user?.addresses ?? []) : [];
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
@@ -86,16 +60,9 @@ export default function AddressesPage() {
     setBusy(true);
     try {
       const payload: Omit<Address, "id"> = { ...form, isDefault: items.length === 0 };
-      if (live) {
-        if (editingId) await updateAddress(editingId, payload);
-        else await addAddress(payload);
-      } else {
-        setDemoItems((current) =>
-          editingId
-            ? current.map((item) => (item.id === editingId ? { ...item, ...payload } : item))
-            : [...current, { ...payload, id: `demo-${Date.now()}` }],
-        );
-      }
+      if (!live) throw new Error("Address management is unavailable because the API is not configured.");
+      if (editingId) await updateAddress(editingId, payload);
+      else await addAddress(payload);
       resetForm();
     } catch (cause) {
       setError((cause as Error)?.message || "We could not save this address.");
@@ -107,8 +74,8 @@ export default function AddressesPage() {
   const handleRemove = async (id: string) => {
     setError("");
     try {
-      if (live) await deleteAddress(id);
-      else setDemoItems((current) => current.filter((item) => item.id !== id));
+      if (!live) throw new Error("Address management is unavailable because the API is not configured.");
+      await deleteAddress(id);
     } catch (cause) {
       setError((cause as Error)?.message || "We could not remove this address.");
     }
@@ -117,8 +84,8 @@ export default function AddressesPage() {
   const handleDefault = async (id: string) => {
     setError("");
     try {
-      if (live) await setDefaultAddress(id);
-      else setDemoItems((current) => current.map((item) => ({ ...item, isDefault: item.id === id })));
+      if (!live) throw new Error("Address management is unavailable because the API is not configured.");
+      await setDefaultAddress(id);
     } catch (cause) {
       setError((cause as Error)?.message || "We could not update the default address.");
     }
@@ -133,7 +100,7 @@ export default function AddressesPage() {
         title="Saved Addresses"
         subtitle={`${items.length} saved address${items.length === 1 ? "" : "es"}`}
         action={
-          <ButtonPrimary onClick={() => (formVisible ? resetForm() : setAdding(true))}>
+          <ButtonPrimary disabled={!live} onClick={() => (formVisible ? resetForm() : setAdding(true))}>
             <span className="inline-flex items-center gap-1.5">
               <IconPlus /> {formVisible ? "Cancel" : "Add address"}
             </span>
@@ -143,8 +110,7 @@ export default function AddressesPage() {
 
       {!live && (
         <p className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-800">
-          Sample addresses are shown until the storefront is connected to the backend. Sign in with the API configured to
-          save real addresses.
+          Address management is unavailable because the storefront API is not configured.
         </p>
       )}
       {live && error && (

@@ -1,8 +1,7 @@
 /**
  * Storefront ↔ backend bridge.
  *
- * Every function here is used by the demo storefront; when NEXT_PUBLIC_API_URL is configured the data
- * is real (catalogue, cart, orders, auth), otherwise the pages fall back to the bundled demo data.
+ * When NEXT_PUBLIC_API_URL is configured, storefront data is loaded from the backend.
  */
 import { apiFetch, ApiError, isApiConfigured, type Paginated } from "./api-client";
 import type { CartItem, OrderAddress, Product, StoreOrder, StoreReview, StoreVariant } from "./storefront-types";
@@ -16,6 +15,7 @@ interface ApiVariant {
   sku: string;
   size?: string;
   color?: string;
+  images?: { url: string; alt?: string }[];
   price: number;
   mrp: number;
 }
@@ -26,12 +26,14 @@ interface ApiProduct {
   slug: string;
   description?: string;
   shortDescription?: string;
+  sizeGuide?: string;
   category: string;
   fabric?: string;
   craft?: string;
   hsnCode?: string;
   gstRate?: number;
   images?: { url: string; alt?: string }[];
+  hoverImage?: string;
   videos?: { url: string; kind?: string }[];
   variants: ApiVariant[];
   badges?: string[];
@@ -116,6 +118,7 @@ export function toStoreProduct(apiProduct: ApiProduct): Product {
     sku: variant.sku,
     size: variant.size,
     color: variant.color,
+    images: (variant.images ?? []).map((image) => image.url).filter(Boolean),
     price: variant.price,
     mrp: variant.mrp,
     available: apiProduct.inventory?.[variant.sku],
@@ -157,10 +160,11 @@ export function toStoreProduct(apiProduct: ApiProduct): Product {
     badge,
     badgeType,
     image: images[0] ?? "",
-    hoverImage: images[1] ?? images[0] ?? "",
+    hoverImage: apiProduct.hoverImage === undefined ? images[1] ?? images[0] ?? "" : apiProduct.hoverImage,
     videoUrl: apiProduct.videos?.[0]?.url,
     sizes: unique(variants.map((variant) => variant.size).filter((size): size is string => Boolean(size))),
     description: apiProduct.description || apiProduct.shortDescription || apiProduct.name,
+    sizeGuide: apiProduct.sizeGuide,
     details,
     variants,
     status: apiProduct.status,
@@ -195,14 +199,18 @@ export const addressToApi = (address: OrderAddress) => ({
 
 /* ---------------------------------------------------------------- catalogue */
 
-export async function listProducts(params: { page?: number; limit?: number; category?: string; q?: string } = {}, signal?: AbortSignal): Promise<{ products: Product[]; total: number }> {
+export async function listProducts(params: { page?: number; limit?: number; category?: string; q?: string } = {}, signal?: AbortSignal): Promise<{ products: Product[]; total: number; pages: number }> {
   const query = new URLSearchParams();
   query.set("limit", String(params.limit ?? 60));
   if (params.page) query.set("page", String(params.page));
   if (params.category && params.category !== "all") query.set("category", params.category);
   if (params.q) query.set("q", params.q);
   const response = await apiFetch<Paginated<ApiProduct>>(`/api/products?${query.toString()}`, { signal });
-  return { products: response.data.map(toStoreProduct), total: response.meta?.total ?? response.data.length };
+  return {
+    products: response.data.map(toStoreProduct),
+    total: response.meta?.total ?? response.data.length,
+    pages: response.meta?.pages ?? 1,
+  };
 }
 
 export async function getProduct(slug: string, signal?: AbortSignal): Promise<Product> {

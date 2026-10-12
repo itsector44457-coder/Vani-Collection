@@ -1,12 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ManagedContentPage from "../../../components/ManagedContentPage";
+import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Terms & Conditions | Vani Collection",
   description: "Read our terms and conditions for using Vani Collection services and making purchases.",
 };
 
-export default function TermsPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  return managedPageMetadata(await fetchManagedPage("terms"), DEFAULT_METADATA);
+}
+
+export default async function TermsPage() {
+  const managed = await fetchManagedPage("terms");
+  if (managed) return <ManagedContentPage document={managed} breadcrumb="Terms & Conditions" />;
+
   return (
     <div className="min-h-screen bg-[#faf7f2]">
       {/* Header */}

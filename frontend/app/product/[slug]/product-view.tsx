@@ -14,13 +14,45 @@ import RelatedProducts from "../../../components/RelatedProducts";
 
 type ProductTab = "description" | "details" | "reviews";
 
+const COLOR_SWATCHES: Record<string, string> = {
+  black: "#171717",
+  white: "#ffffff",
+  red: "#dc2626",
+  maroon: "#881337",
+  pink: "#ec4899",
+  "hot pink": "#db2777",
+  yellow: "#facc15",
+  orange: "#f97316",
+  green: "#16a34a",
+  olive: "#737c26",
+  teal: "#0d9488",
+  blue: "#2563eb",
+  navy: "#1e3a8a",
+  purple: "#9333ea",
+  lavender: "#c4b5fd",
+  brown: "#854d0e",
+  beige: "#d6c2a1",
+  cream: "#fff7dc",
+  grey: "#6b7280",
+  gray: "#6b7280",
+  silver: "#cbd5e1",
+  gold: "#d4a72c",
+};
+
+const swatchBackground = (color: string) =>
+  /^#[\da-f]{6}$/i.test(color)
+    ? color
+    : color.toLowerCase() === "multicolor"
+      ? "linear-gradient(135deg, #e11d48, #facc15, #16a34a, #2563eb, #9333ea)"
+      : COLOR_SWATCHES[color.toLowerCase()] ?? "#a8a29e";
+
 /**
  * The interactive product page.
  *
  * Split out of `page.tsx` so that file can be a Server Component and export `generateMetadata` and
  * the JSON-LD markup — neither of which is possible from a `"use client"` module. The slug arrives
  * already resolved; this component owns everything that needs the browser (cart, wishlist, tabs,
- * size guide, toasts) and keeps its own demo-catalogue fallback via `useStoreProduct`.
+ * size guide, toasts) and loads product data from the storefront API.
  */
 export default function ProductView({ slug }: { slug: string }) {
   const storeProduct = useStoreProduct(slug);
@@ -29,13 +61,24 @@ export default function ProductView({ slug }: { slug: string }) {
 
   const product = storeProduct.data;
   const [selectedSize, setSelectedSize] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<ProductTab>("description");
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showAddedToast, setShowAddedToast] = useState(false);
 
-  /* The first available size is the default; the visitor's explicit pick always wins. */
-  const activeSize = product && !product.sizes.includes(selectedSize) ? (product.sizes[0] ?? "") : selectedSize;
+  const productColors = Array.from(new Set((product?.variants ?? [])
+    .map((variant) => variant.color)
+    .filter((color): color is string => typeof color === "string" && Boolean(color) && color.toLowerCase() !== "as shown")));
+  const activeColor = productColors.includes(selectedColor) ? selectedColor : (productColors[0] ?? "");
+  const colorVariants = (product?.variants ?? []).filter((variant) => !activeColor || variant.color === activeColor);
+  const colorSizes = Array.from(new Set(colorVariants.map((variant) => variant.size).filter((size): size is string => Boolean(size))));
+  /* The first available size/color pair is the default; the visitor's explicit pick wins. */
+  const activeSize = colorSizes.includes(selectedSize) ? selectedSize : (colorSizes[0] ?? product?.sizes[0] ?? "");
+  const activeVariant = colorVariants.find((variant) => variant.size === activeSize);
+  const galleryImages = activeVariant?.images?.length
+    ? activeVariant.images
+    : product ? Array.from(new Set([product.image, product.hoverImage].filter(Boolean))) : [];
 
   if (!product) {
     if (storeProduct.loading) {
@@ -45,20 +88,36 @@ export default function ProductView({ slug }: { slug: string }) {
         </div>
       );
     }
+    if (storeProduct.error) {
+      return (
+        <main className="flex min-h-[55vh] flex-col items-center justify-center px-4 text-center">
+          <h1 className="font-serif text-2xl text-stone-900">Product unavailable</h1>
+          <p className="mt-3 max-w-md text-sm text-stone-600">{storeProduct.error}</p>
+          <button
+            type="button"
+            onClick={storeProduct.refresh}
+            className="mt-5 rounded-xl bg-[#881337] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#701a35]"
+          >
+            Try again
+          </button>
+          <Link href="/products" className="mt-3 text-sm font-semibold text-[#881337] hover:underline">
+            Browse Products
+          </Link>
+        </main>
+      );
+    }
     notFound();
   }
 
   const isWishlisted = isInWishlist(product.id);
-  const sizeStock = new Map((product.variants ?? []).map((variant) => [variant.size ?? "", variant.available]));
-
   const handleAddToCart = async () => {
-    await addToCart(product, activeSize, quantity);
+    await addToCart(product, activeSize, quantity, activeColor || undefined);
     setShowAddedToast(true);
     setTimeout(() => setShowAddedToast(false), 3000);
   };
 
   const handleBuyNow = async () => {
-    await addToCart(product, activeSize, quantity);
+    await addToCart(product, activeSize, quantity, activeColor || undefined);
     router.push("/checkout");
   };
 
@@ -93,8 +152,9 @@ export default function ProductView({ slug }: { slug: string }) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* Product Images */}
           <div className="space-y-4">
-            <ProductImageGallery 
-              images={[product.image, product.hoverImage]} 
+            <ProductImageGallery
+              key={galleryImages.join("\u0000")}
+              images={galleryImages}
               productTitle={product.title}
               videoUrl={product.videoUrl}
             />
@@ -170,14 +230,37 @@ export default function ProductView({ slug }: { slug: string }) {
             {/* Pricing */}
             <div className="space-y-1">
               <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold text-gray-900">₹{product.price.toLocaleString()}</span>
-                <span className="text-lg text-gray-500 line-through">₹{product.originalPrice.toLocaleString()}</span>
+                <span className="text-3xl font-bold text-gray-900">₹{(activeVariant?.price ?? product.price).toLocaleString()}</span>
+                <span className="text-lg text-gray-500 line-through">₹{(activeVariant?.mrp ?? product.originalPrice).toLocaleString()}</span>
                 <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-semibold">
                   {discountPercentage}% OFF
                 </span>
               </div>
               <p className="text-sm text-gray-600">Inclusive of all taxes • Free shipping above ₹1,999</p>
             </div>
+
+            {productColors.length > 0 && (
+              <div className="space-y-3">
+                <span className="font-medium text-gray-900">Color:</span>
+                <div className="flex flex-wrap items-center gap-3">
+                  {productColors.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setSelectedColor(color)}
+                      aria-pressed={activeColor === color}
+                      aria-label={`Choose ${color} color`}
+                      title={color}
+                      className={`h-9 w-9 rounded-full border border-black/15 transition ${
+                        activeColor === color ? "ring-2 ring-[#881337] ring-offset-2" : "hover:ring-2 hover:ring-stone-300 hover:ring-offset-1"
+                      }`}
+                      style={{ background: swatchBackground(color) }}
+                    >
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Size Selection */}
             <div className="space-y-3">
@@ -191,8 +274,9 @@ export default function ProductView({ slug }: { slug: string }) {
                 </button>
               </div>
               <div className="grid grid-cols-6 gap-2">
-                {product.sizes.map((size) => {
-                  const available = sizeStock.get(size);
+                {colorSizes.map((size) => {
+                  const matchingVariant = colorVariants.find((variant) => variant.size === size);
+                  const available = matchingVariant?.available;
                   const soldOut = available !== undefined && available <= 0;
                   return (
                     <button
@@ -353,7 +437,12 @@ export default function ProductView({ slug }: { slug: string }) {
       </div>
 
       {/* Size Guide Modal */}
-      <SizeGuide isOpen={showSizeGuide} onClose={() => setShowSizeGuide(false)} />
+      <SizeGuide
+        isOpen={showSizeGuide}
+        onClose={() => setShowSizeGuide(false)}
+        productName={product.title}
+        customGuide={product.sizeGuide}
+      />
 
       {/* Added to Cart Toast */}
       <AnimatePresence>

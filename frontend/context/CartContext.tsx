@@ -23,13 +23,13 @@ import { useAuth } from "./AuthContext";
 
 export type { CartItem, Product } from "../lib/storefront-types";
 
-export type StoreMode = "live" | "demo";
+export type StoreMode = "live" | "unavailable";
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product, size: string, quantity?: number) => Promise<void>;
-  removeFromCart: (id: string, size: string) => void;
-  updateQuantity: (id: string, size: string, quantity: number) => void;
+  addToCart: (product: Product, size: string, quantity?: number, color?: string) => Promise<void>;
+  removeFromCart: (id: string, size: string, color?: string) => void;
+  updateQuantity: (id: string, size: string, quantity: number, color?: string) => void;
   clearCart: () => void;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
@@ -41,7 +41,7 @@ interface CartContextType {
   isInWishlist: (id: string) => boolean;
   quickViewProduct: Product | null;
   setQuickViewProduct: (product: Product | null) => void;
-  /** Where the basket lives: the real backend or the local demo state. */
+  /** Whether cart operations are backed by the live API. */
   mode: StoreMode;
   /** True while a cart mutation is in flight against the backend. */
   isSyncing: boolean;
@@ -49,7 +49,7 @@ interface CartContextType {
   error: string | null;
   dismissError: () => void;
   refreshCart: () => void;
-  /** Lines that cannot be sent to the backend (demo catalogue items). */
+  /** Lines that cannot be sent to the backend because they lack live product identifiers. */
   hasLocalOnlyItems: boolean;
 }
 
@@ -123,7 +123,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     const load = async () => {
       try {
-        /* Only real product ids can be merged; demo ids ("vani-1") exist solely in the browser. */
+        /* Only backend product identifiers can be merged into the customer wishlist. */
         const pending = local.filter((id) => OBJECT_ID.test(id));
         const deviceOnly = local.filter((id) => !OBJECT_ID.test(id));
 
@@ -166,14 +166,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const refreshCart = useCallback(() => setNonce((value) => value + 1), []);
 
   const addToCart = useCallback(
-    async (product: Product, size: string, quantity = 1) => {
+    async (product: Product, size: string, quantity = 1, color?: string) => {
       setIsCartOpen(true);
       setError(null);
 
       if (!configured) {
         setCart((previous) => {
-          const existing = previous.find((item) => item.id === product.id && item.size === size);
-          if (existing) return previous.map((item) => (item.id === product.id && item.size === size ? { ...item, quantity: item.quantity + quantity } : item));
+          const existing = previous.find((item) => item.id === product.id && item.size === size && item.color === color);
+          if (existing) return previous.map((item) => (item.id === product.id && item.size === size && item.color === color ? { ...item, quantity: item.quantity + quantity } : item));
           return [
             ...previous,
             {
@@ -182,6 +182,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               price: product.price,
               originalPrice: product.originalPrice,
               size,
+              color,
               image: product.image,
               quantity,
               localOnly: true,
@@ -191,7 +192,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const variant = product.variants?.find((candidate) => candidate.size === size) ?? product.variants?.[0];
+      const variant = product.variants?.find((candidate) => candidate.size === size && (!color || candidate.color === color))
+        ?? (!color ? product.variants?.[0] : undefined);
       if (!variant) {
         setError("This piece is not available to order online yet — please contact the atelier.");
         return;
@@ -209,15 +211,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const findLine = useCallback(
-    (id: string, size: string) => cart.find((item) => item.id === id && item.size === size),
+    (id: string, size: string, color?: string) => cart.find((item) => item.id === id && item.size === size && (color === undefined || item.color === color)),
     [cart]
   );
 
   const removeFromCart = useCallback(
-    (id: string, size: string) => {
-      const line = findLine(id, size);
+    (id: string, size: string, color?: string) => {
+      const line = findLine(id, size, color);
       if (!configured || !line?.lineId) {
-        setCart((previous) => previous.filter((item) => !(item.id === id && item.size === size)));
+        setCart((previous) => previous.filter((item) => !(item.id === id && item.size === size && (color === undefined || item.color === color))));
         return;
       }
       setIsSyncing(true);
@@ -230,14 +232,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateQuantity = useCallback(
-    (id: string, size: string, quantity: number) => {
+    (id: string, size: string, quantity: number, color?: string) => {
       if (quantity <= 0) {
-        removeFromCart(id, size);
+        removeFromCart(id, size, color);
         return;
       }
-      const line = findLine(id, size);
+      const line = findLine(id, size, color);
       if (!configured || !line?.lineId) {
-        setCart((previous) => previous.map((item) => (item.id === id && item.size === size ? { ...item, quantity } : item)));
+        setCart((previous) => previous.map((item) => (item.id === id && item.size === size && (color === undefined || item.color === color) ? { ...item, quantity } : item)));
         return;
       }
       setIsSyncing(true);
@@ -304,7 +306,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     isInWishlist,
     quickViewProduct,
     setQuickViewProduct,
-    mode: configured ? "live" : "demo",
+    mode: configured ? "live" : "unavailable",
     isSyncing,
     error,
     dismissError: () => setError(null),

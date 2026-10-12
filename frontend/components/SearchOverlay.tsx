@@ -5,7 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { PRODUCTS } from "../data/products";
+import { searchProducts } from "../lib/storefront-api";
+import { isApiConfigured } from "../lib/api-client";
+import type { Product } from "../lib/storefront-types";
 import { generateProductSlug } from "../lib/utils";
 
 interface SearchOverlayProps {
@@ -13,19 +15,11 @@ interface SearchOverlayProps {
   onClose: () => void;
 }
 
-const POPULAR_SEARCHES = [
-  "Pure Mul Cotton",
-  "Bagru Handblock",
-  "Anarkali Set",
-  "Haldi Yellow Suit",
-  "Co-ord Set",
-  "Under ₹1,999",
-  "Chanderi Silk",
-  "Festive Suit",
-];
-
 export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Product[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const handleClose = useCallback(() => {
@@ -49,18 +43,36 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
     return () => window.removeEventListener("keydown", handler);
   }, [handleClose]);
 
-  const results =
-    query.trim().length >= 2
-      ? PRODUCTS.filter((p) => {
-          const q = query.toLowerCase();
-          return (
-            p.title.toLowerCase().includes(q) ||
-            p.fabric.toLowerCase().includes(q) ||
-            p.category.toLowerCase().includes(q) ||
-            p.description.toLowerCase().includes(q)
-          );
-        }).slice(0, 6)
-      : [];
+  useEffect(() => {
+    const term = query.trim();
+    if (!isOpen || term.length < 2) {
+      setResults([]);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+    if (!isApiConfigured()) {
+      setResults([]);
+      setSearchError("Product search is unavailable because the storefront API is not configured.");
+      return;
+    }
+    const controller = new AbortController();
+    setResults([]);
+    setSearching(true);
+    setSearchError(null);
+    searchProducts(term, controller.signal)
+      .then((products) => setResults(products.slice(0, 6)))
+      .catch((cause: unknown) => {
+        if ((cause as Error)?.name !== "AbortError") {
+          setResults([]);
+          setSearchError(cause instanceof Error ? cause.message : "Could not search the product catalogue.");
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSearching(false);
+      });
+    return () => controller.abort();
+  }, [isOpen, query]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,11 +80,6 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
       handleClose();
       router.push(`/products?search=${encodeURIComponent(query.trim())}`);
     }
-  };
-
-  const handlePopularClick = (term: string) => {
-    handleClose();
-    router.push(`/products?search=${encodeURIComponent(term)}`);
   };
 
   return (
@@ -193,6 +200,7 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                             alt={product.title}
                             width={48}
                             height={56}
+                            unoptimized
                             sizes="48px"
                             className="h-14 w-12 flex-shrink-0 rounded-lg border border-stone-100 object-cover"
                           />
@@ -251,12 +259,13 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                   className="px-5 py-10 text-center"
                 >
                   <p className="text-stone-400 text-sm">
-                    No products found for “
-                    <strong className="text-stone-600">{query}</strong>”
+                    {searching ? "Searching the live catalogue…" : searchError ?? (
+                      <>No products found for “<strong className="text-stone-600">{query}</strong>”</>
+                    )}
                   </p>
-                  <p className="text-xs text-stone-400 mt-1">
+                  {!searchError && !searching && <p className="text-xs text-stone-400 mt-1">
                     Try a different keyword or browse all products
-                  </p>
+                  </p>}
                   <Link
                     href="/products"
                     onClick={handleClose}
@@ -272,61 +281,7 @@ export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
                   animate={{ opacity: 1 }}
                   className="px-5 py-5"
                 >
-                  <span className="text-[10px] uppercase tracking-widest font-semibold text-stone-400 block mb-3">
-                    Popular Searches
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    {POPULAR_SEARCHES.map((term) => (
-                      <button
-                        key={term}
-                        onClick={() => handlePopularClick(term)}
-                        className="px-3 py-1.5 bg-stone-100 hover:bg-[#881337] hover:text-white rounded-full text-xs text-stone-700 transition font-medium"
-                      >
-                        {term}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Quick category links */}
-                  <div className="mt-5 pt-4 border-t border-stone-100">
-                    <span className="text-[10px] uppercase tracking-widest font-semibold text-stone-400 block mb-3">
-                      Browse Categories
-                    </span>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        {
-                          label: "Mul Cotton",
-                          href: "/products?category=mul-cotton",
-                          emoji: "🌿",
-                        },
-                        {
-                          label: "Festive Edit",
-                          href: "/products?category=festive",
-                          emoji: "✨",
-                        },
-                        {
-                          label: "Co-ord Sets",
-                          href: "/products?category=coord-sets",
-                          emoji: "👗",
-                        },
-                        {
-                          label: "Anarkalis",
-                          href: "/products?category=anarkalis",
-                          emoji: "🌸",
-                        },
-                      ].map((cat) => (
-                        <Link
-                          key={cat.href}
-                          href={cat.href}
-                          onClick={handleClose}
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-50 hover:bg-[#881337]/5 border border-stone-200 hover:border-[#881337]/30 text-xs text-stone-700 font-medium transition"
-                        >
-                          <span>{cat.emoji}</span>
-                          <span>{cat.label}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
+                  <p className="text-sm text-stone-500">Enter at least two characters to search the live catalogue.</p>
                 </motion.div>
               )}
             </AnimatePresence>

@@ -130,7 +130,7 @@ export default function AuditLogsPage() {
         <AdminDataBadge resource={logs} />
       </div>
 
-      {logs.error && <Alert tone="warning">{logs.error} — showing sample rows instead.</Alert>}
+      {logs.error && <Alert tone="warning">{logs.error}</Alert>}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Entries shown" value={String(stats.total)} hint={`Most recent ${LIMIT}`} />

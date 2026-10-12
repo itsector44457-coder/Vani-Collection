@@ -80,7 +80,6 @@ body {
 /* Prevent content shift on mobile */
 img, video {
   max-width: 100%;
-  height: auto;
 }
 
 /* Focus styles for accessibility */
@@ -119,6 +118,10 @@ textarea:focus-visible,
 
   video {
     display: none;
+  }
+
+  .reels-page-container .reels-feed-video {
+    display: block !important;
   }
 }
 

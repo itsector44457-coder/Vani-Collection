@@ -8,21 +8,6 @@ import { isApiConfigured } from "@/lib/api-client";
 import { orderStatusLabel, type StoreOrder } from "@/lib/storefront-types";
 import { useMyOrders } from "@/lib/use-storefront";
 
-const DEMO_TRACKING = {
-  id: "VC-4821",
-  courier: "Delhivery",
-  awb: "DL823456789IN",
-  eta: "16 Oct 2024",
-  steps: [
-    { label: "Order confirmed", date: "12 Oct, 4:32 PM", done: true },
-    { label: "Packed at Vani Atelier, Jaipur", date: "13 Oct, 10:15 AM", done: true },
-    { label: "Picked up by courier", date: "13 Oct, 6:40 PM", done: true },
-    { label: "In transit — Delhi hub", date: "14 Oct, 3:20 AM", done: true, current: true },
-    { label: "Out for delivery", date: "Expected 16 Oct", done: false },
-    { label: "Delivered", date: "—", done: false },
-  ],
-};
-
 const fmt = (value: string) =>
   new Date(value).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
@@ -42,6 +27,11 @@ export default function TrackOrderPage() {
     const needle = query.trim().toLowerCase();
     if (!needle) {
       setError("Enter your order ID or AWB number.");
+      setMatch(null);
+      return;
+    }
+    if (!live) {
+      setError("Order tracking is unavailable because the storefront API is not configured.");
       setMatch(null);
       return;
     }
@@ -163,56 +153,10 @@ export default function TrackOrderPage() {
               ))}
             </ol>
           </>
-        ) : searched && live ? null : (
-          <>
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#faf7f2] text-[#881337] ring-1 ring-[#ebe6de]">
-                <IconTruck />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-[14px] font-semibold">#{DEMO_TRACKING.id}</p>
-                  <Badge tone="info" dot>
-                    In transit
-                  </Badge>
-                </div>
-                <p className="mt-1 text-[12px] text-stone-500">
-                  {DEMO_TRACKING.courier} · AWB {DEMO_TRACKING.awb}
-                </p>
-                <p className="mt-2 text-[12.5px] text-stone-700">
-                  Estimated delivery by <span className="font-semibold">{DEMO_TRACKING.eta}</span>
-                </p>
-              </div>
-            </div>
-
-            <ol className="mt-6 space-y-5">
-              {DEMO_TRACKING.steps.map((step, index) => (
-                <li key={index} className="relative flex gap-4 pl-1">
-                  {index < DEMO_TRACKING.steps.length - 1 && (
-                    <span className={`absolute left-[11px] top-6 h-full w-[2px] ${step.done ? "bg-[#881337]" : "bg-stone-200"}`} />
-                  )}
-                  <span
-                    className={`relative z-10 mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                      step.done ? "bg-[#881337] text-white" : "border border-stone-300 bg-white text-stone-400"
-                    }`}
-                  >
-                    {step.done ? "✓" : index + 1}
-                  </span>
-                  <div className="pb-1">
-                    <p className={`text-[13px] font-semibold ${step.current ? "text-[#881337]" : "text-stone-800"}`}>
-                      {step.label}
-                    </p>
-                    <p className="mt-0.5 text-[11.5px] text-stone-500">{step.date}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-            {!live && (
-              <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12px] text-amber-800">
-                Sample tracking shown — connect the backend to pull real courier status.
-              </p>
-            )}
-          </>
+        ) : searched ? null : (
+          <p className="text-[12.5px] text-stone-500">
+            Enter an order ID or AWB number to look up tracking for an order in your account.
+          </p>
         )}
       </Card>
     </>

@@ -192,6 +192,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
     label: "Commerce",
     items: [
       { name: "Products", href: "/admin/products", icon: ProductsIcon, badge: "142", matchPrefix: true },
+      { name: "Categories & navigation", href: "/admin/categories", icon: ContentIcon, matchPrefix: true },
       { name: "Orders", href: "/admin/orders", icon: OrdersIcon, badge: "8", matchPrefix: true },
       { name: "Customers", href: "/admin/customers", icon: CustomersIcon, matchPrefix: true },
       { name: "Inventory", href: "/admin/inventory", icon: InventoryIcon, matchPrefix: true },
@@ -207,6 +208,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
       { name: "Reels", href: "/admin/reels", icon: ReelsIcon, matchPrefix: true },
       { name: "Reviews", href: "/admin/reviews", icon: ReviewIcon, matchPrefix: true },
       { name: "Homepage content", href: "/admin/content", icon: ContentIcon, matchPrefix: true },
+      { name: "Media library", href: "/admin/media", icon: ContentIcon, matchPrefix: true },
     ],
   },
   {
@@ -230,15 +232,15 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const [mobileSidebarPath, setMobileSidebarPath] = useState<string | null>(null);
   const mobileSidebarOpen = mobileSidebarPath === pathname;
   const session = useAdminSession();
-  const displayName = [session.user?.firstName, session.user?.lastName].filter(Boolean).join(" ") || "Demo Workspace";
-  const displayEmail = session.user?.email || "demo@vanicollection.in";
+  const displayName = [session.user?.firstName, session.user?.lastName].filter(Boolean).join(" ") || "Admin Workspace";
+  const displayEmail = session.user?.email || "Admin";
   const displayRole = session.user?.roles?.includes("super_admin")
     ? "Super Admin"
     : session.user?.roles?.includes("admin")
     ? "Administrator"
     : session.user
     ? "Staff"
-    : "Demo data";
+    : "Unavailable";
   const initials = (displayName.match(/\b\w/g) || ["V"]).slice(0, 2).join("").toUpperCase();
   const needsSignIn = session.configured && !session.loading && !session.isStaff;
 

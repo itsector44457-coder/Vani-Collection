@@ -9,28 +9,13 @@ import {
   useRef,
   useState,
 } from "react";
-import { CategoryStory, PRODUCTS } from "../data/products";
+import type { CategoryStory } from "../lib/content";
+import { useCatalogue } from "../lib/use-storefront";
 import { useCart } from "../context/CartContext";
 
 /* ------------------------------------------------------------------ */
 /*  Story media map                                                    */
 /* ------------------------------------------------------------------ */
-const STORY_VIDEOS: Record<string, string> = {
-  "mul-cotton":
-    "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4",
-  festive:
-    "https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4",
-  "coord-sets":
-    "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4",
-  anarkalis:
-    "https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4",
-  budget:
-    "https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4",
-  all: "https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4",
-};
-
-const FALLBACK_VIDEO = STORY_VIDEOS.all;
-
 /** Story auto-advance window (ms) */
 const DEFAULT_DURATION = 7000;
 const MIN_DURATION = 4000;
@@ -54,7 +39,7 @@ export default function StoryReelModal({
     <AnimatePresence mode="wait">
       {story ? (
         <StoryReel
-          key={story.filterKey}
+          key={story.id}
           story={story}
           onClose={onClose}
           onSelectCategory={onSelectCategory}
@@ -81,7 +66,7 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
   const [isManuallyPaused, setIsManuallyPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [showToast, setShowToast] = useState(false);
-  const [videoBroken, setVideoBroken] = useState(false);
+  const [videoBroken, setVideoBroken] = useState(!story.video);
 
   const isPaused = isHolding || isManuallyPaused;
 
@@ -104,20 +89,15 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
   }, [onClose]);
 
   /* ---------- derived ---------- */
-  const videoSrc = useMemo(
-    () => STORY_VIDEOS[story.filterKey] ?? FALLBACK_VIDEO,
-    [story.filterKey]
-  );
+  const { data: products } = useCatalogue({
+    category: story.filterKey === "all" || story.filterKey === "budget" ? undefined : story.filterKey,
+    limit: 1,
+  });
 
   const matchedProduct = useMemo(() => {
-    if (story.filterKey === "all") return PRODUCTS[0] ?? null;
-    return (
-      PRODUCTS.find((p) => p.category === story.filterKey) ??
-      (story.filterKey === "budget"
-        ? PRODUCTS.find((p) => p.price <= 1999) ?? null
-        : null)
-    );
-  }, [story.filterKey]);
+    if (story.filterKey === "budget") return products.find((product) => product.price <= 1999) ?? null;
+    return products[0] ?? null;
+  }, [products, story.filterKey]);
 
   /* ---------- video <-> pause sync ---------- */
   useEffect(() => {
@@ -268,7 +248,7 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
       />
 
       {/* Card wrapper */}
-      <div className="pointer-events-none fixed inset-0 z-[121] flex items-center justify-center p-4">
+      <div className="pointer-events-none fixed inset-0 z-[121] flex items-center justify-center p-0 sm:p-4">
         <motion.div
           key="story-card"
           role="dialog"
@@ -281,7 +261,7 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="pointer-events-auto relative flex aspect-[9/16] max-h-[88vh] w-full max-w-[340px] touch-none flex-col overflow-hidden rounded-2xl border border-white/15 bg-stone-900 shadow-2xl select-none sm:max-w-sm"
+          className="pointer-events-auto relative flex h-[100dvh] w-full max-h-[100dvh] max-w-none touch-none flex-col overflow-hidden bg-stone-900 shadow-2xl select-none sm:aspect-[9/16] sm:h-auto sm:max-h-[88vh] sm:max-w-sm sm:rounded-2xl sm:border sm:border-white/15"
         >
           {/* Poster fallback (always rendered underneath) */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -296,13 +276,13 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
           {!videoBroken && (
             <video
               ref={videoRef}
-              src={videoSrc}
+              src={story.video}
               poster={story.image}
               autoPlay
               loop
               muted={isMuted}
               playsInline
-              preload="auto"
+              preload="metadata"
               disablePictureInPicture
               onLoadedMetadata={handleLoadedMetadata}
               onError={() => setVideoBroken(true)}
@@ -311,10 +291,10 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
           )}
 
           {/* Gradient overlays */}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/85" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/35 via-transparent to-black/70 sm:from-black/55 sm:to-black/80" />
 
           {/* ---------- Top: progress + header ---------- */}
-          <div className="relative z-10 p-4 pt-3">
+          <div className="relative z-10 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-4 sm:pt-3">
             {/* Progress bar */}
             <div
               className="mb-3 h-[2.5px] w-full overflow-hidden rounded-full bg-white/25"
@@ -439,15 +419,16 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
           <div className="flex-1" />
 
           {/* ---------- Bottom content ---------- */}
-          <div className="relative z-10 p-5 pt-2">
-            <span className="mb-2 inline-block rounded-full bg-[#881337] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow">
+          <div className="relative z-10 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 sm:p-5 sm:pt-2">
+            {story.count && <span className="mb-2 inline-block rounded-full bg-[#881337] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white shadow">
               {story.count}
-            </span>
+            </span>}
 
-            <h3 className="mb-0.5 font-serif text-2xl font-bold text-white">
+            <h3 className="mb-0.5 font-serif text-2xl font-bold text-white sm:text-2xl">
               {story.name}
             </h3>
-            <p className="mb-3 text-xs text-white/70">{story.tagline}</p>
+            {story.tagline && <p className="mb-1 text-xs text-white/85">{story.tagline}</p>}
+            {story.description && <p className="mb-3 line-clamp-3 text-xs leading-relaxed text-white/90">{story.description}</p>}
 
             {/* Product teaser */}
             {matchedProduct && (
@@ -483,7 +464,7 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
               onClick={handleExplore}
               className="flex w-full items-center justify-center gap-2 rounded-full bg-white py-3.5 text-xs font-bold uppercase tracking-widest text-stone-900 shadow-lg transition hover:bg-[#faf7f2] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 active:scale-[0.98]"
             >
-              <span>Swipe Up to Shop</span>
+              <span>{story.ctaLabel || "Shop this collection"}</span>
               <span className="text-[#881337]">↑</span>
             </button>
           </div>

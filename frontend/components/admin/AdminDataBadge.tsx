@@ -3,11 +3,11 @@
 import type { ApiResource } from "@/lib/use-api";
 
 interface Props {
-  resource: { source: "live" | "demo"; loading: boolean; error: string | null; refresh: () => void };
+  resource: { source: "live" | "unavailable"; loading: boolean; error: string | null; refresh: () => void };
   label?: string;
 }
 
-/** Small, honest indicator telling staff whether a screen is showing backend data or demo data. */
+/** Small, honest indicator telling staff whether a screen is showing backend data. */
 export default function AdminDataBadge({ resource, label }: Props) {
   const { source, loading, error, refresh } = resource as ApiResource<unknown>;
   const live = source === "live";
@@ -20,7 +20,7 @@ export default function AdminDataBadge({ resource, label }: Props) {
         title={error ?? undefined}
       >
         <span className={`h-1.5 w-1.5 rounded-full ${live ? "bg-emerald-500" : "bg-amber-500"}`} />
-        {loading ? "Syncing…" : live ? (label ? `Live · ${label}` : "Live API") : "Demo data"}
+        {loading ? "Syncing…" : live ? (label ? `Live · ${label}` : "Live API") : "Unavailable"}
       </span>
       <button
         type="button"

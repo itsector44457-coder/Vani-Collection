@@ -201,6 +201,7 @@ function OrderSummary({
               alt={item.title}
               width={56}
               height={64}
+              unoptimized
               sizes="56px"
               className="h-16 w-14 flex-shrink-0 rounded-lg border border-gray-100 object-cover"
             />
@@ -385,19 +386,11 @@ export default function CheckoutPage() {
       }
       return;
     }
-    const cityMap: Record<string, { city: string; state: string }> = {
-      "302001": { city: "Jaipur", state: "Rajasthan" },
-      "400001": { city: "Mumbai", state: "Maharashtra" },
-      "110001": { city: "New Delhi", state: "Delhi" },
-      "560001": { city: "Bengaluru", state: "Karnataka" },
-    };
-    if (cityMap[pin]) {
-      setAddress((prev) => ({
-        ...prev,
-        city: cityMap[pin].city,
-        state: cityMap[pin].state,
-      }));
-    }
+    setServiceability(null);
+    setAddressErrors((previous) => ({
+      ...previous,
+      pincode: "Delivery lookup is unavailable until the storefront API is connected.",
+    }));
   };
 
   const handleApplyPromo = async () => {
@@ -416,19 +409,17 @@ export default function CheckoutPage() {
       }
       return;
     }
-    if (code === "FIRST10") {
-      setPromoDiscount(Math.round(subtotal * 0.1));
-      setPromoApplied(true);
-      setPromoError("");
-    } else {
-      setPromoError("Invalid promo code (demo mode accepts FIRST10)");
-      setPromoApplied(false);
-      setPromoDiscount(0);
-    }
+    setPromoError("Promo codes are unavailable until the storefront API is connected.");
+    setPromoApplied(false);
+    setPromoDiscount(0);
   };
 
   const handlePlaceOrder = async () => {
     setPaymentError("");
+    if (!live) {
+      setPaymentError("Checkout is unavailable because the storefront API is not configured.");
+      return;
+    }
 
     /* ── Real order through the backend ── */
     if (live) {
@@ -438,7 +429,7 @@ export default function CheckoutPage() {
         return;
       }
       if (hasLocalOnlyItems || cart.some((item) => !item.sku || !item.productId)) {
-        setPaymentError("Some pieces in your bag come from the demo catalogue. Please remove them and add them again from the live store.");
+        setPaymentError("Some pieces in your bag are not linked to live products. Please remove them and add them again from the catalogue.");
         return;
       }
       setPlacing(true);
@@ -506,33 +497,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    /* ── Demo mode: original simulated flow ── */
-    if (
-      paymentMethod === "upi" &&
-      !/[\w.-]{2,}@[\w.-]{2,}/.test(upiId.trim())
-    ) {
-      setPaymentError("Enter a valid UPI ID, for example name@bank.");
-      return;
-    }
-
-    if (paymentMethod === "card") {
-      const cardNumber = cardDetails.number.replace(/\s/g, "");
-      if (
-        !/^\d{16}$/.test(cardNumber) ||
-        !/^\d{2}\s?\/\s?\d{2}$/.test(cardDetails.expiry) ||
-        !/^\d{3,4}$/.test(cardDetails.cvv) ||
-        !cardDetails.name.trim()
-      ) {
-        setPaymentError("Please complete all card details correctly.");
-        return;
-      }
-    }
-
-    clearCart();
-    setStep(3);
-    router.push(
-      "/order-confirmation?orderId=VC" + Date.now().toString().slice(-6),
-    );
   };
 
   /* ─── STEP 0: Cart Review ─── */
@@ -549,6 +513,7 @@ export default function CheckoutPage() {
             alt={item.title}
             width={80}
             height={96}
+            unoptimized
             sizes="80px"
             className="h-24 w-20 flex-shrink-0 rounded-xl object-cover"
           />
@@ -591,7 +556,7 @@ export default function CheckoutPage() {
             id="promo-code"
             type="text"
             autoComplete="off"
-            placeholder="Enter code (try FIRST10)"
+            placeholder="Enter coupon code"
             value={promoCode}
             onChange={(e) => {
               setPromoCode(e.target.value.toUpperCase());
@@ -609,7 +574,7 @@ export default function CheckoutPage() {
         </div>
         {promoApplied && (
           <p className="text-emerald-600 text-xs mt-2 font-medium">
-            ✓ 10% discount applied!
+            ✓ Coupon applied.
           </p>
         )}
         {promoError && (
@@ -633,7 +598,7 @@ export default function CheckoutPage() {
         </div>
         {promoApplied && (
           <div className="flex justify-between text-emerald-600 font-medium">
-            <span>Promo (FIRST10)</span>
+            <span>Promo ({promoCode.trim().toUpperCase()})</span>
             <span>−₹{discount.toLocaleString()}</span>
           </div>
         )}
@@ -989,7 +954,7 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* Demo mode keeps the simulated UPI / card forms so the flow can be reviewed without a gateway. */}
+      {/* Instrument details are never collected here; live payments use the hosted provider flow. */}
       {!live && paymentMethod === "upi" && (
         <div>
           <label
@@ -1156,7 +1121,7 @@ export default function CheckoutPage() {
         </button>
         <button
           onClick={() => void handlePlaceOrder()}
-          disabled={placing}
+          disabled={placing || !live}
           className="flex-grow py-3 bg-[#881337] text-white rounded-xl font-bold text-base hover:bg-[#701a35] transition disabled:cursor-not-allowed disabled:bg-stone-400"
         >
           {placing ? "Placing order…" : paymentMethod === "cod" || !live ? "Place Order →" : `Pay ₹${total.toLocaleString()} →`}
@@ -1172,8 +1137,7 @@ export default function CheckoutPage() {
 
   const sessionNotice = !live ? (
     <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] text-amber-900">
-      <strong className="font-semibold">Demo checkout.</strong> Set <code className="font-semibold">NEXT_PUBLIC_API_URL</code> to
-      place real orders through the backend; right now this flow is a simulation.
+      <strong className="font-semibold">Checkout unavailable.</strong> The storefront API is not configured, so orders cannot be placed.
     </div>
   ) : !isAuthenticated ? (
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#881337]/20 bg-[#881337]/5 px-4 py-3 text-[12.5px] text-stone-700">

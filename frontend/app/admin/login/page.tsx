@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
         {!configured && (
           <p className="mt-5 rounded-xl bg-amber-50 px-3.5 py-3 text-[12.5px] leading-relaxed text-amber-800 ring-1 ring-amber-200">
             The backend URL is not configured for this build, so sign-in is disabled and the console
-            keeps showing demo data. Set <code className="font-semibold">NEXT_PUBLIC_API_URL</code> to
+            cannot load staff records. Set <code className="font-semibold">NEXT_PUBLIC_API_URL</code> to
             the API host (for example <code className="font-semibold">http://localhost:5000</code>) and redeploy.
           </p>
         )}

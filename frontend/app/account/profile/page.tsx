@@ -76,7 +76,7 @@ export default function ProfilePage() {
     setError("");
     setNotice(null);
     if (!live) {
-      setNotice("Demo mode — connect the backend to change your password.");
+      setError("Password reset is unavailable because the API is not configured.");
       return;
     }
     setSendingReset(true);

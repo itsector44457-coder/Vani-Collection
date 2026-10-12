@@ -7,6 +7,7 @@ import AdminDataBadge from "@/components/admin/AdminDataBadge";
 import { api, ApiError, type AdminReel, type AdminCatalogueProduct, type Paginated, type ReelInput } from "@/lib/api-client";
 import { useApiResource } from "@/lib/use-api";
 import { useAdminSession } from "@/lib/use-admin-session";
+import MediaUploadField from "@/components/admin/MediaUploadField";
 
 const DEMO_REELS: Paginated<AdminReel> = {
   data: [
@@ -411,7 +412,7 @@ export default function ReelsView() {
 
         <div className="mt-4 flex items-center justify-between border-t border-[#f0ebe3] pt-4 text-[12px] text-stone-500">
           <span>Showing {filtered.length} of {reelsList.length}</span>
-          <span>{reels.source === "live" ? "Live data from the backend" : "Demo reels"}</span>
+          <span>{reels.source === "live" ? "Live data from the backend" : "Live reels unavailable"}</span>
         </div>
       </Card>
 
@@ -455,7 +456,7 @@ export default function ReelsView() {
             {formErrors.description && <span className="text-[11px] text-rose-600">{formErrors.description}</span>}
           </Field>
 
-          <Field label="Video URL" htmlFor="reel-video">
+          <Field label="Video URL" htmlFor="reel-video" hint="Paste a public MP4/WebM/MOV URL or a YouTube/Vimeo link. Only Active reels linked to an active product appear on /reels.">
             <TextInput
               id="reel-video"
               type="url"
@@ -464,6 +465,7 @@ export default function ReelsView() {
               placeholder="https://example.com/video.mp4"
               required
             />
+            <MediaUploadField type="video" onUploaded={(urls) => setFormData((current) => ({ ...current, videoUrl: urls[0] ?? current.videoUrl }))} disabled={submitting} />
             {formErrors.videoUrl && <span className="text-[11px] text-rose-600">{formErrors.videoUrl}</span>}
           </Field>
 
@@ -475,6 +477,7 @@ export default function ReelsView() {
               onChange={(e) => setFormData({ ...formData, thumbnailUrl: e.target.value })}
               placeholder="https://example.com/thumbnail.jpg"
             />
+            <MediaUploadField type="image" multiple={false} onUploaded={(urls) => setFormData((current) => ({ ...current, thumbnailUrl: urls[0] ?? current.thumbnailUrl }))} disabled={submitting} />
             {formErrors.thumbnailUrl && <span className="text-[11px] text-rose-600">{formErrors.thumbnailUrl}</span>}
           </Field>
 

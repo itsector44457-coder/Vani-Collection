@@ -7,9 +7,9 @@ import { useCatalogue } from "../../lib/use-storefront";
 import LivingProductCard from "../../components/LivingProductCard";
 import { useCart } from "../../context/CartContext";
 import Link from "next/link";
+import { api, isApiConfigured, type StoreCategory } from "../../lib/api-client";
 
-const CATEGORIES = [
-  { key: "all", label: "All Products" },
+const FALLBACK_CATEGORIES = [
   { key: "mul-cotton", label: "Mul Cotton" },
   { key: "festive", label: "Festive Edit" },
   { key: "coord-sets", label: "Co-ord Sets" },
@@ -45,8 +45,27 @@ function ProductsContent() {
   const { addToCart, toggleWishlist, isInWishlist, setQuickViewProduct } = useCart();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const catalogue = useCatalogue({ category: searchParams.get("category") || undefined, q: searchParams.get("search") || undefined });
+  const catalogue = useCatalogue({ category: searchParams.get("category") || undefined, q: searchParams.get("search") || undefined, allPages: true });
   const products = catalogue.data;
+  const [categories, setCategories] = useState<StoreCategory[]>([]);
+
+  useEffect(() => {
+    if (!isApiConfigured()) return;
+    const controller = new AbortController();
+    void api.categories(controller.signal)
+      .then(({ data }) => setCategories(data))
+      .catch((cause: unknown) => {
+        if ((cause as Error)?.name !== "AbortError") console.error("Could not load storefront categories", cause);
+      });
+    return () => controller.abort();
+  }, []);
+
+  const categoryOptions = [
+    { key: "all", label: "All Products" },
+    ...(categories.length
+      ? categories.map((category) => ({ key: category.slug, label: category.name }))
+      : FALLBACK_CATEGORIES),
+  ];
 
   // Initialize state from URL params
   const [activeCategory, setActiveCategory] = useState(() => 
@@ -55,7 +74,8 @@ function ProductsContent() {
   const [activePriceRange, setActivePriceRange] = useState(() => {
     const priceParam = searchParams.get("price");
     if (!priceParam) return 0;
-    return PRICE_RANGES.findIndex(range => range.label === priceParam) || 0;
+    const matchingRange = PRICE_RANGES.findIndex((range) => range.label === priceParam);
+    return matchingRange >= 0 ? matchingRange : 0;
   });
   const [activeFabric, setActiveFabric] = useState(() => 
     searchParams.get("fabric") || "All Fabrics"
@@ -185,7 +205,7 @@ function ProductsContent() {
           </h1>
           <p className="text-white/60 text-sm max-w-md mx-auto">
             Discover {products.length} handcrafted {products.length === 1 ? "piece" : "pieces"}
-            {catalogue.source === "demo" ? " · demo catalogue" : ", each telling the story of Indian artistry"}
+            {catalogue.source === "unavailable" ? " · live product catalogue unavailable" : ""}
           </p>
           {/* Breadcrumb */}
           <nav className="mt-6 flex items-center justify-center gap-2 text-xs text-white/50">
@@ -264,7 +284,7 @@ function ProductsContent() {
 
         {/* ── Category Pills ── */}
         <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-none">
-          {CATEGORIES.map((cat) => (
+          {categoryOptions.map((cat) => (
             <button
               key={cat.key}
               onClick={() => setActiveCategory(cat.key)}
@@ -427,8 +447,12 @@ function ProductsContent() {
             {filteredProducts.length === 0 ? (
               <div className="text-center py-24">
                 <div className="text-5xl mb-4">🧵</div>
-                <h3 className="text-lg font-serif text-gray-900 mb-2">No products found</h3>
-                <p className="text-gray-500 text-sm mb-6">Try adjusting your filters or search terms</p>
+                <h3 className="text-lg font-serif text-gray-900 mb-2">
+                  {catalogue.error ? "Product catalogue unavailable" : "No products found"}
+                </h3>
+                <p className="text-gray-500 text-sm mb-6">
+                  {catalogue.error ?? "Try adjusting your filters or search terms"}
+                </p>
                 <button
                   onClick={clearAllFilters}
                   className="bg-[#881337] text-white px-6 py-2 rounded-xl text-sm font-medium hover:bg-[#701a35] transition"

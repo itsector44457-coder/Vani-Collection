@@ -19,6 +19,8 @@ import {
   type BadgeTone,
 } from "@/lib/admin-ui";
 import AdminDataBadge from "@/components/admin/AdminDataBadge";
+import ContentPageManager from "@/components/admin/ContentPageManager";
+import MediaUploadField from "@/components/admin/MediaUploadField";
 import {
   api,
   ApiError,
@@ -46,6 +48,7 @@ const KIND_HINTS: Record<string, string> = {
   section: "Homepage category story tiles",
   page: "Standalone page copy",
   policy: "Shipping / returns / privacy policy copy",
+  product_collection: "Homepage product selection and display order",
 };
 
 const KIND_TONES: Record<string, BadgeTone> = {
@@ -97,6 +100,8 @@ interface FormState {
   status: "draft" | "published";
   mediaText: string;
   blocksText: string;
+  heroTag: string;
+  focalPosition: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -111,21 +116,30 @@ const EMPTY_FORM: FormState = {
   status: "published",
   mediaText: "",
   blocksText: "",
+  heroTag: "",
+  focalPosition: "object-center",
 };
 
-const toForm = (doc: ContentDoc): FormState => ({
-  key: doc.key,
-  kind: doc.kind,
-  title: doc.title ?? "",
-  subtitle: doc.subtitle ?? "",
-  body: doc.body ?? "",
-  ctaLabel: doc.ctaLabel ?? "",
-  ctaHref: doc.ctaHref ?? "",
-  position: String(doc.position ?? 0),
-  status: doc.status === "draft" ? "draft" : "published",
-  mediaText: mediaToText(doc.media),
-  blocksText: blocksToText(doc.blocks),
-});
+const toForm = (doc: ContentDoc): FormState => {
+  const blocks = doc.blocks && typeof doc.blocks === "object" && !Array.isArray(doc.blocks)
+    ? doc.blocks as Record<string, unknown>
+    : {};
+  return {
+    key: doc.key,
+    kind: doc.kind,
+    title: doc.title ?? "",
+    subtitle: doc.subtitle ?? "",
+    body: doc.body ?? "",
+    ctaLabel: doc.ctaLabel ?? "",
+    ctaHref: doc.ctaHref ?? "",
+    position: String(doc.position ?? 0),
+    status: doc.status === "draft" ? "draft" : "published",
+    mediaText: mediaToText(doc.media),
+    blocksText: blocksToText(doc.blocks),
+    heroTag: typeof blocks.tag === "string" ? blocks.tag : "",
+    focalPosition: typeof blocks.position === "string" ? blocks.position : "object-center",
+  };
+};
 
 export default function ContentPage() {
   const [kind, setKind] = useState<KindFilter>("all");
@@ -138,7 +152,7 @@ export default function ContentPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const content = useApiResource<{ data: ContentDoc[] }>((signal) => api.content(undefined, signal), { data: DEMO_CONTENT });
+  const content = useApiResource<{ data: ContentDoc[] }>((signal) => api.managedContent(signal), { data: DEMO_CONTENT });
   const all = content.data.data;
 
   const counts = useMemo(() => {
@@ -163,9 +177,29 @@ export default function ContentPage() {
 
   const set = <K extends keyof FormState>(field: K, value: FormState[K]) => setForm((current) => ({ ...current, [field]: value }));
 
+  const nextBannerKey = () => {
+    const used = new Set(all.filter((doc) => doc.kind === "banner").map((doc) => doc.key));
+    let number = 1;
+    while (used.has(`home.banner.${number}`)) number += 1;
+    return `home.banner.${number}`;
+  };
+
   const openCreate = () => {
     setEditing(null);
-    setForm({ ...EMPTY_FORM, kind: kind === "all" ? "banner" : kind, position: String(all.length) });
+    const nextKind = kind === "all" ? "banner" : kind;
+    setForm({
+      ...EMPTY_FORM,
+      kind: nextKind,
+      key: nextKind === "banner" ? nextBannerKey() : "",
+      position: String(nextKind === "banner" ? all.filter((doc) => doc.kind === "banner").length : all.length),
+    });
+    setError(null);
+    setFormOpen(true);
+  };
+
+  const openCreateBanner = () => {
+    setEditing(null);
+    setForm({ ...EMPTY_FORM, kind: "banner", key: nextBannerKey(), position: String(all.filter((doc) => doc.kind === "banner").length) });
     setError(null);
     setFormOpen(true);
   };
@@ -198,6 +232,16 @@ export default function ContentPage() {
         return;
       }
     }
+    if (form.kind === "banner") {
+      const existingBlocks = blocks && typeof blocks === "object" && !Array.isArray(blocks)
+        ? blocks as Record<string, unknown>
+        : {};
+      blocks = {
+        ...existingBlocks,
+        tag: form.heroTag.trim(),
+        position: form.focalPosition,
+      };
+    }
     const media = textToMedia(form.mediaText);
     if (media.some((item) => !/^(https?:\/\/|\/)/i.test(item.url))) {
       setError("Every media entry needs an absolute URL or a path starting with /.");
@@ -219,7 +263,7 @@ export default function ContentPage() {
       position,
       status: form.status,
       ...(blocks !== undefined ? { blocks } : {}),
-      ...(media.length ? { media } : {}),
+      ...(form.kind === "banner" || media.length ? { media } : {}),
     };
 
     setBusy(true);
@@ -256,8 +300,8 @@ export default function ContentPage() {
     <div className="space-y-5">
       <PageHeading
         eyebrow="Content"
-        title="Homepage content"
-        subtitle="Banners, testimonials, the lookbook and the FAQ are stored as content blocks. Anything not published here falls back to the bundled copy, so the storefront never renders empty."
+        title="Website content"
+        subtitle="Manage structured storefront pages, homepage product placement, banners, testimonials, the lookbook and FAQs. Product details and inventory stay in the product catalogue."
         action={
           <ButtonPrimary onClick={openCreate} disabled={content.source !== "live"}>
             New block
@@ -267,6 +311,12 @@ export default function ContentPage() {
       <div className="flex justify-end">
         <AdminDataBadge resource={content} />
       </div>
+
+      <ContentPageManager
+        documents={all}
+        enabled={content.source === "live"}
+        onSaved={content.refresh}
+      />
 
       {content.source !== "live" && (
         <Alert tone="warning">
@@ -297,7 +347,8 @@ export default function ContentPage() {
       <Card
         title="Blocks"
         action={
-          <>
+          <div className="flex items-center gap-2">
+            <ButtonGhost onClick={openCreateBanner} disabled={content.source !== "live"}>Add hero slide</ButtonGhost>
             <label className="sr-only" htmlFor="content-search">Search content</label>
             <TextInput
               id="content-search"
@@ -306,7 +357,7 @@ export default function ContentPage() {
               placeholder="Search key, title or body…"
               className="!w-64 !py-1.5 !text-[12px]"
             />
-          </>
+          </div>
         }
       >
         <div className="mb-4 flex flex-wrap gap-1.5">
@@ -393,7 +444,7 @@ export default function ContentPage() {
           </table>
         </div>
         <p className="mt-4 border-t border-[#f0ebe3] pt-4 text-[11.5px] text-stone-500">
-          Backed by <code>GET /api/content?kind=…</code>, <code>PUT /api/content/:key</code> (upsert) and{" "}
+          Backed by <code>GET /api/admin/content</code>, <code>PUT /api/content/:key</code> (upsert) and{" "}
           <code>DELETE /api/content/:key</code>. Writes need the catalogue manager, admin or super admin role.
         </p>
       </Card>
@@ -438,10 +489,10 @@ export default function ContentPage() {
           </Field>
 
           <Field label="Subtitle" htmlFor="content-subtitle">
-            <TextInput id="content-subtitle" value={form.subtitle} onChange={(event) => set("subtitle", event.target.value)} />
+            <TextInput id="content-subtitle" value={form.subtitle} onChange={(event) => set("subtitle", event.target.value)} placeholder={form.kind === "section" ? "Short story tagline" : undefined} />
           </Field>
 
-          <Field label="Body" htmlFor="content-body" hint={form.kind === "faq" ? "The answer — shown in the accordion and in FAQPage structured data" : "Copy"}>
+          <Field label="Body" htmlFor="content-body" hint={form.kind === "faq" ? "The answer — shown in the accordion and in FAQPage structured data" : form.kind === "section" ? "Description displayed inside this story when opened." : "Copy"}>
             <Textarea id="content-body" rows={4} value={form.body} onChange={(event) => set("body", event.target.value)} />
           </Field>
 
@@ -456,18 +507,83 @@ export default function ContentPage() {
             </div>
           )}
 
-          <Field
-            label="Media"
-            htmlFor="content-media"
-            hint="One per line: url | alt text | kind. The first entry is the main image."
-          >
-            <Textarea id="content-media" rows={3} value={form.mediaText} onChange={(event) => set("mediaText", event.target.value)} placeholder={"https://cdn.example.com/hero.jpg | Hero shot | hero"} className="font-mono !text-[12px]" />
-          </Field>
+          {form.kind === "banner" && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Eyebrow / tag" htmlFor="content-hero-tag" hint="Small label above the headline">
+                  <TextInput id="content-hero-tag" value={form.heroTag} onChange={(event) => set("heroTag", event.target.value)} placeholder="New season · Handcrafted in Jaipur" />
+                </Field>
+                <Field label="Image focal point" htmlFor="content-hero-position" hint="Controls how the image is cropped">
+                  <Select id="content-hero-position" value={form.focalPosition} onChange={(event) => set("focalPosition", event.target.value)}>
+                    <option value="object-center">Center</option>
+                    <option value="object-top">Top</option>
+                    <option value="object-bottom">Bottom</option>
+                    <option value="object-left">Left</option>
+                    <option value="object-right">Right</option>
+                  </Select>
+                </Field>
+              </div>
+              <Field label="Hero slide media" htmlFor="content-media" hint="Add multiple photo URLs (one per line) or upload several photos together. Every photo becomes a rotating slide. Optional format: url | alt text | image. Add a video URL with kind video.">
+                <Textarea id="content-media" rows={5} value={form.mediaText} onChange={(event) => set("mediaText", event.target.value)} placeholder={"https://cdn.example.com/hero-front.jpg | Front photo | image\nhttps://cdn.example.com/hero-detail.jpg | Detail photo | image\nhttps://cdn.example.com/hero.mp4 | Hero video | video"} className="font-mono !text-[12px]" />
+                <div className="flex flex-wrap gap-4">
+                    <MediaUploadField type="image" multiple onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | image`)].filter(Boolean).join("\n"))} disabled={busy} />
+                  <MediaUploadField type="video" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | video`)].filter(Boolean).join("\n"))} disabled={busy} />
+                </div>
+                {textToMedia(form.mediaText).length > 0 && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {textToMedia(form.mediaText).filter((item) => item.kind === "image").map((item) => (
+                      <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={item.url} alt={item.alt || "Hero slide image preview"} className="h-36 w-full object-cover" />
+                        <p className="truncate px-3 py-2 text-[11px] text-stone-500">{item.alt || "Hero image"}</p>
+                      </div>
+                    ))}
+                    {textToMedia(form.mediaText).filter((item) => item.kind === "video").map((item) => (
+                      <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
+                        <video src={item.url} controls muted playsInline preload="metadata" className="h-36 w-full bg-black object-cover" />
+                        <p className="truncate px-3 py-2 text-[11px] text-stone-500">{item.alt || "Hero video"}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Field>
+            </>
+          )}
+          {form.kind !== "banner" && (
+            <Field
+              label={form.kind === "section" ? "Story photos and video" : "Media"}
+              htmlFor="content-media"
+              hint={form.kind === "section" ? "Upload a cover photo and an optional video. The first photo is the cover; mark the video kind as video." : "One per line: url | alt text | kind. The first entry is the main image."}
+            >
+              <Textarea id="content-media" rows={3} value={form.mediaText} onChange={(event) => set("mediaText", event.target.value)} placeholder={"https://cdn.example.com/image.jpg | Image description | image"} className="font-mono !text-[12px]" />
+              <div className="flex flex-wrap gap-4">
+                <MediaUploadField type="image" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | image`)].filter(Boolean).join("\n"))} disabled={busy} />
+                <MediaUploadField type="video" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | video`)].filter(Boolean).join("\n"))} disabled={busy} />
+              </div>
+              {form.kind === "section" && textToMedia(form.mediaText).length > 0 && (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {textToMedia(form.mediaText).filter((item) => item.kind !== "video").map((item) => (
+                    <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.url} alt={item.alt || "Story cover preview"} className="h-36 w-full object-cover" />
+                      <p className="truncate px-3 py-2 text-[11px] text-stone-500">{item.alt || "Story cover photo"}</p>
+                    </div>
+                  ))}
+                  {textToMedia(form.mediaText).filter((item) => item.kind === "video").map((item) => (
+                    <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
+                      <video src={item.url} controls muted playsInline preload="metadata" className="h-36 w-full object-cover" />
+                      <p className="truncate px-3 py-2 text-[11px] text-stone-500">{item.alt || "Story video"}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Field>
+          )}
 
           <Field
             label="Blocks (JSON)"
             htmlFor="content-blocks"
-            hint={form.kind === "testimonial" ? '{ "name": "…", "city": "…", "rating": 5, "verified": true, "product": "…" }' : form.kind === "lookbook" ? '{ "pins": [{ "id": "pin-1", "top": "28%", "left": "48%", "title": "…", "price": "₹1,899", "tag": "…" }] }' : "Optional free-form JSON"}
+            hint={form.kind === "testimonial" ? '{ "name": "…", "city": "…", "rating": 5, "verified": true, "product": "…" }' : form.kind === "lookbook" ? '{ "pins": [{ "id": "pin-1", "top": "28%", "left": "48%", "title": "…", "price": "₹1,899", "tag": "…" }] }' : form.kind === "section" ? '{ "filterKey": "festive", "count": "New collection", "tagline": "Occasion-ready styles" }' : "Optional free-form JSON"}
           >
             <Textarea id="content-blocks" rows={5} value={form.blocksText} onChange={(event) => set("blocksText", event.target.value)} className="font-mono !text-[12px]" />
           </Field>

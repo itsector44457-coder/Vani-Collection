@@ -1,9 +1,10 @@
-/** Canonical storefront types shared by the demo data, the API adapters and the React contexts. */
+/** Canonical storefront types shared by the API adapters and React contexts. */
 
 export interface StoreVariant {
   sku: string;
   size?: string;
   color?: string;
+  images?: string[];
   price: number;
   mrp: number;
   /** Units available to sell (onHand − reserved) when the backend reported inventory. */
@@ -27,6 +28,7 @@ export interface Product {
   videoUrl?: string;
   sizes: string[];
   description: string;
+  sizeGuide?: string;
   details: string[];
   /** Backend product id — present for API products, used by the real cart and checkout. */
   productId?: string;

@@ -9,7 +9,7 @@ import type { StoreReview } from "@/lib/storefront-types";
 
 interface ProductReviewsProps {
   productId: string;
-  /** Backend id when the product came from the API; demo products fall back to static reviews. */
+  /** Backend id used to load reviews from the API. */
   apiProductId?: string;
 }
 
@@ -25,47 +25,6 @@ interface Review {
   helpful: number;
   images?: string[];
 }
-
-/* Shown only while the storefront runs on the bundled demo catalogue. */
-const mockReviews: Review[] = [
-  {
-    id: "1",
-    userName: "Priya S.",
-    rating: 5,
-    date: "2024-01-15",
-    verified: true,
-    title: "Beautiful quality, exceeded expectations!",
-    comment:
-      "The fabric quality is amazing and the handblock print is so intricate. Fits perfectly and the color is exactly as shown. Received so many compliments wearing this.",
-    size: "M",
-    helpful: 12,
-    images: ["https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=300&q=80"],
-  },
-  {
-    id: "2",
-    userName: "Meera K.",
-    rating: 4,
-    date: "2024-01-10",
-    verified: true,
-    title: "Good quality but runs slightly large",
-    comment:
-      "Love the fabric and the craftsmanship. Only issue is it runs a bit large so I'd suggest sizing down. The dupatta is gorgeous with beautiful tassels.",
-    size: "L",
-    helpful: 8,
-  },
-  {
-    id: "3",
-    userName: "Anita M.",
-    rating: 5,
-    date: "2024-01-05",
-    verified: true,
-    title: "Perfect for festive occasions",
-    comment:
-      "Wore this for Diwali celebrations and it was perfect. The mul cotton is so comfortable even for long hours. The packaging was also very premium.",
-    size: "S",
-    helpful: 15,
-  },
-];
 
 const toReview = (review: StoreReview): Review => ({
   id: review._id,
@@ -86,7 +45,7 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
   const live = isApiConfigured();
   const backendId = apiProductId && OBJECT_ID.test(apiProductId) ? apiProductId : null;
 
-  const [reviews, setReviews] = useState<Review[]>(live && backendId ? [] : mockReviews);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(Boolean(live && backendId));
   const [sortBy, setSortBy] = useState<"newest" | "helpful" | "rating">("newest");
   const [filterRating, setFilterRating] = useState<number | null>(null);
@@ -187,11 +146,6 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
               </div>
             </div>
           </div>
-          {!live && (
-            <p className="text-xs text-amber-700">
-              Sample reviews — the live review feed appears once the storefront is connected to the backend.
-            </p>
-          )}
         </div>
 
         <div>

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
+import { api, isApiConfigured, type StoreCategory } from "../lib/api-client";
 
 /* ------------------------------------------------------------------ */
 /*  Icons — 18px, 1.6 stroke, consistent                               */
@@ -96,7 +97,7 @@ const ACCOUNT: NavItem[] = [
   { name: "Profile", href: "/account", icon: UserIcon, matchPrefix: true },
 ];
 
-const CATEGORIES = [
+const FALLBACK_CATEGORIES = [
   { name: "Sarees", href: "/products?category=festive" },
   { name: "Anarkalis", href: "/products?category=anarkalis" },
   { name: "Co-ord Sets", href: "/products?category=coord-sets" },
@@ -109,6 +110,18 @@ const CATEGORIES = [
 export default function ReelsSidebar() {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
+  const [categories, setCategories] = useState<StoreCategory[]>([]);
+
+  useEffect(() => {
+    if (!isApiConfigured()) return;
+    const controller = new AbortController();
+    void api.categories(controller.signal)
+      .then(({ data }) => setCategories(data))
+      .catch((cause: unknown) => {
+        if ((cause as Error)?.name !== "AbortError") console.error("Could not load Reels category shortcuts", cause);
+      });
+    return () => controller.abort();
+  }, []);
 
   const isActive = useMemo(
     () => (item: NavItem) => {
@@ -241,8 +254,11 @@ export default function ReelsSidebar() {
           Shop by
         </p>
         <ul className="space-y-px">
-          {CATEGORIES.map((c) => (
-            <li key={c.name}>
+          {(categories.length ? categories.map((category) => ({
+            name: category.name,
+            href: `/products?category=${encodeURIComponent(category.slug)}`,
+          })) : FALLBACK_CATEGORIES).slice(0, 8).map((c) => (
+            <li key={c.href}>
               <Link
                 href={c.href}
                 className="group flex items-center justify-between rounded-lg px-3 py-2 text-[12.5px] text-[#f5f1ea]/55 transition-colors hover:bg-white/[0.03] hover:text-[#dfc28c]"

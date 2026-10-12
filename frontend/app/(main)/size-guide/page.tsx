@@ -1,12 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ManagedContentPage from "../../../components/ManagedContentPage";
+import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 
-export const metadata: Metadata = {
+const DEFAULT_METADATA: Metadata = {
   title: "Size Guide | Vani Collection",
   description: "Find your perfect fit with our comprehensive size guide for ethnic wear, including measurements for kurtas, anarkalis, and more.",
 };
 
-export default function SizeGuidePage() {
+export async function generateMetadata(): Promise<Metadata> {
+  return managedPageMetadata(await fetchManagedPage("size-guide"), DEFAULT_METADATA);
+}
+
+export default async function SizeGuidePage() {
+  const managed = await fetchManagedPage("size-guide");
+  if (managed) return <ManagedContentPage document={managed} breadcrumb="Size Guide" />;
+
   return (
     <div className="min-h-screen bg-[#faf7f2]">
       {/* Header */}

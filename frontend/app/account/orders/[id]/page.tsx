@@ -7,29 +7,6 @@ import { ApiError, api, isApiConfigured } from "@/lib/api-client";
 import { cancelOrder, getOrder } from "@/lib/storefront-api";
 import { orderStatusLabel, type OrderAddress, type OrderLine, type StoreOrder } from "@/lib/storefront-types";
 
-/* Fallback so the page still renders when the backend is not configured. */
-const DEMO_ADDRESS: OrderAddress = {
-  fullName: "Priya Sharma",
-  phone: "+91 98XXX 12345",
-  line1: "42, Vasant Vihar",
-  city: "New Delhi",
-  state: "Delhi",
-  pincode: "110057",
-};
-
-const DEMO_ORDER = {
-  number: "VC-4821",
-  date: "12 Oct 2024, 4:32 PM",
-  status: "Shipped",
-  eta: "16 Oct 2024",
-  address: DEMO_ADDRESS,
-  payment: { method: "UPI", status: "Paid", subtotal: 4299, discount: 0, shipping: 0, total: 4299 },
-  items: [
-    { name: "Gulab Bagh Handblock Mul Cotton Saree", size: "Free Size", quantity: 1, unitPrice: 2499, lineTotal: 2499, sku: "VC-1042" },
-    { name: "Madhubani Handpainted Dupatta", size: "Free Size", quantity: 1, unitPrice: 1800, lineTotal: 1800, sku: "VC-0972" },
-  ],
-};
-
 const FLOW = ["pending_payment", "confirmed", "processing", "packed", "shipped", "delivered"];
 const CANCELABLE = ["pending_payment", "confirmed", "processing"];
 
@@ -103,25 +80,44 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const status = order?.status ?? (live ? "pending_payment" : "shipped");
+  const status = order?.status ?? "pending_payment";
   const reachedIndex = Math.max(0, FLOW.indexOf(status));
   const isCancelled = ["cancelled", "refunded", "returned", "return_requested"].includes(status);
   const placedOn = order
     ? new Date(order.createdAt).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })
-    : DEMO_ORDER.date;
+    : "";
   const eta = order?.shipment?.estimatedDelivery
     ? new Date(order.shipment.estimatedDelivery).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
-    : DEMO_ORDER.eta;
-  const items: OrderLine[] = order?.items ?? DEMO_ORDER.items;
-  const amounts = order?.amounts ?? { subtotal: DEMO_ORDER.payment.subtotal, discount: 0, shipping: 0, total: DEMO_ORDER.payment.total, tax: 0 };
-  const address = order?.shippingAddress ?? DEMO_ORDER.address;
-  const paymentMethod = order ? (order.payment.method === "cod" ? "Cash on Delivery" : "Paid online") : DEMO_ORDER.payment.method;
+    : null;
+  const items: OrderLine[] = order?.items ?? [];
+  const amounts = order?.amounts ?? { subtotal: 0, discount: 0, shipping: 0, total: 0, tax: 0 };
+  const address: OrderAddress | undefined = order?.shippingAddress;
+  const paymentMethod = order ? (order.payment.method === "cod" ? "Cash on Delivery" : "Paid online") : "";
+
+  if (!live) {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+        Order details are unavailable because the storefront API is not configured.
+      </div>
+    );
+  }
 
   if (live && !order && !error) {
     return (
       <div className="space-y-4">
         <div className="h-24 animate-pulse rounded-2xl bg-white ring-1 ring-[#ebe6de]" />
         <div className="h-64 animate-pulse rounded-2xl bg-white ring-1 ring-[#ebe6de]" />
+      </div>
+    );
+  }
+
+  if (live && !order && error) {
+    return (
+      <div className="space-y-4">
+        <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</p>
+        <Link href="/account/orders" className="text-sm font-semibold text-[#881337] hover:underline">
+          ← Back to orders
+        </Link>
       </div>
     );
   }
@@ -137,7 +133,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       <PageHeader
         eyebrow={`Order #${order?.orderNumber ?? id}`}
         title="Order Details"
-        subtitle={`Placed on ${placedOn}`}
+        subtitle={placedOn ? `Placed on ${placedOn}` : "Order details"}
         action={
           <Badge tone={statusTone(status) as never} dot>
             {orderStatusLabel(status)}
@@ -249,19 +245,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         {/* Sidebar */}
         <div className="space-y-5">
           <Card title="Shipping address">
-            <p className="text-[13px] font-semibold text-stone-900">{address.fullName ?? "—"}</p>
+            <p className="text-[13px] font-semibold text-stone-900">{address?.fullName ?? "—"}</p>
             <p className="mt-1 text-[12.5px] leading-relaxed text-stone-600">
-              {address.line1}
-              {address.line2 && (
+              {address?.line1}
+              {address?.line2 && (
                 <>
                   <br />
                   {address.line2}
                 </>
               )}
               <br />
-              {[address.city, address.state, address.pincode].filter(Boolean).join(", ")}
+              {[address?.city, address?.state, address?.pincode].filter(Boolean).join(", ")}
               <br />
-              {address.phone}
+              {address?.phone}
             </p>
           </Card>
 
@@ -269,7 +265,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <p className="text-[12.5px] text-stone-600">{paymentMethod}</p>
             <div className="mt-2 flex items-center gap-2">
               <Badge tone={order?.payment.status === "paid" ? "success" : "warning"} dot>
-                {order ? order.payment.status : DEMO_ORDER.payment.status}
+                {order?.payment.status ?? "Unavailable"}
               </Badge>
             </div>
           </Card>
@@ -283,7 +279,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   {busy ? "Cancelling…" : "Cancel order"}
                 </ButtonGhost>
               )}
-              {/* Only meaningful against a real order: the demo has nothing to generate from. */}
+              {/* Invoices are generated only for real backend orders. */}
               {live && order && (
                 <ButtonGhost onClick={() => void handleDownloadInvoice()} disabled={downloading}>
                   {downloading ? "Preparing invoice…" : "Download invoice"}

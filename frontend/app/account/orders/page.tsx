@@ -9,15 +9,6 @@ import { cancelOrder } from "@/lib/storefront-api";
 import { orderStatusLabel, type StoreOrder } from "@/lib/storefront-types";
 import { useMyOrders } from "@/lib/use-storefront";
 
-/** Ordered sample data so the account area still reads well without the backend. */
-const DEMO_ORDERS = [
-  { id: "VC-4821", date: "12 Oct 2024", items: 2, total: 4299, status: "Shipped", eta: "16 Oct" },
-  { id: "VC-4790", date: "28 Sep 2024", items: 1, total: 2499, status: "Delivered", eta: null },
-  { id: "VC-4712", date: "05 Sep 2024", items: 3, total: 6798, status: "Delivered", eta: null },
-  { id: "VC-4655", date: "21 Aug 2024", items: 1, total: 1899, status: "Cancelled", eta: null },
-  { id: "VC-4602", date: "10 Aug 2024", items: 2, total: 3799, status: "Returned", eta: null },
-];
-
 const TABS = ["All", "Active", "Delivered", "Cancelled"] as const;
 
 const ACTIVE_STATUSES = ["pending_payment", "confirmed", "processing", "packed", "shipped"];
@@ -45,7 +36,7 @@ export default function OrdersPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const rows = live
+  const rows = live && isAuthenticated
     ? orders.map((order: StoreOrder) => ({
         id: order._id,
         number: order.orderNumber,
@@ -57,7 +48,7 @@ export default function OrdersPage() {
         eta: order.shipment?.estimatedDelivery ? formatDate(order.shipment.estimatedDelivery) : null,
         raw: order,
       }))
-    : DEMO_ORDERS.map((order) => ({ ...order, number: order.id, label: order.status, raw: null }));
+    : [];
 
   const filtered = rows.filter((order) => {
     if (tab === "All") return true;
@@ -99,7 +90,7 @@ export default function OrdersPage() {
           <Link href="/login?redirect=/account/orders" className="font-semibold underline">
             Sign in
           </Link>{" "}
-          to see the orders placed with your account. The list below is sample data.
+          to see the orders placed with your account.
         </p>
       )}
 

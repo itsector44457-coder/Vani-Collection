@@ -5,9 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 interface SizeGuideProps {
   isOpen: boolean;
   onClose: () => void;
+  productName?: string;
+  customGuide?: string;
 }
 
-export default function SizeGuide({ isOpen, onClose }: SizeGuideProps) {
+export default function SizeGuide({ isOpen, onClose, productName, customGuide }: SizeGuideProps) {
+  const productGuide = customGuide?.trim();
   const sizeChart = [
     { size: "XS", bust: "32-34", waist: "26-28", hips: "34-36", length: "46" },
     { size: "S", bust: "34-36", waist: "28-30", hips: "36-38", length: "47" },
@@ -36,7 +39,7 @@ export default function SizeGuide({ isOpen, onClose }: SizeGuideProps) {
           >
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-gray-900">Size Guide</h3>
+              <h3 className="text-xl font-semibold text-gray-900">{productName ? `${productName} Size Guide` : "Size Guide"}</h3>
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-gray-100 rounded-full transition"
@@ -49,6 +52,10 @@ export default function SizeGuide({ isOpen, onClose }: SizeGuideProps) {
 
             {/* Content */}
             <div className="p-6 space-y-6">
+              {productGuide ? (
+                <div className="whitespace-pre-wrap break-words text-sm leading-7 text-gray-700">{productGuide}</div>
+              ) : (
+                <>
               {/* Measurement Instructions */}
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="font-medium text-blue-900 mb-2">How to Measure</h4>
@@ -104,6 +111,8 @@ export default function SizeGuide({ isOpen, onClose }: SizeGuideProps) {
                   Contact Support
                 </button>
               </div>
+                </>
+              )}
             </div>
           </motion.div>
         </motion.div>

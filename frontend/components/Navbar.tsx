@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useLenis } from "./SmoothScroll";
 import { useCart } from "../context/CartContext";
 import SearchOverlay from "./SearchOverlay";
+import { api, isApiConfigured, type NavigationMenu, type NavigationSettings, type StoreCategory } from "../lib/api-client";
 
 // Utility function to convert display names to URL category parameters
 const getCategoryParam = (displayName: string): string => {
@@ -109,21 +110,148 @@ const NAV_ITEMS = [
   },
 ];
 
-const ANNOUNCEMENTS = [
-  "✦ Free Express Shipping Above ₹1,999",
-  "✦ 100% Certified Pure Mul Cotton Handcrafted in Jaipur",
-  "✦ Extra 10% Off First Order: Code FIRST10",
-  "✦ Cash On Delivery & 7-Day Free Exchanges",
+const FALLBACK_DROPDOWN_MENUS: NavigationMenu[] = [
+  {
+    key: "lookbook",
+    label: "Lookbook",
+    position: 1,
+    isActive: true,
+    columns: [
+      { title: "Latest Edits", items: [
+        { label: "Spring Collection", href: "/products?sort=new" },
+        { label: "Summer Breeze", href: "/products" },
+        { label: "Festive Luxe", categorySlug: "festive" },
+        { label: "Wedding Season", categorySlug: "festive" },
+      ] },
+      { title: "Inspiration", items: [
+        { label: "Celebrity Picks", href: "/products?sort=featured" },
+        { label: "Stylist Favorites", href: "/products?sort=featured" },
+        { label: "Best Sellers", href: "/products?sort=featured" },
+        { label: "New Arrivals", href: "/products?sort=new" },
+      ] },
+    ],
+  },
+  {
+    key: "shop-by-price",
+    label: "Shop by Price",
+    position: 2,
+    isActive: true,
+    columns: [
+      { title: "Budget Friendly", items: [
+        { label: "Under ₹1,499", href: "/products?price=Under+%E2%82%B91%2C499" },
+        { label: "₹1,500 – ₹1,999", href: "/products?price=%E2%82%B91%2C500+%E2%80%93+%E2%82%B91%2C999" },
+        { label: "₹2,000 – ₹2,999", href: "/products?price=%E2%82%B92%2C000+%E2%80%93+%E2%82%B92%2C999" },
+      ] },
+      { title: "Premium Range", items: [
+        { label: "₹3,000 - ₹5,000", href: "/products?price=%E2%82%B93%2C000+%26+Above" },
+        { label: "Premium Collection", href: "/products?price=%E2%82%B93%2C000+%26+Above" },
+        { label: "Luxury Collection", href: "/products?sort=price-high" },
+      ] },
+    ],
+  },
 ];
+
+const FALLBACK_NAV_SETTINGS: NavigationSettings = {
+  theme: "atelier",
+  brandName: "Vani Collection",
+  brandTagline: "Atelier · Jaipur",
+  logoUrl: "",
+  collectionLabel: "Collections",
+  announcements: [
+    "✦ Free Express Shipping Above ₹1,999",
+    "✦ 100% Certified Pure Mul Cotton Handcrafted in Jaipur",
+    "✦ Cash On Delivery & 7-Day Free Exchanges",
+  ],
+  links: [
+    { label: "Stories", href: "/#stories", isActive: true },
+    { label: "Reels", href: "/reels", isActive: true },
+    { label: "Living Looks", href: "/#products", isActive: true },
+  ],
+  colors: {
+    announcementBg: "#1c1917",
+    announcementText: "#dfc28c",
+    announcementBorder: "#2d2520",
+    headerBg: "#faf7f2",
+    headerText: "#292524",
+    accent: "#881337",
+    mobileDrawerBg: "#faf7f2",
+    mobileBottomBg: "#faf7f2",
+  },
+};
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [expandedMobileCategory, setExpandedMobileCategory] = useState<string | null>("Mul Cotton");
+  const [storeCategories, setStoreCategories] = useState<StoreCategory[]>([]);
+  const [dropdownMenus, setDropdownMenus] = useState<NavigationMenu[]>(FALLBACK_DROPDOWN_MENUS);
+  const [settings, setSettings] = useState<NavigationSettings>(FALLBACK_NAV_SETTINGS);
 
   const { cartCount, setIsCartOpen, wishlist } = useCart();
   const lenis = useLenis();
+
+  useEffect(() => {
+    if (!isApiConfigured()) return;
+    const controller = new AbortController();
+    void api.storefrontNavigation(controller.signal)
+      .then(({ data }) => {
+        setStoreCategories(data.categories);
+        setDropdownMenus(data.menus);
+        setSettings(data.settings);
+        setExpandedMobileCategory(data.categories[0]?.navigationGroup || null);
+      })
+      .catch((cause: unknown) => {
+        if ((cause as Error)?.name !== "AbortError") console.error("Could not load storefront navigation", cause);
+      });
+    return () => controller.abort();
+  }, []);
+
+  const categories = storeCategories.length
+    ? storeCategories
+    : [
+        { name: "Mul Cotton", slug: "mul-cotton", navigationGroup: "By Fabric", position: 0, isActive: true },
+        { name: "Festive Edit", slug: "festive", navigationGroup: "By Occasion", position: 1, isActive: true },
+        { name: "Co-ord Sets", slug: "coord-sets", navigationGroup: "By Style", position: 2, isActive: true },
+        { name: "Anarkalis", slug: "anarkalis", navigationGroup: "By Style", position: 3, isActive: true },
+        { name: "Kurta Sets", slug: "kurta-sets", navigationGroup: "By Style", position: 4, isActive: true },
+        { name: "Sarees", slug: "sarees", navigationGroup: "By Style", position: 5, isActive: true },
+        { name: "Dupattas", slug: "dupattas", navigationGroup: "By Style", position: 6, isActive: true },
+      ];
+  const collectionColumns = Array.from(
+    categories.reduce((groups, category) => {
+      const items = groups.get(category.navigationGroup) || [];
+      items.push({ label: category.name, href: `/products?category=${encodeURIComponent(category.slug)}` });
+      groups.set(category.navigationGroup, items);
+      return groups;
+    }, new Map<string, { label: string; href: string }[]>()),
+    ([title, items]) => ({ title, items }),
+  );
+  const menuColumns = (menu: NavigationMenu | undefined) => (menu?.columns || []).map((column) => ({
+    title: column.title,
+    items: column.items.map((item) => ({
+      label: item.label,
+      href: item.categorySlug ? `/products?category=${encodeURIComponent(item.categorySlug)}` : item.href || "/products",
+    })),
+  }));
+  const mobileCollectionGroups = storeCategories.length
+    ? collectionColumns
+    : NAV_ITEMS.map((item) => ({
+        title: item.label,
+        items: item.columns.flatMap((column) => column.links.map((label) => ({
+          label,
+          href: `/products?category=${getCategoryParam(label)}`,
+        }))),
+      }));
+  const mobileDropdownGroups = dropdownMenus
+    .filter((menu) => menu.isActive)
+    .flatMap((menu) => menu.columns.map((column) => ({
+      title: `${menu.label}: ${column.title}`,
+      items: column.items.map((item) => ({
+        label: item.label,
+        href: item.categorySlug ? `/products?category=${encodeURIComponent(item.categorySlug)}` : item.href || "/products",
+      })),
+    })));
 
   /* ---------- Scroll shadow ---------- */
   useEffect(() => {
@@ -148,10 +276,11 @@ export default function Navbar() {
         initial={{ y: -40, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="relative overflow-hidden bg-[#1c1917] text-[#dfc28c] py-2 select-none border-b border-[#2d2520] text-[10px] sm:text-[11px]"
+        style={{ backgroundColor: settings.colors.announcementBg, color: settings.colors.announcementText, borderBottom: `1px solid ${settings.colors.announcementBorder}` }}
+        className="relative overflow-hidden py-2 select-none text-[10px] sm:text-[11px]"
       >
-        <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-r from-[#1c1917] to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 bg-gradient-to-l from-[#1c1917] to-transparent z-10 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 z-10 pointer-events-none" style={{ background: `linear-gradient(to right, ${settings.colors.announcementBg}, transparent)` }} />
+        <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 z-10 pointer-events-none" style={{ background: `linear-gradient(to left, ${settings.colors.announcementBg}, transparent)` }} />
         <motion.div
           className="flex whitespace-nowrap"
           animate={{ x: ["0%", "-50%"] }}
@@ -159,7 +288,7 @@ export default function Navbar() {
         >
           {[0, 1].map((half) => (
             <div key={half} className="flex shrink-0">
-              {ANNOUNCEMENTS.map((msg, i) => (
+              {settings.announcements.map((msg, i) => (
                 <span
                   key={`${half}-${i}`}
                   className="mx-6 sm:mx-10 font-medium tracking-[0.22em] uppercase"
@@ -177,18 +306,16 @@ export default function Navbar() {
         <motion.div
           initial={false}
           animate={{
-            backgroundColor: scrolled
-              ? "rgba(250,247,242,0.96)"
-              : "rgba(250,247,242,1)",
+            backgroundColor: settings.colors.headerBg,
           }}
           transition={{ duration: 0.2 }}
           style={{
             backdropFilter: scrolled ? "blur(16px)" : "blur(0px)",
             WebkitBackdropFilter: scrolled ? "blur(16px)" : "blur(0px)",
+            borderColor: settings.colors.announcementBorder,
+            color: settings.colors.headerText,
           }}
-          className={`border-b transition-[border-color] duration-300 ${
-            scrolled ? "border-[#e8dfd5] shadow-sm" : "border-[#f0e8dc]"
-          }`}
+          className={`border-b transition-[border-color] duration-300 ${scrolled ? "shadow-sm" : ""}`}
         >
           <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 h-[66px] sm:h-[74px] flex items-center justify-between gap-4">
             {/* ============ Left: Mobile Drawer Trigger (UNIQUE) ============ */}
@@ -202,8 +329,7 @@ export default function Navbar() {
                 <span
                   className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-300"
                   style={{
-                    background:
-                      "conic-gradient(from 0deg, #dfc28c, #881337, #dfc28c)",
+                    background: `conic-gradient(from 0deg, ${settings.colors.announcementText}, ${settings.colors.accent}, ${settings.colors.announcementText})`,
                     padding: "1.5px",
                     WebkitMask:
                       "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
@@ -212,25 +338,26 @@ export default function Navbar() {
                   }}
                 />
                 {/* Soft brand glow on tap */}
-                <span className="absolute inset-0 rounded-full bg-[#881337]/0 group-active:bg-[#881337]/10 transition-colors duration-200" />
+                <span className="absolute inset-0 rounded-full opacity-0 group-active:opacity-10 transition-opacity duration-200" style={{ backgroundColor: settings.colors.accent }} />
 
                 {/* Animated 3-line icon */}
                 <span className="relative flex flex-col items-center justify-center w-[22px] h-[16px]">
                   {/* Top line */}
-                  <span className="absolute top-0 left-0 h-[2px] w-[18px] rounded-full bg-gradient-to-r from-[#1c1917] to-[#881337] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[22px] group-hover:from-[#881337] group-hover:to-[#dfc28c]" />
+                  <span className="absolute top-0 left-0 h-[2px] w-[18px] rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[22px]" style={{ background: `linear-gradient(to right, ${settings.colors.headerText}, ${settings.colors.accent})` }} />
                   {/* Middle line (shorter, gold) */}
-                  <span className="absolute top-[7px] left-0 h-[2px] w-[12px] rounded-full bg-[#b8935a] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[22px] group-hover:bg-[#881337]" />
+                  <span className="absolute top-[7px] left-0 h-[2px] w-[12px] rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[22px]" style={{ backgroundColor: settings.colors.announcementText }} />
                   {/* Bottom line */}
-                  <span className="absolute bottom-0 left-0 h-[2px] w-[22px] rounded-full bg-gradient-to-r from-[#1c1917] to-[#881337] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[14px] group-hover:from-[#881337] group-hover:to-[#dfc28c]" />
+                  <span className="absolute bottom-0 left-0 h-[2px] w-[22px] rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[14px]" style={{ background: `linear-gradient(to right, ${settings.colors.headerText}, ${settings.colors.accent})` }} />
 
                   {/* Tiny gold sparkle dot */}
-                  <span className="absolute -top-[3px] -right-[5px] w-[3px] h-[3px] rounded-full bg-[#b8935a] opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100" />
+                  <span className="absolute -top-[3px] -right-[5px] w-[3px] h-[3px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100" style={{ backgroundColor: settings.colors.announcementText }} />
                 </span>
               </button>
 
               <button
                 onClick={() => setSearchOpen(true)}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-stone-700 hover:text-[#881337] transition"
+                className="w-9 h-9 rounded-full flex items-center justify-center transition"
+                style={{ color: settings.colors.headerText }}
                 aria-label="Search"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -245,98 +372,51 @@ export default function Navbar() {
               href="/"
               className="flex flex-col leading-none group text-center lg:text-left mx-auto lg:mx-0"
             >
-              <span className="font-serif text-[22px] sm:text-[26px] tracking-[0.06em] text-[#1c1917] transition-colors group-hover:text-[#881337] font-normal whitespace-nowrap">
-                Vani Collection
-              </span>
-              <span className="text-[7.5px] sm:text-[8.5px] tracking-[0.45em] uppercase text-[#b8935a] mt-0.5 sm:mt-1 pl-[1px] font-semibold">
-                Atelier · Jaipur
-              </span>
+              {settings.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={settings.logoUrl} alt={settings.brandName} className="max-h-12 max-w-44 object-contain" />
+              ) : (
+                <>
+                  <span className="font-serif text-[22px] sm:text-[26px] tracking-[0.06em] transition-colors font-normal whitespace-nowrap" style={{ color: settings.colors.headerText }}>
+                    {settings.brandName}
+                  </span>
+                  {settings.brandTagline && <span className="text-[7.5px] sm:text-[8.5px] tracking-[0.45em] uppercase mt-0.5 sm:mt-1 pl-[1px] font-semibold" style={{ color: settings.colors.accent }}>
+                    {settings.brandTagline}
+                  </span>}
+                </>
+              )}
             </Link>
 
             {/* Desktop Navigation: Mega Menu Dropdowns */}
             <nav className="hidden lg:flex items-center gap-1 mx-auto">
               {/* Collections Mega Menu */}
               <MegaMenuItem
-                label="Collections"
-                categories={[
-                  {
-                    title: "By Fabric",
-                    items: ["Mul Cotton", "Chanderi Silk", "Linen Blends", "Organza", "Banarasi"]
-                  },
-                  {
-                    title: "By Occasion",
-                    items: ["Festive Wear", "Daily Wear", "Wedding Guest", "Casual Comfort"]
-                  },
-                  {
-                    title: "By Style",
-                    items: ["Anarkali Sets", "Straight Suits", "Co-ord Sets", "Sharara Sets"]
-                  }
-                ]}
+                label={settings.collectionLabel}
+                categories={collectionColumns}
+                accent={settings.colors.accent}
+                textColor={settings.colors.headerText}
+                panelBg={settings.colors.headerBg}
               />
 
-              {/* Stories Link */}
-              <Link
-                href="/#stories"
-                className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] text-stone-700 hover:text-[#881337] transition-colors px-4 py-2 flex items-center gap-2"
-              >
-                <span>Stories</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-tr from-[#dfc28c] to-[#881337]" />
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#881337] scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
-              </Link>
-
-              {/* Reels Link */}
-              <Link
-                href="/reels"
-                className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] text-stone-700 hover:text-[#881337] transition-colors px-4 py-2"
-              >
-                <span>Reels</span>
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#881337] scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
-              </Link>
-
-              {/* Living Looks Link */}
-              <Link
-                href="/#products"
-                className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] text-stone-700 hover:text-[#881337] transition-colors px-4 py-2"
-              >
-                <span>Living Looks</span>
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#881337] scale-x-0 group-hover:scale-x-100 transition-transform origin-left" />
-              </Link>
+              {settings.links.filter((link) => link.isActive).map((link) => (
+                <Link key={`${link.label}-${link.href}`} href={link.href} className="group relative px-4 py-2 text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors" style={{ color: settings.colors.headerText }}>
+                  <span>{link.label}</span>
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100" style={{ backgroundColor: settings.colors.accent }} />
+                </Link>
+              ))}
 
               {/* Lookbook Mega Menu */}
-              <MegaMenuItem
-                label="Lookbook"
-                categories={[
-                  {
-                    title: "Latest Edits",
-                    items: ["Spring Collection", "Summer Breeze", "Festive Luxe", "Wedding Season"]
-                  },
-                  {
-                    title: "Inspiration",
-                    items: ["Celebrity Picks", "Stylist Favorites", "Best Sellers", "New Arrivals"]
-                  }
-                ]}
-              />
+              {dropdownMenus.filter((menu) => menu.isActive).sort((a, b) => a.position - b.position).map((menu) => (
+              <MegaMenuItem key={menu.key} label={menu.label} categories={menuColumns(menu)} footerHref="/products" accent={settings.colors.accent} textColor={settings.colors.headerText} panelBg={settings.colors.headerBg} />
+              ))}
 
               {/* Shop By Price */}
-              <MegaMenuItem
-                label="Shop by Price"
-                categories={[
-                  {
-                    title: "Budget Friendly",
-                    items: ["Under ₹1,499", "Under ₹1,999", "Under ₹2,999"]
-                  },
-                  {
-                    title: "Premium Range",
-                    items: ["₹3,000 - ₹5,000", "₹5,000 - ₹10,000", "Luxury Collection"]
-                  }
-                ]}
-              />
             </nav>
 
             {/* Right Action Icons */}
             <div className="flex items-center gap-1 sm:gap-2">
               <div className="hidden lg:block">
-                <IconBtn label="Search" onClick={() => setSearchOpen(true)}>
+                <IconBtn label="Search" onClick={() => setSearchOpen(true)} accent={settings.colors.accent} textColor={settings.colors.headerText}>
                   <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
                     <circle cx="11" cy="11" r="7" />
                     <path d="M21 21l-4.35-4.35" />
@@ -346,7 +426,7 @@ export default function Navbar() {
 
               {/* Wishlist Icon → /account wishlist tab */}
               <Link href="/account" aria-label="Wishlist">
-                <IconBtn label="Wishlist">
+                <IconBtn label="Wishlist" accent={settings.colors.accent} textColor={settings.colors.headerText}>
                   <div className="relative">
                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
                       <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
@@ -363,7 +443,7 @@ export default function Navbar() {
               {/* Account icon */}
               <div className="hidden lg:block">
                 <Link href="/account" aria-label="My Account">
-                  <IconBtn label="Account">
+                  <IconBtn label="Account" accent={settings.colors.accent} textColor={settings.colors.headerText}>
                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
                       <circle cx="12" cy="8" r="4" />
                       <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
@@ -376,7 +456,8 @@ export default function Navbar() {
               <button
                 onClick={() => setIsCartOpen(true)}
                 aria-label="Bag"
-                className="relative flex items-center justify-center w-10 h-10 text-stone-900 hover:text-[#881337] transition-colors"
+                className="relative flex items-center justify-center w-10 h-10 transition-colors hover:text-[var(--nav-accent)]"
+                style={{ color: settings.colors.headerText, "--nav-accent": settings.colors.accent } as React.CSSProperties}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
                   <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
@@ -424,12 +505,12 @@ export default function Navbar() {
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 280 }}
               className="fixed top-0 left-0 bottom-0 w-[88vw] max-w-[360px] z-[96] shadow-2xl flex flex-col lg:hidden"
-              style={{ background: "#faf7f2", height: "100vh" }}
+              style={{ background: settings.colors.mobileDrawerBg, height: "100vh" }}
             >
               {/* ── Luxury Branded Header ── */}
               <div
                 className="relative px-5 pt-6 pb-5 flex items-end justify-between shrink-0"
-                style={{ background: "linear-gradient(135deg, #1c1917 0%, #3d2012 55%, #881337 100%)" }}
+                style={{ background: `linear-gradient(135deg, ${settings.colors.announcementBg} 0%, ${settings.colors.headerText} 55%, ${settings.colors.accent} 100%)` }}
               >
                 <div
                   className="absolute inset-0 opacity-[0.05] pointer-events-none"
@@ -439,9 +520,12 @@ export default function Navbar() {
                   }}
                 />
                 <div className="relative z-10">
-                  <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-[#dfc28c] block mb-1">Jaipur Atelier</span>
-                  <h2 className="font-serif text-2xl text-white font-light leading-none">Vani Collection</h2>
-                  <p className="text-[10px] text-white/50 mt-1.5 tracking-wider">Handcrafted Luxury Since 2018</p>
+                  <span className="text-[8px] font-bold uppercase tracking-[0.4em] block mb-1" style={{ color: settings.colors.announcementText }}>{settings.brandTagline || "Store navigation"}</span>
+                  <h2 className="font-serif text-2xl text-white font-light leading-none">{settings.brandName}</h2>
+                  {settings.logoUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={settings.logoUrl} alt={settings.brandName} className="mt-2 max-h-9 max-w-36 object-contain" />
+                  )}
                 </div>
                 <button
                   onClick={() => setMobileDrawerOpen(false)}
@@ -493,31 +577,24 @@ export default function Navbar() {
                 </Link>
               </div>
 
-              {/* Navigation Categories Accordion - SCROLLABLE */}
+              {/* Collection groups are driven by the active category catalogue. */}
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5" style={{ overscrollBehavior: "contain" }}>
                 <span className="text-[9px] uppercase tracking-[0.3em] font-bold text-stone-400 block mb-3">
                   Collections
                 </span>
-                {NAV_ITEMS.map((item) => {
-                  const isExpanded = expandedMobileCategory === item.label;
+                {[...mobileCollectionGroups, ...mobileDropdownGroups].map((group) => {
+                  const isExpanded = expandedMobileCategory === group.title;
                   return (
                     <div
-                      key={item.label}
+                      key={group.title}
                       className="border border-stone-200 rounded-xl overflow-hidden bg-white shadow-sm"
                     >
                       <button
-                        onClick={() =>
-                          setExpandedMobileCategory(isExpanded ? null : item.label)
-                        }
+                        onClick={() => setExpandedMobileCategory(isExpanded ? null : group.title)}
                         className="w-full flex items-center justify-between px-4 py-3.5 text-left"
                       >
                         <span className="flex items-center gap-2.5">
-                          <span className="font-serif text-base font-semibold text-gray-900">{item.label}</span>
-                          {item.isNew && (
-                            <span className="text-[8px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-full font-bold">
-                              NEW
-                            </span>
-                          )}
+                          <span className="font-serif text-base font-semibold text-gray-900">{group.title}</span>
                         </span>
                         <svg 
                           width="16" 
@@ -540,26 +617,19 @@ export default function Navbar() {
                             exit={{ height: 0, opacity: 0 }}
                             className="bg-stone-50 border-t border-stone-200 px-4 py-4 space-y-4"
                           >
-                            {item.columns.map((col) => (
-                              <div key={col.title}>
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-[#881337] block mb-2">
-                                  {col.title}
-                                </span>
-                                <div className="grid grid-cols-1 gap-2 pl-1">
-                                  {col.links.slice(0, 5).map((link) => (
-                                    <Link
-                                      key={link}
-                                      href={`/products?category=${getCategoryParam(link)}`}
-                                      onClick={() => setMobileDrawerOpen(false)}
-                                      className="flex items-center gap-2 text-sm text-stone-600 hover:text-[#881337] py-1 transition group"
-                                    >
-                                      <span className="w-1 h-1 rounded-full bg-stone-300 group-hover:bg-[#881337] transition" />
-                                      <span>{link}</span>
-                                    </Link>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
+                            <div className="grid grid-cols-1 gap-2 pl-1">
+                              {group.items.slice(0, 20).map((link) => (
+                                <Link
+                                  key={`${group.title}-${link.label}`}
+                                  href={link.href}
+                                  onClick={() => setMobileDrawerOpen(false)}
+                                  className="flex items-center gap-2 text-sm text-stone-600 hover:text-[#881337] py-1 transition group"
+                                >
+                                  <span className="w-1 h-1 rounded-full bg-stone-300 group-hover:bg-[#881337] transition" />
+                                  <span>{link.label}</span>
+                                </Link>
+                              ))}
+                            </div>
                           </motion.div>
                         )}
                       </AnimatePresence>
@@ -569,6 +639,11 @@ export default function Navbar() {
 
                 {/* Additional Quick Links */}
                 <div className="pt-4 border-t border-stone-200 space-y-2 text-xs text-stone-700">
+                  {settings.links.filter((link) => link.isActive).map((link) => (
+                    <Link key={`mobile-${link.label}-${link.href}`} href={link.href} onClick={() => setMobileDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-stone-100" style={{ color: settings.colors.headerText }}>
+                      <span>{link.label}</span><span>→</span>
+                    </Link>
+                  ))}
                   <Link
                     href="/products"
                     onClick={() => setMobileDrawerOpen(false)}
@@ -589,8 +664,8 @@ export default function Navbar() {
               </div>
 
               {/* Bottom Drawer Info */}
-              <div className="p-4 bg-stone-100 border-t border-stone-200 text-[11px] text-stone-500 text-center">
-                <span>Free Express Shipping Across India · COD Available</span>
+              <div className="p-4 border-t text-[11px] text-center" style={{ backgroundColor: settings.colors.announcementBg, borderColor: settings.colors.announcementBorder, color: settings.colors.announcementText }}>
+                <span>{settings.announcements[0] || "Welcome to our store"}</span>
               </div>
             </motion.div>
           </>
@@ -603,13 +678,14 @@ export default function Navbar() {
       {/* ================= MOBILE BOTTOM STICKY BAR (Native App feel) ================= */}
       <div
         className="lg:hidden fixed bottom-0 inset-x-0 bg-[#faf7f2]/98 backdrop-blur-md border-t border-[#e8dfd5] z-40 shadow-lg"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: settings.colors.mobileBottomBg, borderColor: settings.colors.announcementBorder }}
       >
         <div className="flex items-center justify-around px-2 py-1.5">
           {/* Home */}
           <Link
             href="/"
-            className="flex flex-col items-center text-stone-800 hover:text-[#881337] py-1 px-3 rounded-xl transition-colors"
+            className="flex flex-col items-center py-1 px-3 rounded-xl transition-colors"
+            style={{ color: settings.colors.headerText }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -621,7 +697,8 @@ export default function Navbar() {
           {/* Shop */}
           <Link
             href="/products"
-            className="flex flex-col items-center text-stone-800 hover:text-[#881337] py-1 px-3 rounded-xl transition-colors"
+            className="flex flex-col items-center py-1 px-3 rounded-xl transition-colors"
+            style={{ color: settings.colors.headerText }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -637,26 +714,27 @@ export default function Navbar() {
             href="/reels"
             className="flex flex-col items-center -mt-5"
           >
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#b91c1c] via-[#881337] to-[#701a35] flex items-center justify-center shadow-[0_4px_18px_rgba(185,28,28,0.55)] border-2 border-[#dfc28c]/60">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-2" style={{ background: `linear-gradient(135deg, ${settings.colors.accent}, ${settings.colors.announcementBg})`, borderColor: settings.colors.announcementText }}>
               {/* Play / Reels icon */}
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                 <rect x="2" y="2" width="20" height="20" rx="5" />
                 <path d="M8 9.5l8 4.5-8 4.5V9.5z" fill="white" stroke="none" />
               </svg>
             </div>
-            <span className="text-[9px] font-bold mt-1 text-[#881337] tracking-wide">Reels</span>
+            <span className="text-[9px] font-bold mt-1 tracking-wide" style={{ color: settings.colors.accent }}>Reels</span>
           </Link>
 
           {/* Wishlist → Account */}
           <Link
             href="/account"
-            className="flex flex-col items-center text-stone-800 hover:text-[#881337] py-1 px-3 rounded-xl transition-colors relative"
+            className="flex flex-col items-center py-1 px-3 rounded-xl transition-colors relative"
+            style={{ color: settings.colors.headerText }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
             </svg>
             {wishlist.length > 0 && (
-              <span className="absolute top-0.5 right-1.5 w-3.5 h-3.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center font-bold">
+              <span className="absolute top-0.5 right-1.5 w-3.5 h-3.5 rounded-full text-white text-[8px] flex items-center justify-center font-bold" style={{ backgroundColor: settings.colors.accent }}>
                 {wishlist.length}
               </span>
             )}
@@ -668,19 +746,19 @@ export default function Navbar() {
             onClick={() => setIsCartOpen(true)}
             className="flex flex-col items-center py-1 px-3 rounded-xl transition-colors relative"
           >
-            <div className={`relative ${cartCount > 0 ? "text-[#881337]" : "text-stone-800"}`}>
+            <div className="relative" style={{ color: cartCount > 0 ? settings.colors.accent : settings.colors.headerText }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
                 <path d="M3 6h18" />
                 <path d="M16 10a4 4 0 01-8 0" />
               </svg>
               {cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 min-w-[16px] h-[16px] px-0.5 rounded-full bg-[#881337] text-white text-[8px] flex items-center justify-center font-bold shadow">
+                <span className="absolute -top-2 -right-2 min-w-[16px] h-[16px] px-0.5 rounded-full text-white text-[8px] flex items-center justify-center font-bold shadow" style={{ backgroundColor: settings.colors.accent }}>
                   {cartCount}
                 </span>
               )}
             </div>
-            <span className={`text-[9px] font-medium mt-0.5 ${cartCount > 0 ? "text-[#881337]" : "text-stone-800"}`}>Bag</span>
+            <span className="text-[9px] font-medium mt-0.5" style={{ color: cartCount > 0 ? settings.colors.accent : settings.colors.headerText }}>Bag</span>
           </button>
         </div>
       </div>
@@ -692,16 +770,21 @@ function IconBtn({
   label,
   onClick,
   children,
+  accent = "#881337",
+  textColor = "#292524",
 }: {
   label: string;
   onClick?: () => void;
   children: React.ReactNode;
+  accent?: string;
+  textColor?: string;
 }) {
   return (
     <button
       onClick={onClick}
       aria-label={label}
-      className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 text-stone-800 hover:text-[#881337] transition-colors rounded-full hover:bg-stone-200/50"
+      className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 transition-colors rounded-full hover:bg-stone-200/50 hover:text-[var(--nav-accent)]"
+      style={{ color: textColor, "--nav-accent": accent } as React.CSSProperties}
     >
       {children}
     </button>
@@ -714,10 +797,18 @@ function IconBtn({
    ======================================== */
 function MegaMenuItem({ 
   label, 
-  categories 
+  categories,
+  footerHref = "/products",
+  accent = "#881337",
+  textColor = "#292524",
+  panelBg = "#faf7f2",
 }: { 
   label: string;
-  categories: Array<{ title: string; items: string[] }>;
+  categories: Array<{ title: string; items: Array<{ label: string; href: string }> }>;
+  footerHref?: string;
+  accent?: string;
+  textColor?: string;
+  panelBg?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -738,7 +829,7 @@ function MegaMenuItem({
       onMouseLeave={handleMouseLeave}
     >
       {/* Trigger Button */}
-      <button className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] text-stone-700 hover:text-[#881337] transition-colors px-4 py-2 flex items-center gap-1.5">
+      <button className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors px-4 py-2 flex items-center gap-1.5" style={{ color: textColor }}>
         <span>{label}</span>
         <svg 
           width="12" 
@@ -751,7 +842,7 @@ function MegaMenuItem({
         >
           <path d="M6 9l6 6 6-6" />
         </svg>
-        <span className={`absolute bottom-0 left-0 right-0 h-0.5 bg-[#881337] transition-transform origin-left ${isOpen ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`} />
+        <span className={`absolute bottom-0 left-0 right-0 h-0.5 transition-transform origin-left ${isOpen ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`} style={{ backgroundColor: accent }} />
       </button>
 
       {/* Mega Dropdown */}
@@ -764,10 +855,10 @@ function MegaMenuItem({
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
             className="absolute top-full left-1/2 -translate-x-1/2 pt-2 z-50"
           >
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden min-w-[600px]">
+            <div className="rounded-2xl shadow-2xl border border-gray-100 overflow-hidden min-w-[600px]" style={{ backgroundColor: panelBg }}>
               {/* Header */}
-              <div className="bg-gradient-to-r from-stone-50 to-white px-6 py-4 border-b border-gray-100">
-                <h3 className="text-lg font-bold text-gray-900">{label}</h3>
+              <div className="px-6 py-4 border-b border-gray-100" style={{ backgroundColor: panelBg }}>
+                <h3 className="text-lg font-bold" style={{ color: textColor }}>{label}</h3>
                 <p className="text-xs text-gray-500 mt-0.5">Explore our curated collection</p>
               </div>
 
@@ -775,18 +866,19 @@ function MegaMenuItem({
               <div className="grid grid-cols-2 gap-8 p-6">
                 {categories.map((category, idx) => (
                   <div key={idx} className="space-y-3">
-                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-200 pb-2">
+                    <h4 className="text-sm font-bold uppercase tracking-wider border-b border-gray-200 pb-2" style={{ color: textColor }}>
                       {category.title}
                     </h4>
                     <ul className="space-y-2">
-                      {category.items.map((item, itemIdx) => (
-                        <li key={itemIdx}>
+                      {category.items.map((item) => (
+                        <li key={`${category.title}-${item.label}`}>
                           <Link
-                            href={`/products?category=${getCategoryParam(item)}`}
-                            className="group flex items-center gap-2 text-sm text-gray-600 hover:text-[#881337] transition-colors py-1"
+                            href={item.href}
+                            className="group flex items-center gap-2 text-sm text-gray-600 transition-colors py-1 hover:text-[var(--nav-accent)]"
+                            style={{ "--nav-accent": accent } as React.CSSProperties}
                           >
-                            <span className="w-1 h-1 rounded-full bg-gray-300 group-hover:bg-[#881337] transition-colors" />
-                            <span>{item}</span>
+                            <span className="w-1 h-1 rounded-full bg-gray-300 transition-colors group-hover:bg-[var(--nav-accent)]" />
+                            <span>{item.label}</span>
                             <svg 
                               width="14" 
                               height="14" 
@@ -807,10 +899,11 @@ function MegaMenuItem({
               </div>
 
               {/* Footer CTA */}
-              <div className="bg-gradient-to-r from-[#881337]/5 to-[#881337]/10 px-6 py-4 border-t border-gray-100">
+              <div className="px-6 py-4 border-t border-gray-100" style={{ backgroundColor: `${accent}12` }}>
                 <Link 
-                  href={`/products?category=${getCategoryParam(label)}`}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-[#881337] hover:text-[#701a35] transition-colors"
+                  href={footerHref}
+                  className="inline-flex items-center gap-2 text-sm font-semibold transition-colors"
+                  style={{ color: accent }}
                 >
                   <span>View All in {label}</span>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

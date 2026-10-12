@@ -155,16 +155,6 @@ function LoginContent() {
                   {isLoading ? "Signing in..." : "Sign In"}
                 </button>
 
-                {/* Demo credentials are only meaningful while the backend is not connected. */}
-                {!isApiConfigured() && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 mb-1">Demo Account</p>
-                    <p className="text-xs text-amber-600">
-                      Email: <span className="font-mono">customer@vanicollection.com</span><br />
-                      Password: <span className="font-mono">customer123</span>
-                    </p>
-                  </div>
-                )}
               </form>
 
               <div className="mt-6 text-center">

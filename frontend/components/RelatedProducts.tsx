@@ -1,7 +1,7 @@
 "use client";
 
-import { PRODUCTS } from "../data/products";
 import type { Product } from "../lib/storefront-types";
+import { useCatalogue } from "../lib/use-storefront";
 import LivingProductCard from "./LivingProductCard";
 import { useCart } from "../context/CartContext";
 import { useState } from "react";
@@ -14,21 +14,8 @@ interface RelatedProductsProps {
 export default function RelatedProducts({ currentProduct }: RelatedProductsProps) {
   const { addToCart, toggleWishlist, isInWishlist, setQuickViewProduct } = useCart();
   const [selectedSizes, setSelectedSizes] = useState<{ [key: string]: string }>({});
-
-  // Get related products from same category, excluding current product
-  const relatedProducts = PRODUCTS.filter(product => 
-    product.category === currentProduct.category && product.id !== currentProduct.id
-  ).slice(0, 4);
-
-  // If not enough products in same category, add from other categories
-  if (relatedProducts.length < 4) {
-    const additionalProducts = PRODUCTS.filter(product => 
-      product.id !== currentProduct.id && 
-      !relatedProducts.some(rp => rp.id === product.id)
-    ).slice(0, 4 - relatedProducts.length);
-    
-    relatedProducts.push(...additionalProducts);
-  }
+  const { data } = useCatalogue({ category: currentProduct.category, limit: 5 });
+  const relatedProducts = data.filter((product) => product.id !== currentProduct.id).slice(0, 4);
 
   const handleSizeChange = (productId: string, size: string) => {
     setSelectedSizes(prev => ({ ...prev, [productId]: size }));
@@ -64,9 +51,9 @@ export default function RelatedProducts({ currentProduct }: RelatedProductsProps
 
       {/* View All Link */}
       <div className="text-center">
-        <button className="bg-white border-2 border-[#881337] text-[#881337] px-8 py-3 rounded-xl font-semibold hover:bg-[#881337] hover:text-white transition">
+        <a href="/products" className="inline-block bg-white border-2 border-[#881337] text-[#881337] px-8 py-3 rounded-xl font-semibold hover:bg-[#881337] hover:text-white transition">
           View All Products
-        </button>
+        </a>
       </div>
     </div>
   );

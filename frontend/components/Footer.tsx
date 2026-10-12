@@ -1,12 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api, isApiConfigured, type StoreCategory } from "../lib/api-client";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [categories, setCategories] = useState<StoreCategory[]>([]);
+
+  useEffect(() => {
+    if (!isApiConfigured()) return;
+    const controller = new AbortController();
+    void api.categories(controller.signal)
+      .then(({ data }) => setCategories(data))
+      .catch((cause: unknown) => {
+        if ((cause as Error)?.name !== "AbortError") console.error("Could not load footer categories", cause);
+      });
+    return () => controller.abort();
+  }, []);
 
   const handleSubscribe = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -71,38 +84,18 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold text-white mb-4">Shop</h4>
             <ul className="space-y-3">
-              <li>
-                <Link
-                  href="/products?category=mul-cotton"
-                  className="text-sm text-white/70 hover:text-[#dfc28c] transition"
-                >
-                  Mul Cotton Collection
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/products?category=festive"
-                  className="text-sm text-white/70 hover:text-[#dfc28c] transition"
-                >
-                  Festive Edit
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/products?category=anarkalis"
-                  className="text-sm text-white/70 hover:text-[#dfc28c] transition"
-                >
-                  Anarkali Suits
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/products?category=coord-sets"
-                  className="text-sm text-white/70 hover:text-[#dfc28c] transition"
-                >
-                  Co-ord Sets
-                </Link>
-              </li>
+              {(categories.length ? categories : [
+                { name: "Mul Cotton", slug: "mul-cotton" },
+                { name: "Festive Edit", slug: "festive" },
+                { name: "Anarkalis", slug: "anarkalis" },
+                { name: "Co-ord Sets", slug: "coord-sets" },
+              ]).slice(0, 8).map((category) => (
+                <li key={category.slug}>
+                  <Link href={`/products?category=${encodeURIComponent(category.slug)}`} className="text-sm text-white/70 hover:text-[#dfc28c] transition">
+                    {category.name}
+                  </Link>
+                </li>
+              ))}
               <li>
                 <Link
                   href="/products"

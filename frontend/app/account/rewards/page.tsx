@@ -104,6 +104,21 @@ export default function RewardsPage() {
   const wouldCap = capRupees !== null && previewRupees > capRupees;
   const maxRedeemable = Number(orderValue) > 0 ? Math.floor(capRupees! / me.redemption.pointValueRupees) : me.points;
 
+  if (!live) {
+    return (
+      <>
+        <PageHeader eyebrow="Loyalty" title="Rewards" subtitle="Your points and rewards balance." />
+        <Card>
+          <EmptyState
+            icon={<IconGift />}
+            title="Rewards unavailable"
+            description={summary.error ?? "Sign in with the storefront API connected to view your rewards."}
+          />
+        </Card>
+      </>
+    );
+  }
+
   const redeem = async () => {
     setError(null);
     setNotice(null);

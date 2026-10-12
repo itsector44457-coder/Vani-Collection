@@ -6,17 +6,17 @@
  * Content documents into the exact structures the homepage already renders, so wiring the CMS up does
  * not mean rewriting the design.
  *
- * The contract throughout: **CMS content wins when it exists, the bundled demo data is the fallback.**
- * A fresh install with an empty `contents` collection must render exactly what it renders today.
+ * Only published CMS content is rendered; an empty CMS produces empty homepage content.
  */
 
 import { fetchCatalogue } from "./seo";
+import type { Metadata } from "next";
 
 /** Mirrors `backend/models/Content.js`. */
 export interface ContentDoc {
   _id: string;
   key: string;
-  kind: "page" | "section" | "banner" | "faq" | "policy" | "testimonial" | "lookbook";
+  kind: "page" | "section" | "banner" | "faq" | "policy" | "testimonial" | "lookbook" | "product_collection";
   title?: string;
   subtitle?: string;
   body?: string;
@@ -28,11 +28,22 @@ export interface ContentDoc {
   position?: number;
   locale?: string;
   status?: "draft" | "published";
+  updatedBy?: { _id?: string; email?: string; firstName?: string; lastName?: string };
   createdAt?: string;
   updatedAt?: string;
 }
 
-export const CONTENT_KINDS = ["page", "section", "banner", "faq", "policy", "testimonial", "lookbook"] as const;
+export interface PublishedReel {
+  _id: string;
+  title: string;
+  description?: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  position: number;
+  productId: { _id: string; name: string; slug: string; images?: { url: string; alt?: string }[]; variants?: { price: number }[] };
+}
+
+export const CONTENT_KINDS = ["page", "section", "banner", "faq", "policy", "testimonial", "lookbook", "product_collection"] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
 
 /* ------------------------------------------------------------------ fetching */
@@ -84,6 +95,7 @@ export interface HeroSlide {
   ctaLink: string;
   tag: string;
   image: string;
+  video?: string;
   /** Tailwind object-position class controlling where the photo is cropped. */
   position?: string;
 }
@@ -96,26 +108,39 @@ export interface HeroSlide {
  */
 export function toHeroSlides(docs: ContentDoc[], fallback: HeroSlide[]): HeroSlide[] {
   if (!docs.length) return fallback;
-  const slides = docs
-    .map((doc, index): HeroSlide | null => {
-      const blocks = blocksAsObject(doc);
-      const base = fallback[index] ?? fallback[0];
-      const image = firstImage(doc) ?? str(blocks.image) ?? base?.image;
-      const title = str(doc.title) ?? base?.title;
-      // A banner with neither a title nor an image cannot render; drop it rather than show a hole.
-      if (!title || !image) return null;
-      return {
-        title,
-        subtitle: str(doc.subtitle) ?? str(blocks.subtitle) ?? base?.subtitle ?? "",
-        desc: str(doc.body) ?? str(blocks.desc) ?? base?.desc ?? "",
-        ctaText: str(doc.ctaLabel) ?? str(blocks.ctaText) ?? base?.ctaText ?? "Shop now",
-        ctaLink: str(doc.ctaHref) ?? str(blocks.ctaLink) ?? base?.ctaLink ?? "#products",
-        tag: str(blocks.tag) ?? base?.tag ?? "",
-        image,
-        position: str(blocks.position) ?? base?.position,
-      };
-    })
-    .filter((slide): slide is HeroSlide => slide !== null);
+  const slides = docs.flatMap((doc, index): HeroSlide[] => {
+    const blocks = blocksAsObject(doc);
+    const base = fallback[index] ?? fallback[0];
+    const media = Array.isArray(doc.media) ? doc.media : [];
+    const imageMedia = media.filter((item) => item?.kind !== "video" && str(item?.url));
+    const videoMedia = media.filter((item) => item?.kind === "video" && str(item?.url));
+    const fallbackImage = str(blocks.image) ?? base?.image ?? "";
+    const title = str(doc.title) ?? base?.title;
+    if (!title) return [];
+
+    const shared = {
+      title,
+      subtitle: str(doc.subtitle) ?? str(blocks.subtitle) ?? base?.subtitle ?? "",
+      desc: str(doc.body) ?? str(blocks.desc) ?? base?.desc ?? "",
+      ctaText: str(doc.ctaLabel) ?? str(blocks.ctaText) ?? base?.ctaText ?? "Shop now",
+      ctaLink: str(doc.ctaHref) ?? str(blocks.ctaLink) ?? base?.ctaLink ?? "#products",
+      tag: str(blocks.tag) ?? base?.tag ?? "",
+      position: str(blocks.position) ?? base?.position,
+    };
+    const imageSlides = imageMedia.map((item) => ({
+      ...shared,
+      image: item.url,
+    }));
+    const videoSlides = videoMedia.map((item) => ({
+      ...shared,
+      image: imageMedia[0]?.url ?? fallbackImage,
+      video: item.url,
+    }));
+    const mediaSlides = [...imageSlides, ...videoSlides];
+
+    if (mediaSlides.length) return mediaSlides;
+    return fallbackImage ? [{ ...shared, image: fallbackImage }] : [];
+  });
   return slides.length ? slides : fallback;
 }
 
@@ -152,7 +177,7 @@ export function toTestimonials(docs: ContentDoc[], fallback: Testimonial[]): Tes
         rating: Math.min(5, Math.max(1, Math.round(rating))),
         title: str(doc.title) ?? base?.title ?? "",
         comment,
-        verified: bool(blocks.verified, base?.verified ?? true),
+        verified: bool(blocks.verified, base?.verified ?? false),
         date: str(blocks.date) ?? base?.date ?? "",
         product: str(blocks.product) ?? base?.product ?? "",
       };
@@ -246,9 +271,12 @@ export interface CategoryStory {
   id: string;
   name: string;
   tagline: string;
+  description: string;
   image: string;
+  video?: string;
   count: string;
   filterKey: string;
+  ctaLabel: string;
 }
 
 /** Category story tiles from `kind=section`. Falls back to the bundled stories when absent. */
@@ -259,15 +287,21 @@ export function toCategoryStories(docs: ContentDoc[], fallback: CategoryStory[])
       const blocks = blocksAsObject(doc);
       const base = fallback[index];
       const name = str(doc.title) ?? base?.name;
-      const image = firstImage(doc) ?? str(blocks.image) ?? base?.image;
+      const media = Array.isArray(doc.media) ? doc.media : [];
+      const image = str(media.find((item) => item?.kind !== "video" && str(item?.url))?.url)
+        ?? str(blocks.image)
+        ?? base?.image;
       if (!name || !image) return null;
       return {
         id: doc.key,
         name,
         tagline: str(doc.subtitle) ?? str(blocks.tagline) ?? base?.tagline ?? "",
+        description: str(doc.body) ?? str(blocks.description) ?? "",
         image,
+        video: str(media.find((item) => item?.kind === "video" && str(item?.url))?.url),
         count: str(blocks.count) ?? base?.count ?? "",
         filterKey: str(blocks.filterKey) ?? base?.filterKey ?? "",
+        ctaLabel: str(doc.ctaLabel) ?? "Shop this collection",
       };
     })
     .filter((row): row is CategoryStory => row !== null);
@@ -282,7 +316,8 @@ export interface HomepageContent<TBanners, TTestimonials, TLookbook, TStories> {
   lookbook: TLookbook;
   stories: TStories;
   faqs: FaqItem[];
-  /** True when at least one block came from the CMS rather than the bundled demo data. */
+  productCollection: { title?: string; subtitle?: string; productIds: string[] } | null;
+  /** True when at least one published homepage block came from the CMS. */
   fromCms: boolean;
 }
 
@@ -299,13 +334,24 @@ export async function fetchHomepageContent(fallbacks: {
   lookbook: Lookbook;
   stories: CategoryStory[];
 }): Promise<HomepageContent<HeroSlide[], Testimonial[], Lookbook, CategoryStory[]>> {
-  const [banners, testimonials, lookbook, stories, faqs] = await Promise.all([
-    fetchContentByKind("banner"),
-    fetchContentByKind("testimonial"),
-    fetchContentByKind("lookbook"),
-    fetchContentByKind("section"),
-    fetchContentByKind("faq"),
-  ]);
+  // CMS changes should show on the next homepage request after an editor publishes them.
+  const response = await fetchCatalogue<{ data: ContentDoc[] }>("/api/content", 0);
+  const published = Array.isArray(response?.data) ? response.data : [];
+  const ofKind = (kind: ContentKind) => published.filter((item) => item.kind === kind && item.key);
+  const banners = ofKind("banner");
+  const testimonials = ofKind("testimonial");
+  const lookbook = ofKind("lookbook");
+  const stories = ofKind("section");
+  const faqs = ofKind("faq");
+  const productCollections = ofKind("product_collection");
+
+  const productCollection = productCollections[0];
+  const productBlocks = productCollection?.blocks && typeof productCollection.blocks === "object" && !Array.isArray(productCollection.blocks)
+    ? productCollection.blocks as Record<string, unknown>
+    : {};
+  const productIds = Array.isArray(productBlocks.productIds)
+    ? productBlocks.productIds.filter((id): id is string => typeof id === "string")
+    : [];
 
   return {
     banners: toHeroSlides(banners, fallbacks.banners),
@@ -313,6 +359,32 @@ export async function fetchHomepageContent(fallbacks: {
     lookbook: toLookbook(lookbook, fallbacks.lookbook),
     stories: toCategoryStories(stories, fallbacks.stories),
     faqs: toFaqItems(faqs),
-    fromCms: Boolean(banners.length || testimonials.length || lookbook.length || stories.length || faqs.length),
+    productCollection: productCollection ? {
+      title: str(productCollection.title),
+      subtitle: str(productCollection.subtitle),
+      productIds,
+    } : null,
+    fromCms: Boolean(banners.length || testimonials.length || lookbook.length || stories.length || faqs.length || productCollection),
+  };
+}
+
+export async function fetchManagedPage(key: string): Promise<ContentDoc | null> {
+  const document = await fetchContentByKey(`page.${key}`);
+  return document?.kind === "page" ? document : null;
+}
+
+export async function fetchPublishedReels(): Promise<PublishedReel[]> {
+  const response = await fetchCatalogue<{ data: PublishedReel[] }>("/api/reels", 30);
+  return Array.isArray(response?.data) ? response.data : [];
+}
+
+export function managedPageMetadata(document: ContentDoc | null, fallback: Metadata): Metadata {
+  const blocks = document ? blocksAsObject(document) : {};
+  const title = str(blocks.seoTitle) ?? str(document?.title);
+  const description = str(blocks.seoDescription);
+  return {
+    ...fallback,
+    ...(title ? { title } : {}),
+    ...(description ? { description } : {}),
   };
 }

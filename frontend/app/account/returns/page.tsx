@@ -11,29 +11,6 @@ import { useMyOrders } from "@/lib/use-storefront";
 
 type Tone = "success" | "warning" | "danger" | "info";
 
-const DEMO_RETURNS = [
-  {
-    id: "RT-2410-882",
-    orderId: "VC-4602",
-    item: "Indigo Dabu Cotton Kurta Set",
-    reason: "Size too small",
-    status: "Refund processed",
-    amount: 1899,
-    date: "25 Aug 2024",
-    refunded: true,
-  },
-  {
-    id: "RT-2409-771",
-    orderId: "VC-4655",
-    item: "Chanderi Zari Kurta",
-    reason: "Received damaged",
-    status: "Under review",
-    amount: 2199,
-    date: "18 Sep 2024",
-    refunded: false,
-  },
-];
-
 const tone = (status: string): Tone =>
   status === "Refund processed" || status === "refunded" || status === "returned"
     ? "success"
@@ -76,7 +53,7 @@ export default function ReturnsPage() {
       refunded: order.payment.status === "refunded" || order.status === "refunded",
     }));
 
-  const rows = live ? liveRows : DEMO_RETURNS;
+  const rows = live ? liveRows : [];
 
   const handleSubmit = async () => {
     setError("");
@@ -112,9 +89,9 @@ export default function ReturnsPage() {
       <PageHeader
         eyebrow="After sales"
         title="Returns & Refunds"
-        subtitle="Track and manage your returns. Free pickup on all orders."
+        subtitle="Track and manage return requests for your orders."
         action={
-          <ButtonPrimary onClick={() => setFormOpen((value) => !value)}>
+          <ButtonPrimary disabled={!live || !isAuthenticated} onClick={() => setFormOpen((value) => !value)}>
             {formOpen ? "Close" : "Start a return"}
           </ButtonPrimary>
         }
@@ -125,7 +102,7 @@ export default function ReturnsPage() {
       )}
       {(error || (!live && formOpen)) && (
         <p className={`mb-5 rounded-xl px-4 py-3 text-[12.5px] ${error ? "border border-rose-200 bg-rose-50 text-rose-700" : "border border-amber-200 bg-amber-50 text-amber-800"}`}>
-          {error || "Connect the backend to raise real return requests — the list below is sample data."}
+          {error || "Return requests are unavailable because the storefront API is not configured."}
         </p>
       )}
 

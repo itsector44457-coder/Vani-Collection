@@ -75,26 +75,6 @@ const DEMO_MEMBERS: AdminLoyaltyMember[] = [
   { _id: "m4", userId: "u4", email: "sana@example.com", name: "Sana Kapoor", points: 0, lifetimePoints: 120, tier: "silver", tierLabel: "Silver", nextTier: { name: "gold", label: "Gold", pointsNeeded: 880 }, valueRupees: 0, memberSince: new Date("2026-08-22").toISOString() },
 ];
 
-const DEMO_DETAIL: { summary: LoyaltySummary; transactions: LoyaltyTransaction[] } = {
-  summary: {
-    enabled: true,
-    points: 1240,
-    valueRupees: 1240,
-    lifetimePoints: 8600,
-    tier: { name: "platinum", label: "Platinum", minLifetimePoints: 5000, next: null },
-    expiringSoon: { points: 180, earliest: new Date(Date.now() + 12 * 86400e3).toISOString() },
-    redemption: { minPoints: 100, pointValueRupees: 1, maxPercentOfOrder: 50, couponValidDays: 30, canRedeem: true },
-    earning: { rupeesPerPoint: 100, expiryMonths: 12 },
-    referral: { code: "MEERA7X", bonusPoints: 200, referredCount: 3 },
-    totals: { earned: 8200, referrals: 600, redeemed: 9600, expired: 0 },
-  },
-  transactions: [
-    { _id: "t1", delta: 39, reason: "order_earned", note: "Earned on order VC17200000012", balanceAfter: 1240, createdAt: new Date(Date.now() - 86400e3 * 3).toISOString(), expiresAt: new Date(Date.now() + 362 * 86400e3).toISOString() },
-    { _id: "t2", delta: 200, reason: "referral_made", note: "Referred Priya", balanceAfter: 1201, createdAt: new Date(Date.now() - 86400e3 * 9).toISOString() },
-    { _id: "t3", delta: -380, reason: "redeemed", couponCode: "VC-K7M2QP4X", note: "Redeemed for ₹380 off", balanceAfter: 1001, createdAt: new Date(Date.now() - 86400e3 * 14).toISOString() },
-  ],
-};
-
 const tierTone = (tier: string): BadgeTone => (tier === "platinum" ? "gold" : tier === "gold" ? "warning" : "neutral");
 
 const reasonTone = (reason: string): BadgeTone => {
@@ -186,7 +166,7 @@ export default function LoyaltyPage() {
   const openDetail = async (member: AdminLoyaltyMember) => {
     setError(null);
     if (!live) {
-      setDetail({ member, summary: DEMO_DETAIL.summary, transactions: DEMO_DETAIL.transactions });
+      setError("Member details are unavailable until the admin API is connected.");
       return;
     }
     setBusy(true);

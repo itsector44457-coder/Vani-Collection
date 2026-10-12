@@ -64,7 +64,7 @@ interface AuthContextType {
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
   /** "live" when the real backend is handling sessions, "demo" for the local preview accounts. */
-  mode: "live" | "demo";
+  mode: "live" | "unavailable";
   /** Reset link returned by the API in non-production (no email provider connected yet). */
   lastResetUrl: string | null;
   refresh: () => void;
@@ -83,9 +83,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const USER_KEY = "vani_user";
 const PREFERENCES_KEY = "vani_preferences";
-const DEMO_EMAIL = "customer@vanicollection.com";
-const DEMO_PASSWORD = "customer123";
-
 const readJson = <T,>(key: string, fallback: T): T => {
   if (typeof window === "undefined") return fallback;
   try {
@@ -165,8 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     || pathname.startsWith("/account/")
     || pathname === "/admin"
     || pathname.startsWith("/admin/");
-  /* In demo mode the visitor is restored from localStorage before paint, so nothing flashes. */
-  const [user, setUser] = useState<User | null>(() => (configured ? null : readJson<User | null>(USER_KEY, null)));
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(configured && requiresSession);
   const [checkedPath, setCheckedPath] = useState<string | null>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
@@ -202,10 +198,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (cause) {
         if ((cause as Error)?.name === "AbortError") return;
-        // 401 simply means "not signed in"; anything else keeps the visitor as a guest too.
         if (!cancelled) {
-          setSessionLoaded(false);
-          setUser(null);
+          if (cause instanceof ApiError && cause.status === 401) {
+            setSessionLoaded(false);
+            setUser(null);
+          } else {
+            setSessionLoaded(Boolean(user));
+          }
         }
         if (cause instanceof ApiError && cause.status !== 401) console.warn("Session check failed:", cause.message);
       } finally {
@@ -220,7 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cancelled = true;
       controller.abort();
     };
-  }, [checkedPath, configured, nonce, pathname, requiresSession, sessionLoaded]);
+  }, [checkedPath, configured, nonce, pathname, requiresSession, sessionLoaded, user]);
 
   const sessionLoading = configured && requiresSession
     && (isLoading || (!sessionLoaded && checkedPath !== pathname));
@@ -245,24 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!nextUser.mustChangePassword) await loadAddresses();
           return;
         }
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-          const demoUser: User = {
-            id: "demo_user_1",
-            email: DEMO_EMAIL,
-            firstName: "Priya",
-            lastName: "Sharma",
-            phone: "9876543210",
-            addresses: [],
-            preferences: readJson<UserPreferences | undefined>(PREFERENCES_KEY, undefined),
-            createdAt: "2023-06-15T10:30:00Z",
-          };
-          setSessionLoaded(true);
-          setUser(demoUser);
-          writeJson(USER_KEY, demoUser);
-        } else {
-          throw new Error("Invalid email or password. Demo account: customer@vanicollection.com / customer123");
-        }
+        throw new Error("Authentication is unavailable because the API is not configured.");
       } finally {
         setIsLoading(false);
       }
@@ -316,88 +298,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateProfile = useCallback(
     async (data: Partial<User>): Promise<void> => {
+      if (!configured) throw new Error("Authentication is unavailable because the API is not configured.");
       if (!user) throw new Error("Not authenticated");
-      if (configured) {
-        await updateProfileRequest({ firstName: data.firstName, lastName: data.lastName, phone: data.phone });
-      }
+      await updateProfileRequest({ firstName: data.firstName, lastName: data.lastName, phone: data.phone });
       const nextUser = { ...user, ...data };
       setUser(nextUser);
       if (data.preferences) writeJson(PREFERENCES_KEY, data.preferences);
-      if (!configured) writeJson(USER_KEY, nextUser);
     },
     [configured, user]
   );
 
   const addAddress = useCallback(
     async (address: Omit<Address, "id">): Promise<void> => {
+      if (!configured) throw new Error("Address management is unavailable because the API is not configured.");
       if (!user) throw new Error("Not authenticated");
-      if (configured) {
-        const addresses = await createAddress(toApiAddress(address));
-        setUser((previous) => (previous ? { ...previous, addresses: addresses.map(toUiAddress) } : previous));
-        return;
-      }
-      const newAddress: Address = { ...address, id: `addr_${Date.now()}` };
-      const existing = user.addresses ?? [];
-      const shouldDefault = existing.length === 0 || address.isDefault;
-      const nextAddresses = shouldDefault ? [...existing.map((item) => ({ ...item, isDefault: false })), { ...newAddress, isDefault: true }] : [...existing, newAddress];
-      const nextUser = { ...user, addresses: nextAddresses };
-      setUser(nextUser);
-      writeJson(USER_KEY, nextUser);
+      const addresses = await createAddress(toApiAddress(address));
+      setUser((previous) => (previous ? { ...previous, addresses: addresses.map(toUiAddress) } : previous));
     },
     [configured, user]
   );
 
   const updateAddress = useCallback(
     async (id: string, addressData: Partial<Address>): Promise<void> => {
+      if (!configured) throw new Error("Address management is unavailable because the API is not configured.");
       if (!user) throw new Error("Not authenticated");
-      if (configured) {
-        const addresses = await updateAddressRequest(id, toApiAddress(addressData));
-        setUser((previous) => (previous ? { ...previous, addresses: addresses.map(toUiAddress) } : previous));
-        return;
-      }
-      const nextUser = { ...user, addresses: (user.addresses ?? []).map((item) => (item.id === id ? { ...item, ...addressData } : item)) };
-      setUser(nextUser);
-      writeJson(USER_KEY, nextUser);
+      const addresses = await updateAddressRequest(id, toApiAddress(addressData));
+      setUser((previous) => (previous ? { ...previous, addresses: addresses.map(toUiAddress) } : previous));
     },
     [configured, user]
   );
 
   const deleteAddress = useCallback(
     async (id: string): Promise<void> => {
+      if (!configured) throw new Error("Address management is unavailable because the API is not configured.");
       if (!user) throw new Error("Not authenticated");
-      if (configured) {
-        await deleteAddressRequest(id);
-        await loadAddresses();
-        return;
-      }
-      const nextUser = { ...user, addresses: (user.addresses ?? []).filter((item) => item.id !== id) };
-      setUser(nextUser);
-      writeJson(USER_KEY, nextUser);
+      await deleteAddressRequest(id);
+      await loadAddresses();
     },
     [configured, loadAddresses, user]
   );
 
   const setDefaultAddress = useCallback(
     async (id: string): Promise<void> => {
+      if (!configured) throw new Error("Address management is unavailable because the API is not configured.");
       if (!user) throw new Error("Not authenticated");
-      if (configured) {
-        const addresses = await updateAddressRequest(id, { isDefault: true });
-        setUser((previous) => (previous ? { ...previous, addresses: addresses.map(toUiAddress) } : previous));
-        return;
-      }
-      const nextUser = { ...user, addresses: (user.addresses ?? []).map((item) => ({ ...item, isDefault: item.id === id })) };
-      setUser(nextUser);
-      writeJson(USER_KEY, nextUser);
+      const addresses = await updateAddressRequest(id, { isDefault: true });
+      setUser((previous) => (previous ? { ...previous, addresses: addresses.map(toUiAddress) } : previous));
     },
     [configured, user]
   );
 
   const forgotPassword = useCallback(
     async (email: string): Promise<void> => {
-      if (!configured) {
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        return;
-      }
+      if (!configured) throw new Error("Password reset is unavailable because the API is not configured.");
       const { resetUrl } = await requestPasswordReset(email.trim());
       setLastResetUrl(resetUrl ?? null);
     },
@@ -406,10 +359,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const resetPassword = useCallback(
     async (token: string, newPassword: string): Promise<void> => {
-      if (!configured) {
-        await new Promise((resolve) => setTimeout(resolve, 400));
-        return;
-      }
+      if (!configured) throw new Error("Password reset is unavailable because the API is not configured.");
       await resetPasswordRequest(token, newPassword);
     },
     [configured]
@@ -431,7 +381,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setDefaultAddress,
       forgotPassword,
       resetPassword,
-      mode: configured ? "live" : "demo",
+      mode: configured ? "live" : "unavailable",
       lastResetUrl,
       refresh,
     }),

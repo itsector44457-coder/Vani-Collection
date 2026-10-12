@@ -12,66 +12,6 @@ import { isApiConfigured } from "../../lib/api-client";
 import { orderStatusLabel, type StoreOrder } from "../../lib/storefront-types";
 import { useCatalogue, useMyOrders } from "../../lib/use-storefront";
 
-/* ── Mock data ── */
-const MOCK_ORDERS = [
-  {
-    id: "VC892341",
-    date: "24 Sep 2026",
-    status: "Delivered",
-    statusColor: "emerald",
-    total: 2499,
-    items: [
-      {
-        title: "Gulab Bagh Handblock Pure Mul Cotton Anarkali Set",
-        size: "M", qty: 1, price: 2499,
-        image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=200&q=80",
-        slug: "gulab-bagh-handblock-pure-mul-cotton-anarkali-set",
-      },
-    ],
-  },
-  {
-    id: "VC774209",
-    date: "10 Sep 2026",
-    status: "Dispatched",
-    statusColor: "blue",
-    total: 5198,
-    items: [
-      {
-        title: "Chandni Ivory Chanderi Silk Zari Sharara Set",
-        size: "S", qty: 1, price: 3699,
-        image: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=200&q=80",
-        slug: "chandni-ivory-chanderi-silk-zari-sharara-set",
-      },
-      {
-        title: "Roohani Indigo Handblock Floral Co-ord Set",
-        size: "M", qty: 1, price: 1899,
-        image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=200&q=80",
-        slug: "roohani-indigo-handblock-floral-co-ord-set",
-      },
-    ],
-  },
-  {
-    id: "VC661088",
-    date: "2 Aug 2026",
-    status: "Delivered",
-    statusColor: "emerald",
-    total: 1799,
-    items: [
-      {
-        title: "Bagh-e-Fiza Flared Tiered Mul Dress",
-        size: "XS", qty: 1, price: 1799,
-        image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-        slug: "bagh-e-fiza-flared-tiered-mul-dress",
-      },
-    ],
-  },
-];
-
-const DEMO_ADDRESSES = [
-  { label: "home", fullName: "Priya Sharma", line1: "42, Rose Garden Colony, Vaishali Nagar", city: "Jaipur", state: "Rajasthan", pincode: "302021", phone: "9001234567", isDefault: true },
-  { label: "work", fullName: "Priya Sharma", line1: "Level 3, Regus Business Centre, MG Road", city: "Jaipur", state: "Rajasthan", pincode: "302001", phone: "9001234567", isDefault: false },
-];
-
 const STATUS_COLORS: Record<string, string> = {
   emerald: "bg-emerald-100 text-emerald-700",
   blue: "bg-blue-100 text-blue-700",
@@ -122,7 +62,7 @@ export default function AccountPage() {
   const liveCatalogue = isApiConfigured();
   const ordersResource = useMyOrders(isAuthenticated);
   const catalogueResource = useCatalogue();
-  const ORDERS = liveCatalogue ? ordersResource.data.map(toDashboardOrder) : MOCK_ORDERS;
+  const ORDERS = liveCatalogue ? ordersResource.data.map(toDashboardOrder) : [];
   const wishlistProducts = (liveCatalogue && catalogueResource.source !== "live" ? [] : catalogueResource.data)
     .filter((product) => wishlist.includes(product.id));
   const addresses: Array<{
@@ -149,7 +89,7 @@ export default function AccountPage() {
         phone: address.phone,
         isDefault: address.isDefault,
       }))
-    : DEMO_ADDRESSES;
+    : [];
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("orders");
   const [profileDraft, setProfile] = useState<{
@@ -364,6 +304,7 @@ export default function AccountPage() {
                                   <div key={i} className="flex items-center gap-4">
                                     <Image src={item.image} alt={item.title}
                                       width={56} height={64}
+                                      unoptimized
                                       className="w-14 h-16 object-cover rounded-xl flex-shrink-0 border border-gray-100" />
                                     <div className="flex-1 min-w-0">
                                       <Link href={item.slug ? `/product/${item.slug}` : ("href" in order ? order.href : "/account/orders")}
@@ -414,6 +355,7 @@ export default function AccountPage() {
                             <div className="relative aspect-[3/4]">
                               <Image src={product.image} alt={product.title}
                                 fill sizes="(min-width: 640px) 33vw, 50vw"
+                                unoptimized
                                 className="object-cover" />
                               <button
                                 onClick={() => toggleWishlist(product.id)}

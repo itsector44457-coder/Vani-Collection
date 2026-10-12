@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { CATEGORIES, absoluteUrl, fetchSeoProducts, productImageUrls, STATIC_PAGES } from "@/lib/seo";
+import { CATEGORIES, absoluteUrl, fetchSeoCategories, fetchSeoProducts, productImageUrls, STATIC_PAGES } from "@/lib/seo";
 
 /**
  * Regenerate hourly rather than on every crawler hit. `sitemap.ts` is a cached Route Handler by
@@ -24,7 +24,7 @@ const parseDate = (value?: string): Date | undefined => {
  * crawlers a 500 and drop the whole index.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const products = await fetchSeoProducts(5000);
+  const [products, liveCategories] = await Promise.all([fetchSeoProducts(5000), fetchSeoCategories()]);
 
   const staticEntries: MetadataRoute.Sitemap = STATIC_PAGES.map((page) => ({
     url: absoluteUrl(page.path),
@@ -37,6 +37,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // so the listing pages stay in the sitemap even when no product has been tagged yet.
   const categories = new Map<string, Date | undefined>();
   for (const known of CATEGORIES) categories.set(known.key, undefined);
+  for (const category of liveCategories) {
+    const updated = parseDate(category.updatedAt);
+    if (category.slug) categories.set(category.slug, updated);
+  }
   for (const product of products) {
     if (!product.category) continue;
     const updated = parseDate(product.updatedAt) ?? parseDate(product.createdAt);

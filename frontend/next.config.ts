@@ -14,6 +14,7 @@ const remotePatterns = [
   { protocol: "https" as const, hostname: "images.unsplash.com" },
   { protocol: "https" as const, hostname: "images.pexels.com" },
   { protocol: "https" as const, hostname: "cdn.shopify.com" },
+  { protocol: "https" as const, hostname: "m.media-amazon.com" },
 ];
 
 const nextConfig: NextConfig = {

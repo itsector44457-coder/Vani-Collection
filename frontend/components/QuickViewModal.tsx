@@ -11,6 +11,7 @@ export default function QuickViewModal() {
   const [selectedSize, setSelectedSize] = useState<string>("M");
   const [activeImgIndex, setActiveImgIndex] = useState<number>(0);
   const [addedNotice, setAddedNotice] = useState(false);
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
 
   if (!quickViewProduct) return null;
 
@@ -159,12 +160,19 @@ export default function QuickViewModal() {
                     Select Size
                   </span>
                   <button
-                    onClick={() => alert("Size Chart: XS (34) | S (36) | M (38) | L (40) | XL (42) | XXL (44)")}
+                    type="button"
+                    aria-expanded={showSizeGuide}
+                    onClick={() => setShowSizeGuide((open) => !open)}
                     className="text-[11px] text-[#881337] underline hover:text-stone-900"
                   >
                     Size Guide
                   </button>
                 </div>
+                {showSizeGuide && (
+                  <div className="mb-3 whitespace-pre-wrap rounded-lg bg-white p-3 text-xs leading-6 text-stone-700 ring-1 ring-stone-200">
+                    {quickViewProduct.sizeGuide?.trim() || "Standard size guide: XS (34) | S (36) | M (38) | L (40) | XL (42) | XXL (44)"}
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {quickViewProduct.sizes.map((s) => (
                     <button

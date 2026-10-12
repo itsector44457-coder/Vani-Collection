@@ -156,6 +156,12 @@ export interface SeoProduct {
   updatedAt?: string;
 }
 
+export interface SeoCategory {
+  name: string;
+  slug: string;
+  updatedAt?: string;
+}
+
 interface ProductListResponse {
   data: SeoProduct[];
   meta?: { page?: number; limit?: number; total?: number; pages?: number };
@@ -183,7 +189,14 @@ export async function fetchSeoProducts(limit = 500): Promise<SeoProduct[]> {
     const pages = response?.meta?.pages ?? 1;
     if (rows.length === 0 || page >= pages) break;
   }
+
   return collected.slice(0, limit);
+}
+
+/** The current active category catalogue; an empty list means the API could not be reached. */
+export async function fetchSeoCategories(): Promise<SeoCategory[]> {
+  const response = await fetchCatalogue<{ data: SeoCategory[] }>("/api/categories", 3600);
+  return response?.data ?? [];
 }
 
 /**

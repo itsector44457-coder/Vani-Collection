@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
-import { HERO_SLIDES, STORIES_CATEGORIES, EDITORIAL_LOOKBOOK, REVIEWS, CategoryStory } from "../../data/products";
 import type { HeroSlide, Lookbook, Testimonial } from "../../lib/content";
 import type { CategoryStory as CmsCategoryStory } from "../../lib/content";
 import { useCatalogue } from "../../lib/use-storefront";
 import StoryReelModal from "../../components/StoryReelModal";
 import LivingProductCard from "../../components/LivingProductCard";
+import { api, isApiConfigured, type StoreCategory } from "../../lib/api-client";
 
 export interface HomeViewProps {
   banners?: HeroSlide[];
@@ -17,6 +16,7 @@ export interface HomeViewProps {
   lookbook?: Lookbook;
   stories?: CmsCategoryStory[];
   faqs?: { question: string; answer: string }[];
+  productCollection?: { title?: string; subtitle?: string; productIds: string[] } | null;
   /** True when at least one block came from the CMS. Drives the small "live content" note. */
   fromCms?: boolean;
 }
@@ -26,15 +26,15 @@ export interface HomeViewProps {
  *
  * Split out of `page.tsx` so that file can be a Server Component: it fetches the CMS blocks, exports
  * `generateMetadata` and mounts the FAQPage JSON-LD — none of which a `"use client"` module can do.
- * Content arrives as props and every prop defaults to the bundled demo data, so this renders
- * identically with an empty CMS, no backend at all, or a partially populated one.
+ * Content arrives as props; only published CMS blocks and live API products are rendered.
  */
 export default function HomeView({
-  banners = HERO_SLIDES,
-  testimonials = REVIEWS,
-  lookbook = EDITORIAL_LOOKBOOK,
-  stories = STORIES_CATEGORIES,
+  banners = [],
+  testimonials = [],
+  lookbook = { title: "", subtitle: "", image: "", pins: [] },
+  stories = [],
   faqs = [],
+  productCollection = null,
   fromCms = false,
 }: HomeViewProps = {}) {
   const { addToCart, setQuickViewProduct, toggleWishlist, isInWishlist } = useCart();
@@ -42,57 +42,89 @@ export default function HomeView({
   // Active filter tab
   const [activeTab, setActiveTab] = useState<string>("all");
   // Story modal state
-  const [activeStory, setActiveStory] = useState<CategoryStory | null>(null);
+  const [activeStory, setActiveStory] = useState<CmsCategoryStory | null>(null);
   // Active Hero Slide
   const [heroSlide, setHeroSlide] = useState<number>(0);
+  const [heroInView, setHeroInView] = useState(false);
+  const [pageVisible, setPageVisible] = useState(false);
+  const heroSectionRef = useRef<HTMLElement>(null);
   // Start with the lightweight image experience; video remains an explicit opt-in.
   const [heroMode, setHeroMode] = useState<"slides" | "video">("slides");
   // Active hotspot pin
   const [activePin, setActivePin] = useState<string | null>("pin-1");
   // Quick size selection per product card
-  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({
-    "vani-1": "M",
-    "vani-2": "M",
-    "vani-3": "S",
-    "vani-4": "M",
-    "vani-5": "L",
-    "vani-6": "M",
-    "vani-7": "S",
-    "vani-8": "Free Size (6.5m with blouse)",
-  });
-  // Newsletter email state
-  const [newsletterEmail, setNewsletterEmail] = useState("");
-  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
-
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
+  const [categories, setCategories] = useState<StoreCategory[]>([]);
   const catalogue = useCatalogue();
-  const catalogueProducts = catalogue.data;
+  const catalogueProducts = productCollection?.productIds.length
+    ? productCollection.productIds
+      .map((id) => catalogue.data.find((product) => product.id === id))
+      .filter((product): product is (typeof catalogue.data)[number] => Boolean(product))
+    : catalogue.data;
 
   // Filter products according to active tab
   const filteredProducts = catalogueProducts.filter((p) => {
     if (activeTab === "all") return true;
-    if (activeTab === "mul-cotton") return p.category === "mul-cotton";
-    if (activeTab === "festive") return p.category === "festive";
-    if (activeTab === "coord-sets") return p.category === "coord-sets";
     if (activeTab === "budget") return p.price <= 1999;
-    return true;
+    return p.category === activeTab;
   });
+
+  useEffect(() => {
+    if (!isApiConfigured()) return;
+    const controller = new AbortController();
+    void api.categories(controller.signal)
+      .then(({ data }) => {
+        setCategories(data);
+        setActiveTab((current) => current === "all" || current === "budget" || data.some((category) => category.slug === current) ? current : "all");
+      })
+      .catch((cause: unknown) => {
+        if ((cause as Error)?.name !== "AbortError") console.error("Could not load homepage categories", cause);
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const section = heroSectionRef.current;
+    const updateVisibility = () => setPageVisible(document.visibilityState === "visible");
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    if (!section) return () => document.removeEventListener("visibilitychange", updateVisibility);
+    const observer = new IntersectionObserver(
+      ([entry]) => setHeroInView(entry.isIntersecting && entry.intersectionRatio >= 0.25),
+      { threshold: [0, 0.25] },
+    );
+    observer.observe(section);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", updateVisibility);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (heroMode !== "slides" || banners.length < 2 || !heroInView || !pageVisible) return;
+    const timer = window.setInterval(() => {
+      setHeroSlide((current) => (current + 1) % banners.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [heroMode, banners.length, heroInView, pageVisible]);
+
+  const fallbackCategorySlugs = ["mul-cotton", "festive", "coord-sets", "anarkalis"];
+  const categoryTabs = categories.length
+    ? categories.map((category) => ({ key: category.slug, label: category.name }))
+    : fallbackCategorySlugs.map((slug) => ({ key: slug, label: slug.replace(/-/g, " ") }));
+  const chooseCategory = (slug: string) => setActiveTab(categoryTabs.some((category) => category.key === slug) ? slug : "all");
 
 
   /* The CMS may publish one banner where the bundle had two, and `heroSlide` is state that survives
      a prop change — so clamp the index rather than reading past the end of the array. */
   const safeSlideIndex = banners.length ? Math.min(heroSlide, banners.length - 1) : 0;
   const activeSlide: HeroSlide | undefined = banners[safeSlideIndex];
+  const heroVideo = activeSlide?.video ?? banners.find((slide) => slide.video)?.video;
+  const heroImage = activeSlide?.image || catalogueProducts[0]?.image || "";
+  const hasHeroImage = Boolean(heroImage);
 
   const handleSizeChange = (productId: string, size: string) => {
     setSelectedSizes((prev) => ({ ...prev, [productId]: size }));
-  };
-
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newsletterEmail) {
-      setNewsletterSubscribed(true);
-      setNewsletterEmail("");
-    }
   };
 
   return (
@@ -100,13 +132,13 @@ export default function HomeView({
       className="relative min-h-screen bg-[#faf7f2] text-[#1c1917] pb-16 lg:pb-0"
       // Invisible to shoppers, but answers the first question a merchant asks after editing a block:
       // "is the homepage actually reading my CMS content, or still the bundled copy?"
-      data-content-source={fromCms ? "cms" : "bundled"}
+      data-content-source={fromCms ? "cms" : "empty"}
     >
       {/* ================= 1. EDITORIAL HERO — DUAL MODE (Video / Slides) ================= */}
-      <section className="relative h-[85vh] sm:h-[84vh] min-h-[510px] sm:min-h-[580px] max-h-[860px] w-full overflow-hidden bg-[#12080a]">
+      <section ref={heroSectionRef} className="relative h-[42svh] min-h-[270px] max-h-[400px] sm:h-[84vh] sm:min-h-[580px] sm:max-h-[860px] w-full overflow-hidden bg-[#faf7f2]">
 
         {/* ---- MODE TOGGLE PILL (top-right corner) ---- */}
-        <div className="absolute top-3.5 right-3.5 sm:top-6 sm:right-6 z-30 flex items-center gap-1 bg-black/60 backdrop-blur-xl border border-[#dfc28c]/40 rounded-full p-1 shadow-[0_4px_25px_rgba(0,0,0,0.6)]">
+        {banners.length > 0 && <div className="hidden sm:flex absolute top-3.5 right-3.5 sm:top-6 sm:right-6 z-30 items-center gap-1 bg-black/60 backdrop-blur-xl border border-[#dfc28c]/40 rounded-full p-1 shadow-[0_4px_25px_rgba(0,0,0,0.6)]">
           <button
             onClick={() => setHeroMode("slides")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider transition-all duration-300 ${
@@ -133,6 +165,7 @@ export default function HomeView({
             }`}
             aria-label="Play atelier video"
             aria-pressed={heroMode === "video"}
+            title={heroVideo ? "Play the uploaded hero video" : "Play the atelier video"}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M23 7l-7 5 7 5V7z" />
@@ -140,7 +173,7 @@ export default function HomeView({
             </svg>
             <span className="hidden sm:inline">Video</span>
           </button>
-        </div>
+        </div>}
 
         {/* ---- SLIDES MODE ---- */}
         <AnimatePresence>
@@ -162,15 +195,36 @@ export default function HomeView({
                   transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
                   className="absolute inset-0"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={activeSlide?.image}
-                    alt={activeSlide?.title ?? ""}
-                    className={`w-full h-full object-cover filter brightness-[0.92] ${activeSlide?.position || "object-center"}`}
-                  />
+                  {activeSlide?.video ? (
+                    <>
+                      {/* Mobile browsers may block autoplay; show the banner image instead of a black video frame. */}
+                      {heroImage && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={heroImage} alt={activeSlide.title} className={`h-full w-full object-cover brightness-[0.96] sm:hidden ${activeSlide.position || "object-center"}`} />
+                      )}
+                      <video
+                        key={activeSlide.video}
+                        src={activeSlide.video}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        preload="metadata"
+                        poster={heroImage || undefined}
+                        className={`hidden sm:block w-full h-full object-cover filter brightness-[0.92] ${activeSlide.position || "object-center"}`}
+                      />
+                    </>
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={heroImage || undefined}
+                      alt={activeSlide?.title ?? ""}
+                      className={`w-full h-full object-cover filter brightness-[0.96] sm:brightness-[0.92] ${activeSlide?.position || "object-center"}`}
+                    />
+                  )}
                   {/* Clean light overlays so the luxury photography is bright & crystal clear */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/35 via-transparent to-transparent" />
+                  {hasHeroImage && <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 sm:from-black/75 sm:to-black/20" />}
+                  {hasHeroImage && <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-transparent sm:from-black/35" />}
                 </motion.div>
               </AnimatePresence>
             </motion.div>
@@ -189,35 +243,45 @@ export default function HomeView({
               className="absolute inset-0"
             >
               {/* ---- FULLSCREEN BACKGROUND VIDEO ---- */}
+              {heroImage && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={heroImage} alt={activeSlide?.title || "Vani Collection"} className="absolute inset-0 h-full w-full object-cover brightness-[0.96] sm:hidden" />
+              )}
               <video
+                key={heroVideo ?? "atelier-default-video"}
+                src={heroVideo}
                 autoPlay
                 loop
                 muted
                 playsInline
                 preload="metadata"
-                className="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.88]"
-                poster="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1800&q=85"
+                className="absolute inset-0 hidden sm:block w-full h-full object-cover object-center filter brightness-[0.88]"
+                poster={heroImage || undefined}
               >
-                <source src="/videos/hero-video.mp4" type="video/mp4" />
-                <source src="/videos/hero-video.webm" type="video/webm" />
-                <source src="https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4" type="video/mp4" />
-                <source src="https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4" type="video/mp4" />
+                {!heroVideo && (
+                  <>
+                    <source src="/videos/hero-video.mp4" type="video/mp4" />
+                    <source src="/videos/hero-video.webm" type="video/webm" />
+                    <source src="https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4" type="video/mp4" />
+                    <source src="https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4" type="video/mp4" />
+                  </>
+                )}
               </video>
               {/* Clean minimal overlays (video stays bright & clear, button stands out) */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/20" />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/35 via-transparent to-transparent" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(136,19,55,0.15),transparent_50%)] pointer-events-none" />
+              {hasHeroImage && <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 sm:from-black/75 sm:to-black/20" />}
+              {hasHeroImage && <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-transparent sm:from-black/35" />}
+              <div className="hidden sm:block absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(136,19,55,0.15),transparent_50%)] pointer-events-none" />
 
               {/* Subtle animated noise grain for cinematic feel */}
               <div
-                className="absolute inset-0 opacity-[0.035] pointer-events-none"
+                className="hidden sm:block absolute inset-0 opacity-[0.035] pointer-events-none"
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
                   backgroundSize: "200px 200px",
                 }}
               />
               {/* LIVE badge for video mode */}
-              <div className="absolute top-3.5 left-3.5 sm:top-6 sm:left-6 flex items-center gap-2 bg-black/60 backdrop-blur-md border border-[#dfc28c]/40 px-3 py-1.5 rounded-full z-20 shadow-lg">
+              <div className="hidden sm:flex absolute top-3.5 left-3.5 sm:top-6 sm:left-6 items-center gap-2 bg-black/60 backdrop-blur-md border border-[#dfc28c]/40 px-3 py-1.5 rounded-full z-20 shadow-lg">
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                 <span className="text-[#dfc28c] text-[10px] font-bold uppercase tracking-[0.2em]">Atelier Live</span>
               </div>
@@ -233,24 +297,24 @@ export default function HomeView({
             initial={{ y: 16, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.55 }}
-            className="mb-5 max-w-xl text-white sm:mb-7"
+            className={`mb-3 max-w-xl sm:mb-7 ${hasHeroImage ? "text-white" : "text-stone-900"}`}
           >
-            {activeSlide?.tag && (
-              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#dfc28c]">
-                {activeSlide.tag}
+            {(activeSlide?.tag || !activeSlide) && (
+              <p className={`mb-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] sm:mb-3 sm:text-xs ${hasHeroImage ? "text-[#dfc28c]" : "text-[#881337]"}`}>
+                {activeSlide?.tag || "Handcrafted in Jaipur"}
               </p>
             )}
-            <h1 className="font-serif text-4xl font-medium leading-[1.08] sm:text-5xl lg:text-6xl">
-              {activeSlide?.title ?? banners[0]?.title ?? "Poetry in pure Mul Cotton"}
+            <h1 className="font-serif text-3xl font-medium leading-[1.08] sm:text-5xl lg:text-6xl">
+              {activeSlide?.title ?? banners[0]?.title ?? "Vani Collection"}
             </h1>
-            {activeSlide?.subtitle && (
-              <p className="mt-2 text-xs font-medium uppercase tracking-[0.16em] text-white/60 sm:text-sm">
-                {activeSlide.subtitle}
+            {(activeSlide?.subtitle || !activeSlide) && (
+              <p className={`mt-1 text-[10px] font-medium uppercase tracking-[0.16em] sm:mt-2 sm:text-sm ${hasHeroImage ? "text-white/75" : "text-stone-600"}`}>
+                {activeSlide?.subtitle || "Timeless styles, made for you"}
               </p>
             )}
-            {activeSlide?.desc && (
-              <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/80 sm:text-base">
-                {activeSlide.desc}
+            {(activeSlide?.desc || !activeSlide) && (
+              <p className={`mt-1.5 max-w-lg text-[11px] leading-relaxed sm:mt-3 sm:text-base ${hasHeroImage ? "text-white/85" : "text-stone-700"}`}>
+                {activeSlide?.desc || "Explore our handcrafted collection of elegant Indian wear."}
               </p>
             )}
           </motion.div>
@@ -264,9 +328,9 @@ export default function HomeView({
             {/* Single Attractive Explore Collection Button */}
             <a
               href={activeSlide?.ctaLink || "#products"}
-              className="group relative inline-flex items-center justify-center gap-3 overflow-hidden rounded-full bg-gradient-to-r from-[#b91c1c] via-[#881337] to-[#701a35] px-8 sm:px-10 py-3.5 sm:py-4 text-xs sm:text-sm font-bold uppercase tracking-[0.25em] text-white shadow-[0_4px_30px_rgba(185,28,28,0.55)] border border-[#dfc28c]/60 transition-all duration-300 hover:shadow-[0_6px_35px_rgba(223,194,140,0.5),0_4px_25px_rgba(136,19,55,0.7)] hover:border-[#dfc28c] hover:-translate-y-0.5 active:scale-95 text-center w-full sm:w-auto"
+              className="group relative inline-flex items-center justify-center gap-3 overflow-hidden rounded-full bg-gradient-to-r from-[#b91c1c] via-[#881337] to-[#701a35] px-6 py-2.5 sm:px-10 sm:py-4 text-[10px] sm:text-sm font-bold uppercase tracking-[0.2em] sm:tracking-[0.25em] text-white shadow-[0_4px_30px_rgba(185,28,28,0.55)] border border-[#dfc28c]/60 transition-all duration-300 hover:shadow-[0_6px_35px_rgba(223,194,140,0.5),0_4px_25px_rgba(136,19,55,0.7)] hover:border-[#dfc28c] hover:-translate-y-0.5 active:scale-95 text-center w-full sm:w-auto"
             >
-              <span className="relative z-10">{activeSlide?.ctaText || "Explore Collection"}</span>
+              <span className="relative z-10">{activeSlide?.ctaText || "Explore Products"}</span>
               <span className="relative z-10 text-[#dfc28c] text-base transition-transform duration-300 group-hover:translate-x-1.5">→</span>
               <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent transition-all" />
             </a>
@@ -279,7 +343,7 @@ export default function HomeView({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute right-5 sm:right-10 bottom-14 sm:bottom-12 flex items-center gap-2.5"
+                className="hidden sm:flex absolute right-5 sm:right-10 bottom-14 sm:bottom-12 items-center gap-2.5"
               >
                 {banners.map((_, i) => (
                   <button
@@ -298,24 +362,10 @@ export default function HomeView({
           </AnimatePresence>
         </div>
 
-        {/* Social Proof Strip on Hero bottom */}
-        <div className="absolute bottom-0 inset-x-0 bg-white/10 backdrop-blur-md border-t border-white/15 py-2.5 sm:py-3 z-10">
-          <div className="max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-16 flex items-center justify-between text-[10px] sm:text-[11px] text-stone-200 tracking-wider">
-            <span className="flex items-center gap-1.5 text-[#dfc28c] mx-auto sm:mx-0">
-              <span>★ ★ ★ ★ ★</span>
-              <strong className="text-white font-semibold">4.9/5 Rating</strong> by 45,000+ Women
-            </span>
-            <span className="text-stone-300 hidden md:inline">
-              ✦ 100% Bagru Handblock Print · Certified Organic Dyes
-            </span>
-            <span className="text-stone-300 hidden lg:inline">
-              ✦ Direct from Jaipur Master Craftsmen
-            </span>
-          </div>
-        </div>
       </section>
 
       {/* ================= 2. CIRCULAR STORY HIGHLIGHTS (Aisha Creations Style) ================= */}
+      {stories.length > 0 && (
       <section id="stories" className="py-5 sm:py-10 border-b border-[#e8dfd5] bg-[#faf7f2]">
         <div className="max-w-[1500px] mx-auto px-4 sm:px-8">
           <div className="flex items-center justify-between mb-3 sm:mb-4">
@@ -362,8 +412,10 @@ export default function HomeView({
           </div>
         </div>
       </section>
+      )}
 
       {/* ================= 3. CURATED BENTO COLLECTIONS (Label Amrita Prestige Style) ================= */}
+      {stories.length > 0 && (
       <section className="py-12 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
         <div className="text-center max-w-xl mx-auto mb-10 sm:mb-16">
           <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
@@ -378,7 +430,7 @@ export default function HomeView({
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 sm:gap-5 lg:gap-8">
           {/* Card 1: Large Featured Mul Cotton */}
           <div
-            onClick={() => setActiveTab("mul-cotton")}
+            onClick={() => chooseCategory("mul-cotton")}
             className="sm:col-span-2 md:col-span-7 relative h-[300px] sm:h-[420px] lg:h-[500px] rounded-2xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -407,7 +459,7 @@ export default function HomeView({
 
           {/* Card 2: Festive Edit */}
           <div
-            onClick={() => setActiveTab("festive")}
+            onClick={() => chooseCategory("festive")}
             className="sm:col-span-1 md:col-span-5 relative h-[300px] sm:h-[420px] lg:h-[500px] rounded-2xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -436,7 +488,7 @@ export default function HomeView({
 
           {/* Card 3: Indo-Western Co-ords */}
           <div
-            onClick={() => setActiveTab("coord-sets")}
+            onClick={() => chooseCategory("coord-sets")}
             className="sm:col-span-1 md:col-span-6 relative h-[260px] sm:h-[360px] lg:h-[420px] rounded-2xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -491,6 +543,7 @@ export default function HomeView({
           </div>
         </div>
       </section>
+      )}
 
       {/* ================= 4. RESPONSIVE PRODUCT GRID (2 COLS MOBILE, 3 COLS TABLET, 4 COLS PC) ================= */}
       <section id="products" className="py-12 sm:py-20 bg-white border-y border-[#e8dfd5]">
@@ -502,8 +555,9 @@ export default function HomeView({
                 Artisanal Handpicked
               </span>
               <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-stone-900 mt-1">
-                Trending Creations
+                {productCollection?.title || "Trending Creations"}
               </h2>
+              {productCollection?.subtitle && <p className="mt-1 text-sm text-stone-600">{productCollection.subtitle}</p>}
             </div>
 
             {/* Filter Tabs - horizontally scrollable on mobile */}
@@ -511,9 +565,7 @@ export default function HomeView({
               <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
                 {[
                   { label: "All Styles", key: "all" },
-                  { label: "Pure Mul Cotton", key: "mul-cotton" },
-                  { label: "Festive Suits", key: "festive" },
-                  { label: "Co-ord Sets", key: "coord-sets" },
+                  ...categoryTabs,
                   { label: "Under ₹1,999", key: "budget" },
                 ].map((tab) => (
                   <button
@@ -533,6 +585,10 @@ export default function HomeView({
           </div>
 
           {/* Product Grid: Properly aligned with consistent gaps */}
+          {catalogue.error && <p role="status" className="mb-5 text-center text-sm text-amber-800">{catalogue.error}</p>}
+          {filteredProducts.length === 0 && !catalogue.loading ? (
+            <p className="py-10 text-center text-sm text-stone-500">No products are currently available.</p>
+          ) : (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
             {filteredProducts.map((product) => (
               <LivingProductCard
@@ -547,17 +603,18 @@ export default function HomeView({
               />
             ))}
           </div>
+          )}
         </div>
       </section>
 
       {/* ================= 5. INTERACTIVE LOOKBOOK (HOTSPOTS BANNER) ================= */}
-      <section id="lookbook" className="py-12 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
+      {lookbook.image && <section id="lookbook" className="py-12 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
         <div className="text-center max-w-xl mx-auto mb-8 sm:mb-10">
           <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
             Editorial Styling
           </span>
           <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-stone-900 mt-1">
-            Shop The Gulmohar Ensemble
+            {lookbook.title}
           </h2>
           <p className="text-xs text-stone-600 mt-1.5 font-light">
             Tap on any floating gold pin on the muse to explore the handcrafted elements.
@@ -631,68 +688,16 @@ export default function HomeView({
               {lookbook.title}
             </h3>
             <p className="text-[11px] sm:text-xs text-stone-300 font-light line-clamp-2 sm:line-clamp-none">
-              Crafted in collaboration with Bagru artisans. Tailored with royal kalis for effortless festive comfort.
+              {lookbook.subtitle}
             </p>
           </div>
         </div>
       </section>
+      }
 
       {/* ================= 6. ARTISANAL HERITAGE & CRAFT PILLARS ================= */}
-      <section className="py-14 sm:py-20 bg-[#f5ede3] border-t border-[#e8dfd5]">
-        <div className="max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
-          <div className="text-center max-w-xl mx-auto mb-10 sm:mb-16">
-            <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
-              The Jaipur Atelier Soul
-            </span>
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-stone-900 mt-1 sm:mt-2 font-normal">
-              Why Women Adore Vani Collection
-            </h2>
-            <div className="w-12 sm:w-16 h-[1.5px] bg-[#881337] mx-auto mt-3 sm:mt-4" />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-            {[
-              {
-                icon: "🌿",
-                title: "100-Count Pure Mul",
-                desc: "Super combed, breathable featherlight cotton weave that caresses delicate skin without stiffness or polyester.",
-              },
-              {
-                icon: "🪵",
-                title: "Carved Teakwood Blocks",
-                desc: "Master generational block carvers press each floral motif by hand with natural plant & mineral dyes.",
-              },
-              {
-                icon: "✂️",
-                title: "Designed For Real Bodies",
-                desc: "Thoughtful tailoring with deep hidden pockets, soft elastic comfort waists, and relaxed silhouette room.",
-              },
-              {
-                icon: "📦",
-                title: "Zero-Plastic Heirloom Box",
-                desc: "Every order arrives packaged in reusable cotton dust bags with fair trade support to women artisans.",
-              },
-            ].map((pillar, i) => (
-              <div
-                key={i}
-                className="bg-[#faf7f2] p-6 sm:p-8 rounded-2xl border border-[#e8dfd5] text-center hover:shadow-lg transition-all"
-              >
-                <div className="w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-full bg-[#f2ece2] flex items-center justify-center text-xl sm:text-2xl mb-3 sm:mb-4 text-[#881337] shadow-inner">
-                  {pillar.icon}
-                </div>
-                <h3 className="font-serif text-base sm:text-lg font-semibold text-stone-900 mb-1.5 sm:mb-2">
-                  {pillar.title}
-                </h3>
-                <p className="text-xs text-stone-600 leading-relaxed font-light">
-                  {pillar.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ================= 7. VERIFIED CUSTOMER REVIEWS ================= */}
+      {testimonials.length > 0 && (
       <section className="py-14 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
         <div className="text-center max-w-xl mx-auto mb-10 sm:mb-14">
           <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
@@ -743,6 +748,7 @@ export default function HomeView({
           ))}
         </div>
       </section>
+      )}
 
       {/* ================= 7b. FAQ (CMS `kind=faq`) ================= */}
       {/* Only rendered when the CMS has published questions, and every one of them is also marked up
@@ -802,44 +808,6 @@ export default function HomeView({
         </section>
       )}
 
-      {/* ================= 8. INSTAGRAM COMMUNITY (#VaniWomen) ================= */}
-      <section className="py-10 sm:py-14 bg-[#faf7f2] border-t border-[#e8dfd5]">
-        <div className="max-w-[1500px] mx-auto px-4 sm:px-8 text-center mb-6 sm:mb-8">
-          <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
-            @vanicollection_jaipur
-          </span>
-          <h3 className="font-serif text-xl sm:text-3xl text-stone-900 mt-1">
-            Follow The Atelier On Instagram
-          </h3>
-          <p className="text-xs text-stone-500 mt-1 font-light">
-            Tag #VaniWomen to be featured in our seasonal lookbooks
-          </p>
-        </div>
-
-        <div className="grid grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 max-w-[1500px] mx-auto px-3 sm:px-8">
-          {[
-            "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80",
-            "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=600&q=80",
-            "https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=600&q=80",
-            "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=600&q=80",
-            "https://images.unsplash.com/photo-1594938298603-c8148c4dae35?auto=format&fit=crop&w=600&q=80",
-            "https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&w=600&q=80",
-          ].map((img, i) => (
-            <div key={i} className="relative aspect-square rounded-lg sm:rounded-xl overflow-hidden group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={img}
-                alt="Instagram look"
-                className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-              />
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-base sm:text-lg">
-                ♥
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* ================= 9. VIP NEWSLETTER CLUB ================= */}
       <section className="py-14 sm:py-20 bg-[#1c1917] text-white">
         <div className="max-w-3xl mx-auto px-5 sm:px-6 text-center">
@@ -847,34 +815,11 @@ export default function HomeView({
             The Vani Club
           </span>
           <h2 className="font-serif text-2xl sm:text-4xl lg:text-5xl font-light mt-1.5 sm:mt-2 mb-2 sm:mb-3">
-            Receive ₹200 Off Your First Order
+            Stay in touch
           </h2>
-          <p className="text-xs sm:text-sm text-stone-300 font-light max-w-md mx-auto mb-6 sm:mb-8">
-            Be the first to preview seasonal handblock drops, festive heirlooms, and private boutique sales.
+          <p className="text-xs sm:text-sm text-stone-300 font-light max-w-md mx-auto">
+            Newsletter signups are not available yet.
           </p>
-
-          {newsletterSubscribed ? (
-            <div className="bg-emerald-900/60 border border-emerald-500 text-emerald-200 p-3.5 sm:p-4 rounded-full text-xs font-semibold max-w-md mx-auto">
-              ✓ Welcome to The Vani Club! Use coupon code <strong>FIRST10</strong> at checkout for 10% off.
-            </div>
-          ) : (
-            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 max-w-md mx-auto">
-              <input
-                type="email"
-                required
-                placeholder="Enter your email address"
-                value={newsletterEmail}
-                onChange={(e) => setNewsletterEmail(e.target.value)}
-                className="flex-1 px-4 sm:px-5 py-3 sm:py-3.5 rounded-full bg-white/10 border border-white/20 text-white placeholder-stone-400 text-xs focus:outline-none focus:border-[#dfc28c]"
-              />
-              <button
-                type="submit"
-                className="bg-[#881337] hover:bg-[#6b0f2b] text-white px-6 sm:px-8 py-3 sm:py-3.5 rounded-full text-xs uppercase tracking-[0.2em] font-semibold transition"
-              >
-                Join Atelier
-              </button>
-            </form>
-          )}
         </div>
       </section>
 
