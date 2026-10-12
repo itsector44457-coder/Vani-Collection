@@ -10,9 +10,11 @@ process.env.JWT_REFRESH_SECRET = 'unit-refresh-secret-value-that-is-long-enough'
 const { loadConfig } = require('../src/config');
 const { buildApp } = require('../src/app');
 const pricing = require('../src/services/pricing');
+const Product = require('../models/Product');
 const { serviceability } = require('../src/services/shipping');
 const { signHmac, verifyHmac } = require('../src/lib/signature');
-const { issueTokens } = require('../src/services/tokens');
+const { issueTokens, setAuthCookies } = require('../src/services/tokens');
+const { contentPublicId, countCloudinaryAssets, isDuplicateAssetError, listCloudinaryAssets, uploadOrReuse } = require('../src/lib/media-assets');
 
 const silentLogger = { info() {}, warn() {}, error() {}, debug() {}, child() { return this; } };
 
@@ -99,6 +101,162 @@ test('issued tokens verify with the configured secrets and carry roles', () => {
   assert.throws(() => jwt.verify(tokens.refreshToken, config.JWT_ACCESS_SECRET));
 });
 
+test('product variants preserve distinct colors for the same size', async () => {
+  const product = new Product({
+    name: 'Printed cotton kurta',
+    slug: 'printed-cotton-kurta',
+    category: 'kurta-sets',
+    variants: [
+      { sku: 'VC-KURTA-M-MAROON', size: 'M', color: 'Maroon', images: [{ url: 'https://cdn.example.com/maroon-front.jpg', alt: 'Maroon front' }], mrp: 2000, price: 1500 },
+      { sku: 'VC-KURTA-M-INDIGO', size: 'M', color: 'Indigo', images: [{ url: 'https://cdn.example.com/indigo-front.jpg', alt: 'Indigo front' }], mrp: 2000, price: 1500 },
+    ],
+  });
+
+  assert.deepEqual(product.variants.map(({ size, color }) => ({ size, color })), [
+    { size: 'M', color: 'Maroon' },
+    { size: 'M', color: 'Indigo' },
+  ]);
+  assert.equal(product.variants[0].images[0].url, 'https://cdn.example.com/maroon-front.jpg');
+  await product.validate();
+});
+
+test('media uploads reuse an existing Cloudinary asset for identical bytes', async () => {
+  const bytes = Buffer.from('same image bytes');
+  const publicId = contentPublicId(bytes, 'image');
+  assert.equal(publicId, contentPublicId(Buffer.from('same image bytes'), 'image'));
+  assert.notEqual(publicId, contentPublicId(bytes, 'video'));
+  assert.equal(isDuplicateAssetError({ http_code: 409 }), true);
+  assert.equal(isDuplicateAssetError(new Error('already exists')), true);
+  assert.equal(isDuplicateAssetError(new Error('network unavailable')), false);
+
+  let uploadCount = 0;
+  let lookupCount = 0;
+  const cloudinary = {
+    uploader: {
+      upload_stream(options, callback) {
+        return {
+          end() {
+            uploadCount += 1;
+            assert.equal(options.overwrite, false);
+            assert.equal(options.public_id, publicId.split('/').at(-1));
+            callback(uploadCount === 1 ? null : Object.assign(new Error('already exists'), { http_code: 409 }), {
+              secure_url: 'https://res.cloudinary.com/example/image/upload/existing.jpg',
+              public_id: publicId,
+              width: 640,
+              height: 800,
+            });
+          },
+        };
+      },
+    },
+    api: {
+      async resource(id, options) {
+        lookupCount += 1;
+        assert.equal(id, publicId);
+        assert.equal(options.resource_type, 'image');
+        return { secure_url: 'https://res.cloudinary.com/example/image/upload/existing.jpg', public_id: id };
+      },
+    },
+  };
+
+  const first = await uploadOrReuse(cloudinary, { buffer: bytes }, 'image');
+  const second = await uploadOrReuse(cloudinary, { buffer: bytes }, 'image');
+  assert.equal(first.url, second.url);
+  assert.equal(uploadCount, 2);
+  assert.equal(lookupCount, 1);
+});
+
+test('Cloudinary media listing returns image metadata and paginates by cursor', async () => {
+  const calls = [];
+  const cloudinary = {
+    search: {
+      expression(value) {
+        calls.push(['expression', value]);
+        return this;
+      },
+      sort_by(field, direction) {
+        calls.push(['sort', field, direction]);
+        return this;
+      },
+      max_results(value) {
+        calls.push(['max_results', value]);
+        return this;
+      },
+      next_cursor(value) {
+        calls.push(['cursor', value]);
+        return this;
+      },
+      async execute() {
+        return {
+          total_count: 61,
+          next_cursor: 'next-page',
+          resources: [{
+            asset_id: 'asset-1',
+            public_id: 'vani-collection/products/photo',
+            secure_url: 'https://res.cloudinary.com/example/image/upload/photo.jpg',
+            resource_type: 'image',
+            format: 'jpg',
+            bytes: 2048,
+            width: 640,
+            height: 800,
+            created_at: '2026-10-12T08:00:00Z',
+          }],
+        };
+      },
+    },
+  };
+
+  const result = await listCloudinaryAssets(cloudinary, 'image', 'cursor-1');
+  assert.equal(calls[0][1], 'folder="vani-collection/products" AND resource_type=image');
+  assert.deepEqual(calls.slice(1), [['sort', 'created_at', 'desc'], ['max_results', 60], ['cursor', 'cursor-1']]);
+  assert.equal(result.total, 61);
+  assert.equal(result.nextCursor, 'next-page');
+  assert.deepEqual(result.assets[0], {
+    assetId: 'asset-1',
+    publicId: 'vani-collection/products/photo',
+    url: 'https://res.cloudinary.com/example/image/upload/photo.jpg',
+    resourceType: 'image',
+    format: 'jpg',
+    bytes: 2048,
+    width: 640,
+    height: 800,
+    duration: undefined,
+    createdAt: '2026-10-12T08:00:00Z',
+  });
+});
+
+test('Cloudinary media count filters by folder and resource type', async () => {
+  const calls = [];
+  const cloudinary = {
+    search: {
+      expression(value) { calls.push(['expression', value]); return this; },
+      max_results(value) { calls.push(['max_results', value]); return this; },
+      async execute() { return { total_count: 12 }; },
+    },
+  };
+  assert.equal(await countCloudinaryAssets(cloudinary, 'video'), 12);
+  assert.deepEqual(calls, [
+    ['expression', 'folder="vani-collection/videos" AND resource_type=video'],
+    ['max_results', 1],
+  ]);
+});
+
+test('access cookie lifetime follows the configured access-token expiry', () => {
+  const config = { ...loadConfig(), ACCESS_TOKEN_TTL: '5m' };
+  const tokens = issueTokens({ id: 'user-1', roles: ['admin'] }, config);
+  let accessCookie;
+  const response = {
+    cookie(name, value, options) {
+      if (name === 'accessToken') accessCookie = { value, options };
+    },
+  };
+
+  setAuthCookies(response, tokens, config);
+  const expiry = jwt.decode(tokens.accessToken).exp * 1000;
+  assert.ok(accessCookie.options.maxAge > 0 && accessCookie.options.maxAge <= 5 * 60 * 1000);
+  assert.ok(Math.abs(Date.now() + accessCookie.options.maxAge - expiry) < 1000);
+});
+
 test('http layer serves health, structured 404s and validation errors without a database', async () => {
   const server = buildApp({ config: loadConfig(), logger: silentLogger }).listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
@@ -117,6 +275,15 @@ test('http layer serves health, structured 404s and validation errors without a 
     const unauthenticated = await call('/api/admin/dashboard');
     assert.equal(unauthenticated.status, 401);
     assert.equal(unauthenticated.body.error.code, 'AUTH_REQUIRED');
+    const unauthenticatedVideoUpload = await call('/api/uploads/videos', { method: 'POST' });
+    assert.equal(unauthenticatedVideoUpload.status, 401);
+    assert.equal(unauthenticatedVideoUpload.body.error.code, 'AUTH_REQUIRED');
+      const unauthenticatedAssets = await call('/api/uploads/assets');
+      assert.equal(unauthenticatedAssets.status, 401);
+      assert.equal(unauthenticatedAssets.body.error.code, 'AUTH_REQUIRED');
+      const unauthenticatedAssetCounts = await call('/api/uploads/assets/counts');
+      assert.equal(unauthenticatedAssetCounts.status, 401);
+      assert.equal(unauthenticatedAssetCounts.body.error.code, 'AUTH_REQUIRED');
     const wrongAudienceToken = jwt.sign({ sub: 'user-1' }, process.env.JWT_ACCESS_SECRET, { expiresIn: '15m' });
     const wrongAudience = await call('/api/admin/dashboard', { headers: { authorization: `Bearer ${wrongAudienceToken}` } });
     assert.equal(wrongAudience.status, 401);
@@ -169,7 +336,7 @@ test('route surface is complete and free of duplicate registrations', () => {
       }
     }
   }
-  for (const required of ['POST /api/orders', 'POST /api/integrations/erp/webhook', 'POST /api/webhooks/razorpay', 'GET /api/admin/dashboard', 'PATCH /api/inventory/:sku', 'POST /api/payments/razorpay/verify', 'POST /api/returns', 'POST /api/uploads/images', 'GET /api/cart', 'POST /api/cart/items', 'PATCH /api/cart/items/:lineId', 'DELETE /api/cart/items/:lineId', 'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/orders/:id/cancel',
+  for (const required of ['POST /api/orders', 'POST /api/integrations/erp/webhook', 'POST /api/webhooks/razorpay', 'GET /api/admin/dashboard', 'GET /api/reels', 'PATCH /api/inventory/:sku', 'POST /api/payments/razorpay/verify', 'POST /api/returns', 'GET /api/uploads/assets', 'GET /api/uploads/assets/counts', 'POST /api/uploads/images', 'POST /api/uploads/videos', 'GET /api/cart', 'POST /api/cart/items', 'PATCH /api/cart/items/:lineId', 'DELETE /api/cart/items/:lineId', 'POST /api/auth/forgot-password', 'POST /api/auth/reset-password', 'POST /api/orders/:id/cancel',
     // The screens the admin console drives — a silently unmounted router would leave a blank page
     // rather than a failing request, so the surface is asserted explicitly.
     'GET /api/integrations/events', 'POST /api/integrations/events/:id/retry', 'GET /api/admin/audit-logs', 'GET /api/admin/reports/sales', 'GET /api/admin/reports/gst', 'GET /api/admin/staff', 'POST /api/admin/staff', 'POST /api/admin/staff/:id/resend-invitation', 'PATCH /api/admin/staff/:id', 'PATCH /api/auth/change-credentials', 'GET /api/refunds/pending', 'POST /api/refunds/:orderId', 'GET /api/inventory', 'GET /api/returns', 'PATCH /api/returns/:id', 'GET /api/coupons', 'POST /api/coupons', 'PATCH /api/coupons/:id', 'DELETE /api/coupons/:id', 'GET /api/reviews', 'PATCH /api/reviews/:id',

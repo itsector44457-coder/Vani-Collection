@@ -36,7 +36,10 @@ Common codes: `AUTH_REQUIRED` 401, `FORBIDDEN` 403, `ROUTE_NOT_FOUND` 404, `VALI
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/products?page&limit&category&q` | paginated active products (`costPrice` hidden) |
-| GET | `/products/:slug` | product + per-SKU available stock |
+| GET | `/products/:slug` | product + per-SKU available stock; includes optional product-specific `sizeGuide` text |
+| GET | `/categories` | active product categories, ordered for storefront filters and the Collections menu |
+| GET | `/navigation` | active categories, dropdown definitions, and public navbar settings |
+| GET | `/reels` | Active reels ordered for the storefront, linked to active products only |
 | GET | `/search?q=` | lightweight typeahead (≥2 chars) |
 | GET | `/content/:key` | published CMS block/page |
 | GET | `/content?kind=` | list published content |
@@ -45,6 +48,38 @@ Common codes: `AUTH_REQUIRED` 401, `FORBIDDEN` 403, `ROUTE_NOT_FOUND` 404, `VALI
 | GET | `/shipping/serviceability?pincode=` | serviceable, COD, ETA, fee, free-shipping threshold |
 | POST | `/shipping/rates` | pincode + subtotal → fee and total |
 | POST | `/coupons/validate` | code + subtotal → discount or 422 reason |
+
+### Catalogue categories and navigation (staff)
+
+Catalogue changes require `catalog_manager`, `admin` or `super_admin`. The first category read
+creates the standard categories and backfills any existing product category keys so deployments with
+an existing catalogue continue to work.
+
+Media uploads are deduplicated by SHA-256 of the file contents. Uploading the exact same image or
+video again reuses its existing Cloudinary URL instead of creating another asset. This applies to new
+uploads; duplicate assets already in Cloudinary are not deleted automatically because existing
+products and content may still reference them.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/categories/manage` | All categories, including hidden categories |
+| POST | `/categories/manage` | Create `{ name, slug, navigationGroup, description?, position? }` |
+| PATCH | `/categories/manage/:id` | Edit category display and navigation fields; slugs remain stable |
+| DELETE | `/categories/manage/:id` | Permanently delete an unused category and remove its navbar links; returns 409 while any product still uses it |
+| GET | `/navigation/manage` | Editable Lookbook and Shop by Price dropdowns |
+| PUT | `/navigation/manage/:key` | Save a dropdown's label and columns; category links must reference an active category |
+| GET | `/navigation/manage/settings` | Read the storefront brand, announcement bar, links, theme, and color settings |
+| PUT | `/navigation/manage/settings` | Save storefront navbar settings; requires a catalog manager, admin, or super admin role |
+
+The Collections dropdown and mobile collection accordion use active categories, grouped by
+`navigationGroup`. A category cannot be hidden while products still use it. Product create and edit
+requests must use an active category slug.
+
+Product create and edit accept an optional `sizeGuide` string (maximum 5,000 characters) and optional
+`hoverImage` URL chosen from the product's gallery. The selected hover photo appears on product cards
+when shoppers point at them; an empty value disables the alternate photo. When set,
+the product detail's Size Guide modal shows that product's own instructions and measurements;
+leaving it blank uses the standard size chart.
 
 ### Content blocks the storefront reads
 
@@ -55,12 +90,14 @@ the bundled block at the same position.
 
 | `kind` | Homepage section | Fields used |
 | --- | --- | --- |
-| `banner` | hero slides, in `position` order | `title`, `subtitle`, `body`, `ctaLabel`, `ctaHref`, `media[0].url`, `blocks.tag`, `blocks.position` |
+| `banner` | homepage hero slides, in `position` order | `title`, `subtitle`, `body`, `ctaLabel`, `ctaHref`, `media[{url,alt,kind:image|video}]`, `blocks.tag`, `blocks.position` (image crop) |
 | `testimonial` | customer reviews | `title`, `body`, `blocks.{name,city,rating,verified,date,product}` |
 | `lookbook` | shoppable lookbook (**first published block only**) | `title`, `subtitle`, `media[0].url`, `blocks.pins[]` |
 | `faq` | FAQ accordion **and** `FAQPage` JSON-LD | `title` = question, `body` = answer |
 | `section` | category story tiles | `title`, `subtitle`, `media[0].url`, `blocks.{count,filterKey}` |
-| `page`, `policy` | standalone copy | not consumed by the homepage |
+| `product_collection` | homepage product grid | `title`, `subtitle`, `blocks.productIds` in display order; product details remain in the catalogue |
+| `page` | shipping, returns, privacy, terms and size-guide pages | `title`, `subtitle`, `body`, `media[0]`, `blocks.sections[]` |
+| `policy` | available to page integrations | depends on the consuming page |
 
 Two rules the storefront enforces, both to avoid publishing something untrue:
 
@@ -70,12 +107,33 @@ Two rules the storefront enforces, both to avoid publishing something untrue:
 - `faq` blocks drive the visible accordion and the `FAQPage` markup from the *same* array. Nothing is
   ever marked up that the reader cannot see.
 
-`blocks` is `Schema.Types.Mixed` — the backend does not validate its contents, so the admin editor
-validates it as JSON before saving.
+`blocks` is `Schema.Types.Mixed` — the backend does not validate its structure. The structured page
+editor writes section objects as `{ heading, body }`; the general content-block editor validates
+free-form JSON before saving. Media URLs may be HTTP(S) URLs or root-relative paths.
 
 Suggested key convention: `<area>.<kind>.<sequence>`, e.g. `home.banner.1`, `home.faq.shipping`.
 Keys are the stable id, so `PUT /content/:key` upserts and a key should never be renamed in place.
 
+### Staff CMS management
+
+CMS management is limited to `catalog_manager`, `admin` and `super_admin` roles. Drafts are returned
+only by the authenticated management endpoint; public content routes continue to return published
+documents only.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/admin/content` | All CMS documents, including drafts, with last editor |
+| GET | `/content/manage/:key/revisions` | Up to 20 recent field-level revisions with author and timestamp |
+| POST | `/content` | Create a block and its initial revision |
+| PUT | `/content/:key` | Upsert a block and record changed fields |
+| DELETE | `/content/:key` | Delete a block; admin or super_admin only |
+
+The admin structured page editor uses `page.shipping`, `page.returns`, `page.privacy`, `page.terms`
+and `page.size-guide`; only published versions replace the existing built-in page. The homepage
+product placement is stored at `home.products.featured`. Its `blocks.productIds` array contains
+existing product IDs in display order; price, copy and inventory are still read from the product
+catalogue. The editor's preview is private to the admin UI and does not expose draft documents to
+public routes.
 
 ## Customer (authenticated)
 
@@ -142,7 +200,10 @@ Writes are de-duplicated **by `productId`**, not by whole subdocument:
 | GET | `/reviews?status=`, PATCH `/reviews/:id` | support, admin, super_admin |
 | GET/POST/PATCH/DELETE | `/coupons` | finance, admin, super_admin |
 | GET | `/returns`, PATCH `/returns/:id` | support, finance, admin, super_admin |
-| POST | `/uploads/images` (multipart `files`) | catalog_manager, admin, super_admin |
+| GET | `/uploads/assets?type=image|video&cursor=` | catalog_manager, admin, super_admin — Cloudinary media library page |
+| GET | `/uploads/assets/counts` | catalog_manager, admin, super_admin — total image/video counts |
+| POST | `/uploads/images` (multipart `files`, up to 6 × 8 MB) | catalog_manager, admin, super_admin |
+| POST | `/uploads/videos` (multipart `file`, up to 50 MB) | catalog_manager, admin, super_admin |
 | POST | `/shipments/:orderId/create` | warehouse, admin, super_admin |
 | POST | `/refunds/:orderId` | finance, admin, super_admin |
 | GET | `/admin/dashboard` | any staff role |

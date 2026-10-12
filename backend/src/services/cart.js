@@ -66,7 +66,7 @@ async function hydrateCart(cart) {
       sku: item.sku,
       quantity: item.quantity,
       title: product.name,
-      image: product.images?.[0]?.url || '',
+      image: variant.images?.[0]?.url || product.images?.[0]?.url || '',
       size: variant.size,
       color: variant.color,
       price: variant.price,

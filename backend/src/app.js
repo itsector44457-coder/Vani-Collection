@@ -60,6 +60,9 @@ const buildApp = ({ config, logger }) => {
   mount('/api/auth', require('./routes/auth')({ config, auth, authLimiter }));
   mount('/api/cart', require('./routes/cart')({ auth, optionalAuth }));
   mount('/api/products', require('./routes/products')({ auth }));
+  mount('/api/categories', require('./routes/categories')({ auth }));
+  mount('/api/navigation', require('./routes/navigation')({ auth }));
+  mount('/api/reels', require('./routes/public-reels')());
   mount('/api/orders', require('./routes/orders')({ config, auth }));
   mount('/api/inventory', require('./routes/inventory')({ auth }));
   mount('/api/customers', require('./routes/customers')({ auth }));

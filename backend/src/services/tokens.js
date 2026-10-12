@@ -14,7 +14,11 @@ function setAuthCookies(res, tokens, config) {
     path: '/',
     ...(config.COOKIE_DOMAIN ? { domain: config.COOKIE_DOMAIN } : {}),
   };
-  res.cookie('accessToken', tokens.accessToken, { ...common, maxAge: 15 * 60 * 1000 });
+  const accessPayload = jwt.decode(tokens.accessToken);
+  const accessMaxAge = accessPayload?.exp
+    ? Math.max(0, accessPayload.exp * 1000 - Date.now())
+    : 15 * 60 * 1000;
+  res.cookie('accessToken', tokens.accessToken, { ...common, maxAge: accessMaxAge });
   res.cookie('refreshToken', tokens.refreshToken, { ...common, maxAge: config.REFRESH_TOKEN_TTL_DAYS * 86400000 });
 }
 module.exports = { issueTokens, setAuthCookies, hashToken };

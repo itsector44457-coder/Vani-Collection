@@ -29,6 +29,7 @@ const Order = require('../models/Order');
 const IntegrationEvent = require('../models/IntegrationEvent');
 const EmailLog = require('../models/EmailLog');
 const SignupVerification = require('../models/SignupVerification');
+const Reel = require('../models/Reel');
 
 let replset;
 let server;
@@ -130,6 +131,26 @@ maybeTest('registration and login issue working sessions', async () => {
   assert.equal(bad.status, 401);
 });
 
+maybeTest('refresh cookie restores a session when the access token is unavailable', async () => {
+  const token = await signup('refresh-session@example.com');
+  assert.ok(token);
+  const login = await api('/api/auth/login', {
+    method: 'POST',
+    body: { email: 'refresh-session@example.com', password: 'StrongPass123' },
+  });
+  assert.equal(login.status, 200);
+  const refreshCookie = login.setCookie.find((cookie) => cookie.startsWith('refreshToken='))?.split(';')[0];
+  assert.ok(refreshCookie, 'login sets a refresh cookie');
+
+  const refreshed = await api('/api/auth/refresh', { method: 'POST', headers: { cookie: refreshCookie } });
+  assert.equal(refreshed.status, 204);
+  const accessCookie = accessTokenFrom(refreshed.setCookie);
+  assert.ok(accessCookie, 'refresh sets a new access cookie');
+  const me = await api('/api/auth/me', { headers: { cookie: `accessToken=${accessCookie}` } });
+  assert.equal(me.status, 200);
+  assert.equal(me.body.data.email, 'refresh-session@example.com');
+});
+
 maybeTest('signup verification rejects invalid codes and throttles resend requests', async () => {
   const email = 'otp-check@example.com';
   const code = await requestSignupOtp(email);
@@ -162,13 +183,16 @@ maybeTest('signup verification codes expire before account creation', async () =
 
 maybeTest('catalogue, checkout, stock reservation and idempotent ERP sync work end to end', async () => {
   const admin = await User.create({ email: 'admin@example.com', firstName: 'Admin', roles: ['admin', 'super_admin'], passwordHash: await User.hashPassword('AdminPass12345') });
-  const product = await Product.create({ name: 'Gulab Bagh Anarkali', slug: 'gulab-bagh-anarkali', category: 'anarkalis', gstRate: 5, status: 'active', images: [{ url: 'https://example.com/a.jpg' }], variants: [{ sku: 'VC-AN-01-M', size: 'M', mrp: 4999, price: 3999 }] });
+  const product = await Product.create({ name: 'Gulab Bagh Anarkali', slug: 'gulab-bagh-anarkali', category: 'anarkalis', gstRate: 5, status: 'active', sizeGuide: 'Measurements in inches\nM — Bust 36, Waist 30, Length 48', images: [{ url: 'https://example.com/a.jpg' }, { url: 'https://example.com/b.jpg' }], variants: [{ sku: 'VC-AN-01-M', size: 'M', color: 'Maroon', images: [{ url: 'https://example.com/maroon.jpg', alt: 'Maroon front' }], mrp: 4999, price: 3999 }] });
   await Inventory.create({ sku: 'VC-AN-01-M', onHand: 5, reserved: 0 });
 
   const list = await api('/api/products');
   assert.equal(list.status, 200);
   assert.equal(list.body.data.length, 1);
-  assert.equal((await api('/api/products/gulab-bagh-anarkali')).status, 200);
+  const productDetail = await api('/api/products/gulab-bagh-anarkali');
+  assert.equal(productDetail.status, 200);
+  assert.equal(productDetail.body.data.variants[0].images[0].url, 'https://example.com/maroon.jpg');
+  assert.equal(productDetail.body.data.sizeGuide, 'Measurements in inches\nM — Bust 36, Waist 30, Length 48');
   assert.equal((await api('/api/products/missing-product')).status, 404);
 
   const token = await signup('shopper@example.com');
@@ -191,6 +215,27 @@ maybeTest('catalogue, checkout, stock reservation and idempotent ERP sync work e
 
   const adminLogin = await api('/api/auth/login', { method: 'POST', body: { email: 'admin@example.com', password: 'AdminPass12345' } });
   const adminToken = accessTokenFrom(adminLogin.setCookie);
+  const updatedGuide = await api(`/api/products/${product.id}`, { method: 'PATCH', token: adminToken, body: { sizeGuide: 'Measurements in cm\nM — Bust 92, Waist 76, Length 122' } });
+  assert.equal(updatedGuide.status, 200);
+  assert.equal(updatedGuide.body.data.sizeGuide, 'Measurements in cm\nM — Bust 92, Waist 76, Length 122');
+  const updatedHoverPhoto = await api(`/api/products/${product.id}`, { method: 'PATCH', token: adminToken, body: { hoverImage: 'https://example.com/b.jpg' } });
+  assert.equal(updatedHoverPhoto.status, 200);
+  assert.equal(updatedHoverPhoto.body.data.hoverImage, 'https://example.com/b.jpg');
+  assert.equal((await api(`/api/products/${product.id}`, { method: 'PATCH', token: adminToken, body: { hoverImage: 'not-a-url' } })).status, 422);
+  assert.equal((await api(`/api/products/${product.id}`, { method: 'PATCH', token: adminToken, body: { sizeGuide: 'x'.repeat(5001) } })).status, 422);
+  const reel = await api('/api/admin/reels', {
+    method: 'POST',
+    token: adminToken,
+    body: { title: 'Summer collection', videoUrl: 'https://res.cloudinary.com/demo/video/upload/sample.mp4', productId: product.id, isActive: true },
+  });
+  assert.equal(reel.status, 201);
+  const publishedReels = await api('/api/reels');
+  assert.equal(publishedReels.status, 200);
+  assert.equal(publishedReels.body.data.length, 1);
+  assert.equal(publishedReels.body.data[0].title, 'Summer collection');
+  await Reel.updateOne({ _id: reel.body.data._id }, { $set: { isActive: false } });
+  assert.equal((await api('/api/reels')).body.data.length, 0, 'inactive reels must stay hidden publicly');
+  await Reel.updateOne({ _id: reel.body.data._id }, { $set: { isActive: true } });
   const statusUpdate = await api(`/api/orders/${order.body.data._id}/status`, { method: 'PATCH', token: adminToken, body: { status: 'packed', note: 'Packed at Ujjain studio' } });
   assert.equal(statusUpdate.status, 200);
   assert.equal(statusUpdate.body.data.status, 'packed');
@@ -209,6 +254,12 @@ maybeTest('catalogue, checkout, stock reservation and idempotent ERP sync work e
   assert.equal(catalogue.body.data[0].stockAvailable, 7);
   assert.equal(catalogue.body.data[0].unitsSold, 2);
   assert.equal(catalogue.body.data[0].revenue, 7998);
+  const editableProduct = await api(`/api/admin/catalogue/${product.id}`, { token: adminToken });
+  assert.equal(editableProduct.status, 200);
+  assert.equal(editableProduct.body.data.slug, product.slug);
+  assert.equal(editableProduct.body.data.variants[0].sku, 'VC-AN-01-M');
+  assert.equal('costPrice' in editableProduct.body.data.variants[0], false);
+  assert.equal((await api(`/api/admin/catalogue/${product.id}`, { token })).status, 403);
 
   // A GST return reports tax on *captured* orders only, so the endpoint filters on
   // `payment.status: 'paid'` — correctly, since including unpaid orders would overstate the
@@ -304,8 +355,142 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
   const created = await api('/api/content', { method: 'POST', token: adminToken, body: { key: 'home-hero', kind: 'section', title: 'Handcrafted in Ujjain' } });
   assert.equal(created.status, 201);
   assert.equal((await api('/api/content/home-hero')).body.data.title, 'Handcrafted in Ujjain');
+  const heroSlide = await api('/api/content', {
+    method: 'POST',
+    token: adminToken,
+    body: {
+      key: 'home.banner.1',
+      kind: 'banner',
+      title: 'Handcrafted in Jaipur',
+      media: [
+        { url: 'https://cdn.example.test/hero.jpg', alt: 'Collection photo', kind: 'image' },
+        { url: 'https://cdn.example.test/hero.mp4', alt: 'Collection video', kind: 'video' },
+      ],
+      blocks: { tag: 'New season', position: 'object-center' },
+      position: 0,
+      status: 'published',
+    },
+  });
+  assert.equal(heroSlide.status, 201);
+  assert.equal((await api('/api/content/home.banner.1')).body.data.media[1].kind, 'video');
+
+  const managed = await api('/api/admin/content', { token: adminToken });
+  assert.equal(managed.status, 200);
+  assert.ok(managed.body.data.some((item) => item.key === 'home-hero'));
+  const revisions = await api('/api/content/manage/home-hero/revisions', { token: adminToken });
+  assert.equal(revisions.status, 200);
+  assert.ok(revisions.body.data[0].changes.some((change) => change.field === 'title'));
+
+  const categories = await api('/api/categories');
+  assert.equal(categories.status, 200);
+  assert.ok(categories.body.data.some((category) => category.slug === 'mul-cotton'));
+  assert.equal((await api('/api/categories/manage')).status, 401);
+  const categoryCreate = await api('/api/categories/manage', {
+    method: 'POST',
+    token: adminToken,
+    body: { name: 'Handwoven Linen', slug: 'handwoven-linen', navigationGroup: 'By Fabric', position: 20 },
+  });
+  assert.equal(categoryCreate.status, 201, JSON.stringify(categoryCreate.body));
+  assert.equal((await api('/api/categories')).body.data.some((category) => category.slug === 'handwoven-linen'), true);
+  const invalidProductCategory = await api('/api/products', {
+    method: 'POST',
+    token: adminToken,
+    body: {
+      name: 'Invalid Category Product',
+      slug: 'invalid-category-product',
+      category: 'missing-category',
+      variants: [{ sku: 'VC-MISSING-CATEGORY-M', mrp: 1000, price: 800 }],
+    },
+  });
+  assert.equal(invalidProductCategory.status, 422);
+
+  const menuDefaults = await api('/api/navigation');
+  assert.equal(menuDefaults.status, 200);
+  assert.ok(menuDefaults.body.data.menus.some((menu) => menu.key === 'lookbook'));
+  assert.equal(menuDefaults.body.data.settings.brandName, 'Vani Collection');
+  assert.equal((await api('/api/navigation/manage/settings')).status, 401);
+  const settingsUpdate = await api('/api/navigation/manage/settings', {
+    method: 'PUT',
+    token: adminToken,
+    body: {
+      theme: 'midnight',
+      brandName: 'Vani Atelier',
+      brandTagline: 'Made in Jaipur',
+      logoUrl: '',
+      collectionLabel: 'Shop collections',
+      announcements: ['Free shipping'],
+      links: [{ label: 'New arrivals', href: '/products?sort=new', isActive: true }],
+      colors: {
+        announcementBg: '#111827',
+        announcementText: '#f8fafc',
+        announcementBorder: '#334155',
+        headerBg: '#1f2937',
+        headerText: '#f8fafc',
+        accent: '#38bdf8',
+        mobileDrawerBg: '#111827',
+        mobileBottomBg: '#1f2937',
+      },
+    },
+  });
+  assert.equal(settingsUpdate.status, 200, JSON.stringify(settingsUpdate.body));
+  assert.equal((await api('/api/navigation')).body.data.settings.brandName, 'Vani Atelier');
+  const menuUpdate = await api('/api/navigation/manage/lookbook', {
+    method: 'PUT',
+    token: adminToken,
+    body: {
+      label: 'Style Journal',
+      columns: [{ title: 'New arrivals', items: [{ label: 'Linen edit', categorySlug: 'handwoven-linen' }] }],
+    },
+  });
+  assert.equal(menuUpdate.status, 200, JSON.stringify(menuUpdate.body));
+  assert.equal((await api('/api/navigation')).body.data.menus.find((menu) => menu.key === 'lookbook').label, 'Style Journal');
+
+  const categoryProduct = await Product.create({
+    name: 'Handwoven Linen Test Piece',
+    slug: 'handwoven-linen-test-piece',
+    category: 'handwoven-linen',
+    status: 'draft',
+    variants: [{ sku: 'VC-LINEN-TEST-M', mrp: 1200, price: 1000 }],
+  });
+  const categoryInUse = await api(`/api/categories/manage/${categoryCreate.body.data._id}`, {
+    method: 'PATCH',
+    token: adminToken,
+    body: { isActive: false },
+  });
+  assert.equal(categoryInUse.status, 409);
+  const deleteInUse = await api(`/api/categories/manage/${categoryCreate.body.data._id}`, {
+    method: 'DELETE',
+    token: adminToken,
+  });
+  assert.equal(deleteInUse.status, 409);
+  await categoryProduct.deleteOne();
+  const deleteCategory = await api(`/api/categories/manage/${categoryCreate.body.data._id}`, {
+    method: 'DELETE',
+    token: adminToken,
+  });
+  assert.equal(deleteCategory.status, 204);
+  assert.equal((await api('/api/categories')).body.data.some((category) => category.slug === 'handwoven-linen'), false);
+  const menusAfterDelete = await api('/api/navigation');
+  assert.equal(
+    menusAfterDelete.body.data.menus.some((menu) => menu.columns.some((column) => column.items.some((item) => item.categorySlug === 'handwoven-linen'))),
+    false,
+  );
+  assert.equal((await api('/api/categories/manage', { token: adminToken })).body.data.some((category) => category.slug === 'handwoven-linen'), false);
+
+  const draft = await api('/api/content/home-hero', {
+    method: 'PUT',
+    token: adminToken,
+    body: { kind: 'page', status: 'draft', media: [{ url: '/cms-image.jpg', alt: 'Page image' }] },
+  });
+  assert.equal(draft.status, 200);
+  assert.equal((await api('/api/content/home-hero')).status, 404, 'draft content must not be publicly readable');
 
   const customerToken = await signup('returns@example.com');
+  assert.equal((await api('/api/admin/content', { token: customerToken })).status, 403);
+  assert.equal((await api('/api/categories/manage', { token: customerToken })).status, 403);
+  assert.equal((await api('/api/navigation/manage', { token: customerToken })).status, 403);
+  assert.equal((await api('/api/navigation/manage/settings', { token: customerToken })).status, 403);
+  assert.equal((await api('/api/content/manage/home-hero/revisions', { token: customerToken })).status, 403);
   const order = await api('/api/orders', { method: 'POST', token: customerToken, body: { items: [{ productId: (await Product.findOne()).id, sku: 'VC-AN-01-M', quantity: 1 }], shippingAddress: { fullName: 'Return User', phone: '9876543210', email: 'returns@example.com', line1: '9 Bhoj Marg', city: 'Ujjain', state: 'Madhya Pradesh', pincode: '456010' }, paymentMethod: 'cod' } });
   const orderId = order.body.data._id;
   const early = await api('/api/returns', { method: 'POST', token: customerToken, body: { orderId, items: [{ sku: 'VC-AN-01-M', quantity: 1, reason: 'Size issue' }] } });
@@ -344,6 +529,7 @@ maybeTest('cart persists per browser, rejects oversell and merges into the custo
   assert.equal(added.body.data.count, 2);
   assert.equal(added.body.data.subtotal, product.variants[0].price * 2);
   assert.equal(added.body.data.lines[0].inStock, true);
+  assert.equal(added.body.data.lines[0].image, 'https://example.com/maroon.jpg');
   assert.equal(added.body.meta.persisted, false);
 
   const tooMany = await api('/api/cart/items', { method: 'POST', body: { sku: 'VC-AN-01-M', quantity: 9 }, headers: guestHeaders });

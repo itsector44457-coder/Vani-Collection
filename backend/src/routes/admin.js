@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { z } = require('zod');
 const User = require('../../models/User');
+const Content = require('../../models/Content');
 const Order = require('../../models/Order');
 const Product = require('../../models/Product');
 const Inventory = require('../../models/Inventory');
@@ -23,6 +24,11 @@ const { STAFF_ROLES, customerAccountFilter, staffAccountFilter } = require('../l
 module.exports = ({ auth, config }) => {
   const router = express.Router();
   router.use(auth, requireRoles('support','warehouse','catalog_manager','finance','admin','super_admin'));
+
+  router.get('/content', requireRoles('catalog_manager','admin','super_admin'), asyncHandler(async (_req, res) => {
+    const data = await Content.find({}).sort({ kind: 1, position: 1, key: 1 }).populate('updatedBy', 'email firstName lastName');
+    res.json({ data });
+  }));
 
   router.get('/dashboard', asyncHandler(async (_req, res) => {
     const since = new Date(Date.now() - 30 * 86400000);
@@ -104,6 +110,11 @@ module.exports = ({ auth, config }) => {
       return { ...product, variants, stockAvailable: variants.reduce((sum, v) => sum + v.available, 0), lowStockSkus: variants.filter((v) => v.low).length, unitsSold: sale.units, revenue: sale.revenue };
     });
     res.json({ data, meta: { page, limit, total, pages: Math.ceil(total / limit) } });
+  }));
+  router.get('/catalogue/:id', requireRoles('catalog_manager','admin','super_admin'), asyncHandler(async (req, res) => {
+    const product = await Product.findById(req.params.id).select('-variants.costPrice').lean();
+    if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
+    res.json({ data: product });
   }));
 
   router.get('/staff', requireRoles('admin','super_admin'), asyncHandler(async (_req, res) => res.json({ data: (await User.find(staffAccountFilter()).sort({ createdAt: -1 })).map((u) => u.toSafeJSON()) })));
