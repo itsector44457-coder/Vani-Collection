@@ -102,6 +102,13 @@ interface FormState {
   blocksText: string;
   heroTag: string;
   focalPosition: string;
+  // Testimonial-specific dedicated fields
+  testiName: string;
+  testiCity: string;
+  testiRating: string;
+  testiVerified: boolean;
+  testiProduct: string;
+  testiDate: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -118,6 +125,12 @@ const EMPTY_FORM: FormState = {
   blocksText: "",
   heroTag: "",
   focalPosition: "object-center",
+  testiName: "",
+  testiCity: "",
+  testiRating: "5",
+  testiVerified: true,
+  testiProduct: "",
+  testiDate: "",
 };
 
 const toForm = (doc: ContentDoc): FormState => {
@@ -138,6 +151,13 @@ const toForm = (doc: ContentDoc): FormState => {
     blocksText: blocksToText(doc.blocks),
     heroTag: typeof blocks.tag === "string" ? blocks.tag : "",
     focalPosition: typeof blocks.position === "string" ? blocks.position : "object-center",
+    // Testimonial fields
+    testiName: typeof blocks.name === "string" ? blocks.name : (doc.title ?? ""),
+    testiCity: typeof blocks.city === "string" ? blocks.city : "",
+    testiRating: typeof blocks.rating === "number" ? String(blocks.rating) : "5",
+    testiVerified: typeof blocks.verified === "boolean" ? blocks.verified : true,
+    testiProduct: typeof blocks.product === "string" ? blocks.product : "",
+    testiDate: typeof blocks.date === "string" ? blocks.date : "",
   };
 };
 
@@ -224,7 +244,26 @@ export default function ContentPage() {
     // Validate the JSON before sending: a malformed `blocks` string would otherwise be stored as a
     // string and silently stop driving the section it configures.
     let blocks: unknown;
-    if (form.blocksText.trim()) {
+    if (form.kind === "testimonial") {
+      // Build blocks from dedicated testimonial fields — no raw JSON needed.
+      if (!form.testiName.trim()) {
+        setError("Customer name is required.");
+        return;
+      }
+      if (!form.body.trim()) {
+        setError("Review text is required.");
+        return;
+      }
+      const rating = Number(form.testiRating);
+      blocks = {
+        name: form.testiName.trim(),
+        city: form.testiCity.trim() || undefined,
+        rating: Number.isFinite(rating) ? Math.min(5, Math.max(1, rating)) : 5,
+        verified: form.testiVerified,
+        product: form.testiProduct.trim() || undefined,
+        date: form.testiDate.trim() || undefined,
+      };
+    } else if (form.blocksText.trim()) {
       try {
         blocks = JSON.parse(form.blocksText);
       } catch {
@@ -580,13 +619,56 @@ export default function ContentPage() {
             </Field>
           )}
 
-          <Field
-            label="Blocks (JSON)"
-            htmlFor="content-blocks"
-            hint={form.kind === "testimonial" ? '{ "name": "…", "city": "…", "rating": 5, "verified": true, "product": "…" }' : form.kind === "lookbook" ? '{ "pins": [{ "id": "pin-1", "top": "28%", "left": "48%", "title": "…", "price": "₹1,899", "tag": "…" }] }' : form.kind === "section" ? '{ "filterKey": "festive", "count": "New collection", "tagline": "Occasion-ready styles" }' : "Optional free-form JSON"}
-          >
-            <Textarea id="content-blocks" rows={5} value={form.blocksText} onChange={(event) => set("blocksText", event.target.value)} className="font-mono !text-[12px]" />
-          </Field>
+          {/* ---- TESTIMONIAL: dedicated fields instead of raw JSON ---- */}
+          {form.kind === "testimonial" ? (
+            <div className="space-y-4 rounded-xl border border-[#ebe6de] bg-[#faf7f2] p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#881337]">Customer Review Details</p>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Customer Name *" htmlFor="testi-name" hint="Full name of the reviewer">
+                  <TextInput id="testi-name" value={form.testiName} onChange={(e) => set("testiName", e.target.value)} placeholder="e.g. Priya Sharma" />
+                </Field>
+                <Field label="City" htmlFor="testi-city" hint="Where the customer is from">
+                  <TextInput id="testi-city" value={form.testiCity} onChange={(e) => set("testiCity", e.target.value)} placeholder="e.g. Jaipur" />
+                </Field>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Rating (1–5 stars)" htmlFor="testi-rating">
+                  <Select id="testi-rating" value={form.testiRating} onChange={(e) => set("testiRating", e.target.value)}>
+                    <option value="5">⭐⭐⭐⭐⭐ — 5 stars</option>
+                    <option value="4">⭐⭐⭐⭐ — 4 stars</option>
+                    <option value="3">⭐⭐⭐ — 3 stars</option>
+                    <option value="2">⭐⭐ — 2 stars</option>
+                    <option value="1">⭐ — 1 star</option>
+                  </Select>
+                </Field>
+                <Field label="Date" htmlFor="testi-date" hint="Display date (e.g. Oct 2026)">
+                  <TextInput id="testi-date" value={form.testiDate} onChange={(e) => set("testiDate", e.target.value)} placeholder="e.g. Oct 2026" />
+                </Field>
+              </div>
+              <Field label="Product Purchased" htmlFor="testi-product" hint="Which product did they buy?">
+                <TextInput id="testi-product" value={form.testiProduct} onChange={(e) => set("testiProduct", e.target.value)} placeholder="e.g. Gulab Bagh Anarkali Set" />
+              </Field>
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#ebe6de] bg-white px-4 py-3" htmlFor="testi-verified">
+                <input
+                  id="testi-verified"
+                  type="checkbox"
+                  checked={form.testiVerified}
+                  onChange={(e) => set("testiVerified", e.target.checked)}
+                  className="h-4 w-4 accent-[#881337]"
+                />
+                <span className="text-[13px] font-medium text-stone-700">Mark as Verified Buyer ✓</span>
+                <span className="text-[11px] text-stone-400">(shows a green badge on the review card)</span>
+              </label>
+            </div>
+          ) : (
+            <Field
+              label="Blocks (JSON)"
+              htmlFor="content-blocks"
+              hint={form.kind === "lookbook" ? '{ "pins": [{ "id": "pin-1", "top": "28%", "left": "48%", "title": "…", "price": "₹1,899", "tag": "…" }] }' : form.kind === "section" ? '{ "filterKey": "festive", "count": "New collection", "tagline": "Occasion-ready styles" }' : "Optional free-form JSON"}
+            >
+              <Textarea id="content-blocks" rows={5} value={form.blocksText} onChange={(event) => set("blocksText", event.target.value)} className="font-mono !text-[12px]" />
+            </Field>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Position" htmlFor="content-position" hint="Lower sorts first">
