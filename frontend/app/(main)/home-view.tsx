@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
 import type { HeroSlide, Lookbook, Testimonial } from "../../lib/content";
@@ -45,9 +45,6 @@ export default function HomeView({
   const [activeStory, setActiveStory] = useState<CmsCategoryStory | null>(null);
   // Active Hero Slide
   const [heroSlide, setHeroSlide] = useState<number>(0);
-  const [heroInView, setHeroInView] = useState(false);
-  const [pageVisible, setPageVisible] = useState(false);
-  const heroSectionRef = useRef<HTMLElement>(null);
   // Start with the lightweight image experience; video remains an explicit opt-in.
   const [heroMode, setHeroMode] = useState<"slides" | "video">("slides");
   // Active hotspot pin
@@ -84,29 +81,12 @@ export default function HomeView({
   }, []);
 
   useEffect(() => {
-    const section = heroSectionRef.current;
-    const updateVisibility = () => setPageVisible(document.visibilityState === "visible");
-    updateVisibility();
-    document.addEventListener("visibilitychange", updateVisibility);
-    if (!section) return () => document.removeEventListener("visibilitychange", updateVisibility);
-    const observer = new IntersectionObserver(
-      ([entry]) => setHeroInView(entry.isIntersecting && entry.intersectionRatio >= 0.25),
-      { threshold: [0, 0.25] },
-    );
-    observer.observe(section);
-    return () => {
-      observer.disconnect();
-      document.removeEventListener("visibilitychange", updateVisibility);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (heroMode !== "slides" || banners.length < 2 || !heroInView || !pageVisible) return;
+    if (heroMode !== "slides" || banners.length < 2) return;
     const timer = window.setInterval(() => {
       setHeroSlide((current) => (current + 1) % banners.length);
     }, 5000);
     return () => window.clearInterval(timer);
-  }, [heroMode, banners.length, heroInView, pageVisible]);
+  }, [heroMode, banners.length]);
 
   const fallbackCategorySlugs = ["mul-cotton", "festive", "coord-sets", "anarkalis"];
   const categoryTabs = categories.length
@@ -135,7 +115,7 @@ export default function HomeView({
       data-content-source={fromCms ? "cms" : "empty"}
     >
       {/* ================= 1. EDITORIAL HERO — DUAL MODE (Video / Slides) ================= */}
-      <section ref={heroSectionRef} className="relative h-[42svh] min-h-[270px] max-h-[400px] sm:h-[84vh] sm:min-h-[580px] sm:max-h-[860px] w-full overflow-hidden bg-[#faf7f2]">
+      <section className="relative h-[42svh] min-h-[270px] max-h-[400px] sm:h-[84vh] sm:min-h-[580px] sm:max-h-[860px] w-full overflow-hidden bg-[#faf7f2]">
 
         {/* ---- MODE TOGGLE PILL (top-right corner) ---- */}
         {banners.length > 0 && <div className="hidden sm:flex absolute top-3.5 right-3.5 sm:top-6 sm:right-6 z-30 items-center gap-1 bg-black/60 backdrop-blur-xl border border-[#dfc28c]/40 rounded-full p-1 shadow-[0_4px_25px_rgba(0,0,0,0.6)]">

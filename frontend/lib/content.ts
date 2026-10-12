@@ -165,7 +165,7 @@ export function toTestimonials(docs: ContentDoc[], fallback: Testimonial[]): Tes
     .map((doc, index): Testimonial | null => {
       const blocks = blocksAsObject(doc);
       const base = fallback[index];
-      const name = str(blocks.name) ?? str(blocks.author) ?? base?.name;
+      const name = str(blocks.name) ?? str(blocks.author) ?? str(doc.title) ?? base?.name;
       const comment = str(doc.body) ?? str(blocks.comment) ?? base?.comment;
       if (!name || !comment) return null;
       const rating = num(blocks.rating) ?? base?.rating ?? 5;
