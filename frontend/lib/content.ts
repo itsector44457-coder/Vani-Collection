@@ -198,46 +198,60 @@ export interface LookbookPin {
 }
 
 export interface Lookbook {
+  id?: string;
   title: string;
   subtitle: string;
   image: string;
   pins: LookbookPin[];
 }
 
-/** The shoppable editorial image from `kind=lookbook`. Only the first published block is used. */
-export function toLookbook(docs: ContentDoc[], fallback: Lookbook): Lookbook {
-  const doc = docs[0];
-  if (!doc) return fallback;
-  const blocks = blocksAsObject(doc);
-  const image = firstImage(doc) ?? str(blocks.image) ?? fallback.image;
-  if (!image) return fallback;
+/** The shoppable editorial images from `kind=lookbook`. Supports multiple published lookbooks! */
+export function toLookbooks(docs: ContentDoc[], fallback: Lookbook[]): Lookbook[] {
+  if (!docs.length) return fallback;
+  const list: Lookbook[] = docs
+    .map((doc, docIndex): Lookbook | null => {
+      const blocks = blocksAsObject(doc);
+      const base = fallback[docIndex] ?? fallback[0];
+      const image = firstImage(doc) ?? str(blocks.image) ?? base?.image;
+      if (!image) return null;
 
-  // Pins may be authored as a JSON array in `blocks.pins`, or as extra media entries with alt text.
-  const rawPins = Array.isArray(blocks.pins) ? (blocks.pins as unknown[]) : [];
-  const pins: LookbookPin[] = rawPins
-    .map((entry, index): LookbookPin | null => {
-      if (!entry || typeof entry !== "object") return null;
-      const pin = entry as Record<string, unknown>;
-      const base = fallback.pins[index];
-      const title = str(pin.title) ?? base?.title;
-      if (!title) return null;
+      // Pins may be authored as a JSON array in `blocks.pins`, or as extra media entries with alt text.
+      const rawPins = Array.isArray(blocks.pins) ? (blocks.pins as unknown[]) : [];
+      const pins: LookbookPin[] = rawPins
+        .map((entry, index): LookbookPin | null => {
+          if (!entry || typeof entry !== "object") return null;
+          const pin = entry as Record<string, unknown>;
+          const pinBase = base?.pins?.[index];
+          const title = str(pin.title) ?? pinBase?.title;
+          if (!title) return null;
+          return {
+            id: str(pin.id) ?? pinBase?.id ?? `pin-${index + 1}`,
+            top: str(pin.top) ?? pinBase?.top ?? "50%",
+            left: str(pin.left) ?? pinBase?.left ?? "50%",
+            title,
+            price: str(pin.price) ?? pinBase?.price ?? "",
+            tag: str(pin.tag) ?? pinBase?.tag ?? "",
+          };
+        })
+        .filter((pin): pin is LookbookPin => pin !== null);
+
       return {
-        id: str(pin.id) ?? base?.id ?? `pin-${index + 1}`,
-        top: str(pin.top) ?? base?.top ?? "50%",
-        left: str(pin.left) ?? base?.left ?? "50%",
-        title,
-        price: str(pin.price) ?? base?.price ?? "",
-        tag: str(pin.tag) ?? base?.tag ?? "",
+        id: doc.key || `lookbook-${docIndex + 1}`,
+        title: str(doc.title) ?? base?.title ?? "",
+        subtitle: str(doc.subtitle) ?? base?.subtitle ?? "",
+        image,
+        pins: pins.length ? pins : base?.pins ?? [],
       };
     })
-    .filter((pin): pin is LookbookPin => pin !== null);
+    .filter((item): item is Lookbook => item !== null);
 
-  return {
-    title: str(doc.title) ?? fallback.title,
-    subtitle: str(doc.subtitle) ?? fallback.subtitle,
-    image,
-    pins: pins.length ? pins : fallback.pins,
-  };
+  return list.length ? list : fallback;
+}
+
+/** The shoppable editorial image from `kind=lookbook` (single fallback). */
+export function toLookbook(docs: ContentDoc[], fallback: Lookbook): Lookbook {
+  const all = toLookbooks(docs, [fallback]);
+  return all[0] ?? fallback;
 }
 
 /* ------------------------------------------------------------------------- FAQ */
@@ -314,6 +328,7 @@ export interface HomepageContent<TBanners, TTestimonials, TLookbook, TStories> {
   banners: TBanners;
   testimonials: TTestimonials;
   lookbook: TLookbook;
+  lookbooks: Lookbook[];
   stories: TStories;
   faqs: FaqItem[];
   productCollection: { title?: string; subtitle?: string; productIds: string[] } | null;
@@ -340,7 +355,7 @@ export async function fetchHomepageContent(fallbacks: {
   const ofKind = (kind: ContentKind) => published.filter((item) => item.kind === kind && item.key);
   const banners = ofKind("banner");
   const testimonials = ofKind("testimonial");
-  const lookbook = ofKind("lookbook");
+  const lookbookList = ofKind("lookbook");
   const stories = ofKind("section");
   const faqs = ofKind("faq");
   const productCollections = ofKind("product_collection");
@@ -356,7 +371,8 @@ export async function fetchHomepageContent(fallbacks: {
   return {
     banners: toHeroSlides(banners, fallbacks.banners),
     testimonials: toTestimonials(testimonials, fallbacks.testimonials),
-    lookbook: toLookbook(lookbook, fallbacks.lookbook),
+    lookbook: toLookbook(lookbookList, fallbacks.lookbook),
+    lookbooks: toLookbooks(lookbookList, [fallbacks.lookbook]),
     stories: toCategoryStories(stories, fallbacks.stories),
     faqs: toFaqItems(faqs),
     productCollection: productCollection ? {
@@ -364,7 +380,7 @@ export async function fetchHomepageContent(fallbacks: {
       subtitle: str(productCollection.subtitle),
       productIds,
     } : null,
-    fromCms: Boolean(banners.length || testimonials.length || lookbook.length || stories.length || faqs.length || productCollection),
+    fromCms: Boolean(banners.length || testimonials.length || lookbookList.length || stories.length || faqs.length || productCollection),
   };
 }
 

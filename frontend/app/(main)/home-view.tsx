@@ -14,6 +14,7 @@ export interface HomeViewProps {
   banners?: HeroSlide[];
   testimonials?: Testimonial[];
   lookbook?: Lookbook;
+  lookbooks?: Lookbook[];
   stories?: CmsCategoryStory[];
   faqs?: { question: string; answer: string }[];
   productCollection?: { title?: string; subtitle?: string; productIds: string[] } | null;
@@ -32,12 +33,20 @@ export default function HomeView({
   banners = [],
   testimonials = [],
   lookbook = { title: "", subtitle: "", image: "", pins: [] },
+  lookbooks = [],
   stories = [],
   faqs = [],
   productCollection = null,
   fromCms = false,
 }: HomeViewProps = {}) {
   const { addToCart, setQuickViewProduct, toggleWishlist, isInWishlist } = useCart();
+
+  // Multi-lookbook support: preserves every published lookbook!
+  const allLookbooks = (lookbooks && lookbooks.length > 0)
+    ? lookbooks.filter((item) => Boolean(item && item.image))
+    : (lookbook && lookbook.image ? [lookbook] : []);
+  const [activeLookbookIdx, setActiveLookbookIdx] = useState<number>(0);
+  const currentLookbook = allLookbooks[activeLookbookIdx] ?? allLookbooks[0] ?? lookbook;
 
   // Active filter tab
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -588,92 +597,155 @@ export default function HomeView({
       </section>
 
       {/* ================= 5. INTERACTIVE LOOKBOOK (HOTSPOTS BANNER) ================= */}
-      {lookbook.image && <section id="lookbook" className="py-12 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
-        <div className="text-center max-w-xl mx-auto mb-8 sm:mb-10">
-          <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
-            Editorial Styling
-          </span>
-          <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-stone-900 mt-1">
-            {lookbook.title}
-          </h2>
-          <p className="text-xs text-stone-600 mt-1.5 font-light">
-            Tap on any floating gold pin on the muse to explore the handcrafted elements.
-          </p>
-        </div>
-
-        <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl h-[380px] sm:h-[560px] lg:h-[650px] w-full border border-stone-200">
-          {/* Main Lookbook Photography */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lookbook.image}
-            alt={lookbook.title}
-            className="w-full h-full object-cover object-center"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/30" />
-
-          {/* Interactive Floating Pulse Pins */}
-          {lookbook.pins.map((pin) => (
-            <div
-              key={pin.id}
-              style={{ top: pin.top, left: pin.left }}
-              className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
-            >
-              <button
-                onClick={() => setActivePin(activePin === pin.id ? null : pin.id)}
-                className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#dfc28c] text-stone-900 font-bold text-xs shadow-lg hover:scale-110 transition"
-              >
-                <span className="absolute inset-0 rounded-full bg-[#dfc28c] animate-ping opacity-60" />
-                <span>+</span>
-              </button>
-
-              {/* Pin Tooltip Box */}
-              <AnimatePresence>
-                {activePin === pin.id && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="absolute left-1/2 -translate-x-1/2 top-9 sm:top-10 w-44 sm:w-52 bg-white/95 backdrop-blur-md p-3 sm:p-3.5 rounded-xl shadow-2xl border border-stone-200 text-stone-900 z-30"
-                  >
-                    <span className="text-[8.5px] sm:text-[9px] uppercase font-bold text-[#881337] tracking-wider block">
-                      {pin.tag}
-                    </span>
-                    <h4 className="font-serif text-xs sm:text-sm font-semibold leading-tight my-1">
-                      {pin.title}
-                    </h4>
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-200">
-                      <span className="text-xs font-bold text-[#881337]">{pin.price}</span>
-                      <button
-                        onClick={() => {
-                          const prod = catalogueProducts[0];
-                          addToCart(prod, "M", 1);
-                        }}
-                        className="bg-[#1c1917] text-white px-2.5 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold hover:bg-[#881337] transition"
-                      >
-                        + Bag
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
-
-          {/* Lookbook Title Badge */}
-          <div className="absolute bottom-6 sm:bottom-8 left-5 sm:left-12 right-5 sm:right-auto text-white max-w-md z-10">
-            <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] font-semibold text-[#dfc28c] bg-black/40 px-2.5 sm:px-3 py-1 rounded-full backdrop-blur-md">
-              {lookbook.subtitle}
+      {currentLookbook?.image && (
+        <section id="lookbook" className="py-12 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
+          <div className="text-center max-w-xl mx-auto mb-6 sm:mb-8">
+            <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
+              Editorial Styling
             </span>
-            <h3 className="font-serif text-2xl sm:text-4xl font-light mt-2.5 mb-1.5 sm:mb-2">
-              {lookbook.title}
-            </h3>
-            <p className="text-[11px] sm:text-xs text-stone-300 font-light line-clamp-2 sm:line-clamp-none">
-              {lookbook.subtitle}
+            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-stone-900 mt-1">
+              {currentLookbook.title}
+            </h2>
+            <p className="text-xs text-stone-600 mt-1.5 font-light">
+              Tap on any floating gold pin on the muse to explore the handcrafted elements.
             </p>
           </div>
-        </div>
-      </section>
-      }
+
+          {/* Multiple Lookbooks Switcher Tabs */}
+          {allLookbooks.length > 1 && (
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-6 sm:mb-8">
+              {allLookbooks.map((lb, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setActiveLookbookIdx(idx);
+                    setActivePin(lb.pins?.[0]?.id ?? null);
+                  }}
+                  className={`px-4 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs font-medium tracking-wide transition-all shadow-sm ${
+                    activeLookbookIdx === idx
+                      ? "bg-[#881337] text-white shadow-md ring-2 ring-[#881337]/30 scale-105"
+                      : "bg-white text-stone-700 hover:bg-stone-100 border border-stone-200"
+                  }`}
+                >
+                  <span className="font-serif">Look {idx + 1}:</span> {lb.title ? (lb.title.length > 28 ? `${lb.title.slice(0, 28)}…` : lb.title) : `Collection ${idx + 1}`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl h-[380px] sm:h-[560px] lg:h-[650px] w-full border border-stone-200">
+            {/* Main Lookbook Photography */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={currentLookbook.image}
+              src={currentLookbook.image}
+              alt={currentLookbook.title}
+              className="w-full h-full object-cover object-center transition-all duration-700"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/30 pointer-events-none" />
+
+            {/* Prev / Next navigation arrows when multiple lookbooks exist */}
+            {allLookbooks.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextIdx = activeLookbookIdx > 0 ? activeLookbookIdx - 1 : allLookbooks.length - 1;
+                    setActiveLookbookIdx(nextIdx);
+                    setActivePin(allLookbooks[nextIdx]?.pins?.[0]?.id ?? null);
+                  }}
+                  className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/85 hover:bg-white text-stone-900 flex items-center justify-center shadow-xl backdrop-blur-md transition hover:scale-110 active:scale-95"
+                  aria-label="Previous Lookbook"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextIdx = activeLookbookIdx < allLookbooks.length - 1 ? activeLookbookIdx + 1 : 0;
+                    setActiveLookbookIdx(nextIdx);
+                    setActivePin(allLookbooks[nextIdx]?.pins?.[0]?.id ?? null);
+                  }}
+                  className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/85 hover:bg-white text-stone-900 flex items-center justify-center shadow-xl backdrop-blur-md transition hover:scale-110 active:scale-95"
+                  aria-label="Next Lookbook"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </>
+            )}
+
+            {/* Interactive Floating Pulse Pins */}
+            {(currentLookbook.pins ?? []).map((pin) => (
+              <div
+                key={pin.id}
+                style={{ top: pin.top, left: pin.left }}
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
+              >
+                <button
+                  onClick={() => setActivePin(activePin === pin.id ? null : pin.id)}
+                  className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#dfc28c] text-stone-900 font-bold text-xs shadow-lg hover:scale-110 transition"
+                >
+                  <span className="absolute inset-0 rounded-full bg-[#dfc28c] animate-ping opacity-60" />
+                  <span>+</span>
+                </button>
+
+                {/* Pin Tooltip Box */}
+                <AnimatePresence>
+                  {activePin === pin.id && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      className="absolute left-1/2 -translate-x-1/2 top-9 sm:top-10 w-44 sm:w-52 bg-white/95 backdrop-blur-md p-3 sm:p-3.5 rounded-xl shadow-2xl border border-stone-200 text-stone-900 z-30"
+                    >
+                      <span className="text-[8.5px] sm:text-[9px] uppercase font-bold text-[#881337] tracking-wider block">
+                        {pin.tag}
+                      </span>
+                      <h4 className="font-serif text-xs sm:text-sm font-semibold leading-tight my-1">
+                        {pin.title}
+                      </h4>
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-200">
+                        <span className="text-xs font-bold text-[#881337]">{pin.price}</span>
+                        <button
+                          onClick={() => {
+                            const prod = catalogueProducts[0];
+                            if (prod) addToCart(prod, "M", 1);
+                          }}
+                          className="bg-[#1c1917] text-white px-2.5 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold hover:bg-[#881337] transition"
+                        >
+                          + Bag
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ))}
+
+            {/* Lookbook Title Badge */}
+            <div className="absolute bottom-6 sm:bottom-8 left-5 sm:left-12 right-5 sm:right-auto text-white max-w-md z-10 pointer-events-none">
+              {currentLookbook.subtitle && (
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] font-semibold text-[#dfc28c] bg-black/40 px-2.5 sm:px-3 py-1 rounded-full backdrop-blur-md">
+                  {currentLookbook.subtitle}
+                </span>
+              )}
+              <h3 className="font-serif text-2xl sm:text-4xl font-light mt-2.5 mb-1.5 sm:mb-2">
+                {currentLookbook.title}
+              </h3>
+              {currentLookbook.subtitle && (
+                <p className="text-[11px] sm:text-xs text-stone-300 font-light line-clamp-2 sm:line-clamp-none">
+                  {currentLookbook.subtitle}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ================= 6. ARTISANAL HERITAGE & CRAFT PILLARS ================= */}
       {/* ================= 7. VERIFIED CUSTOMER REVIEWS ================= */}
