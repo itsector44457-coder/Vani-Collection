@@ -30,6 +30,7 @@ import {
 } from "@/lib/api-client";
 import { CONTENT_KINDS, type ContentKind } from "@/lib/content";
 import { useApiResource } from "@/lib/use-api";
+import { useCatalogue } from "@/lib/use-storefront";
 
 const DEMO_CONTENT: ContentDoc[] = [
   { _id: "c1", key: "home.banner.1", kind: "banner", title: "Poetry in Pure Mul Cotton", subtitle: "The Summer Bagru Edit 2026", body: "Featherlight 100-count handspun cotton woven for everyday grace.", ctaLabel: "Shop Pure Mul Sets", ctaHref: "#products", media: [{ url: "/vani-store-front.jpg", alt: "Vani Collection storefront" }], position: 0, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 2).toISOString() },
@@ -90,6 +91,8 @@ const blocksToText = (blocks: unknown): string => {
 
 interface FormPin {
   id: string;
+  productId?: string;
+  slug?: string;
   title: string;
   price: string;
   tag: string;
@@ -156,7 +159,7 @@ const EMPTY_FORM: FormState = {
   seoDescription: "",
   collectionProductIds: "",
   lookbookPins: [
-    { id: "pin-1", title: "", price: "", tag: "", top: 35, left: 50 },
+    { id: "pin-1", productId: "", slug: "", title: "", price: "", tag: "", top: 35, left: 50 },
   ],
 };
 
@@ -168,13 +171,15 @@ const toForm = (doc: ContentDoc): FormState => {
   const lookbookPins: FormPin[] = rawPins.length
     ? rawPins.map((p, idx) => ({
         id: typeof p.id === "string" ? p.id : `pin-${idx + 1}`,
+        productId: typeof p.productId === "string" ? p.productId : "",
+        slug: typeof p.slug === "string" ? p.slug : "",
         title: typeof p.title === "string" ? p.title : "",
         price: typeof p.price === "string" ? p.price : "",
         tag: typeof p.tag === "string" ? p.tag : "",
         top: typeof p.top === "string" ? parseInt(p.top, 10) || 50 : typeof p.top === "number" ? p.top : 50,
         left: typeof p.left === "string" ? parseInt(p.left, 10) || 50 : typeof p.left === "number" ? p.left : 50,
       }))
-    : [{ id: "pin-1", title: "", price: "", tag: "", top: 35, left: 50 }];
+    : [{ id: "pin-1", productId: "", slug: "", title: "", price: "", tag: "", top: 35, left: 50 }];
 
   return {
     key: doc.key,
@@ -221,6 +226,7 @@ export default function ContentPage() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const content = useApiResource<{ data: ContentDoc[] }>((signal) => api.managedContent(signal), { data: DEMO_CONTENT });
+  const catalogue = useCatalogue({ allPages: true });
   const all = content.data.data;
 
   const counts = useMemo(() => {
@@ -262,6 +268,8 @@ export default function ContentPage() {
         ...current.lookbookPins,
         {
           id: `pin-${current.lookbookPins.length + 1}`,
+          productId: "",
+          slug: "",
           title: "",
           price: "",
           tag: "",
@@ -427,6 +435,8 @@ export default function ContentPage() {
         .filter((p) => p.title.trim())
         .map((p, idx) => ({
           id: p.id || `pin-${idx + 1}`,
+          productId: p.productId || undefined,
+          slug: p.slug || undefined,
           title: p.title.trim(),
           price: p.price.trim(),
           tag: p.tag.trim(),
@@ -942,6 +952,40 @@ export default function ContentPage() {
                               ✕ Remove
                             </button>
                           </div>
+
+                          {/* Product Dropdown Selector */}
+                          <Field
+                            label="Link to Store Product (Dropdown) ✨"
+                            htmlFor={`pin-product-${index}`}
+                            hint="Select a product from catalogue to auto-fill details and link direct '+ Bag' and view actions!"
+                          >
+                            <Select
+                              id={`pin-product-${index}`}
+                              value={pin.productId || ""}
+                              onChange={(e) => {
+                                const selectedId = e.target.value;
+                                const prod = catalogue.data.find((p) => p.id === selectedId || p.productId === selectedId);
+                                if (prod) {
+                                  updatePin(index, {
+                                    productId: prod.id || prod.productId || "",
+                                    slug: prod.slug || "",
+                                    title: prod.title,
+                                    price: `₹${prod.price.toLocaleString("en-IN")}`,
+                                    tag: prod.fabric || prod.category || "In Stock",
+                                  });
+                                } else {
+                                  updatePin(index, { productId: "", slug: "" });
+                                }
+                              }}
+                            >
+                              <option value="">-- Choose a Product from Catalogue (or type manually below) --</option>
+                              {catalogue.data.map((prod) => (
+                                <option key={prod.id} value={prod.id}>
+                                  {prod.title} — ₹{prod.price.toLocaleString("en-IN")} ({prod.category})
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
 
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <Field label="Product Name *" htmlFor={`pin-title-${index}`} hint="e.g. Mul Anarkali">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
 import type { HeroSlide, Lookbook, Testimonial } from "../../lib/content";
@@ -680,52 +681,101 @@ export default function HomeView({
             )}
 
             {/* Interactive Floating Pulse Pins */}
-            {(currentLookbook.pins ?? []).map((pin) => (
-              <div
-                key={pin.id}
-                style={{ top: pin.top, left: pin.left }}
-                className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
-              >
-                <button
-                  onClick={() => setActivePin(activePin === pin.id ? null : pin.id)}
-                  className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#dfc28c] text-stone-900 font-bold text-xs shadow-lg hover:scale-110 transition"
-                >
-                  <span className="absolute inset-0 rounded-full bg-[#dfc28c] animate-ping opacity-60" />
-                  <span>+</span>
-                </button>
+            {(currentLookbook.pins ?? []).map((pin) => {
+              const matchedProduct = catalogueProducts.find((p) =>
+                (pin.productId && (p.id === pin.productId || p.productId === pin.productId)) ||
+                (pin.slug && p.slug === pin.slug) ||
+                (pin.title && p.title.toLowerCase().trim() === pin.title.toLowerCase().trim()) ||
+                (pin.title && p.title.toLowerCase().includes(pin.title.toLowerCase().trim()))
+              ) || catalogueProducts[0];
 
-                {/* Pin Tooltip Box */}
-                <AnimatePresence>
-                  {activePin === pin.id && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      className="absolute left-1/2 -translate-x-1/2 top-9 sm:top-10 w-44 sm:w-52 bg-white/95 backdrop-blur-md p-3 sm:p-3.5 rounded-xl shadow-2xl border border-stone-200 text-stone-900 z-30"
-                    >
-                      <span className="text-[8.5px] sm:text-[9px] uppercase font-bold text-[#881337] tracking-wider block">
-                        {pin.tag}
-                      </span>
-                      <h4 className="font-serif text-xs sm:text-sm font-semibold leading-tight my-1">
-                        {pin.title}
-                      </h4>
-                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-200">
-                        <span className="text-xs font-bold text-[#881337]">{pin.price}</span>
-                        <button
-                          onClick={() => {
-                            const prod = catalogueProducts[0];
-                            if (prod) addToCart(prod, "M", 1);
-                          }}
-                          className="bg-[#1c1917] text-white px-2.5 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold hover:bg-[#881337] transition"
-                        >
-                          + Bag
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))}
+              const productSize = (matchedProduct && selectedSizes[matchedProduct.id]) || (matchedProduct?.sizes?.[0]) || "M";
+
+              return (
+                <div
+                  key={pin.id}
+                  style={{ top: pin.top, left: pin.left }}
+                  className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
+                >
+                  <button
+                    onClick={() => setActivePin(activePin === pin.id ? null : pin.id)}
+                    className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#dfc28c] text-stone-900 font-bold text-xs shadow-lg hover:scale-110 transition cursor-pointer"
+                  >
+                    <span className="absolute inset-0 rounded-full bg-[#dfc28c] animate-ping opacity-60" />
+                    <span>+</span>
+                  </button>
+
+                  {/* Pin Tooltip Box */}
+                  <AnimatePresence>
+                    {activePin === pin.id && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className="absolute left-1/2 -translate-x-1/2 top-9 sm:top-10 w-48 sm:w-56 bg-white/95 backdrop-blur-md p-3 sm:p-3.5 rounded-xl shadow-2xl border border-stone-200 text-stone-900 z-30"
+                      >
+                        <div className="flex items-start gap-2.5">
+                          {matchedProduct?.image && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={matchedProduct.image}
+                              alt={pin.title || matchedProduct.title}
+                              className="w-12 h-14 object-cover rounded-md border border-stone-200 shrink-0 bg-stone-100"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[8.5px] sm:text-[9px] uppercase font-bold text-[#881337] tracking-wider block truncate">
+                              {pin.tag || matchedProduct?.fabric || matchedProduct?.category || "Artisanal"}
+                            </span>
+                            <h4 className="font-serif text-xs sm:text-sm font-semibold leading-tight my-0.5 line-clamp-2">
+                              {matchedProduct?.slug ? (
+                                <Link
+                                  href={`/product/${matchedProduct.slug}`}
+                                  className="hover:text-[#881337] transition underline-offset-2 hover:underline"
+                                >
+                                  {pin.title || matchedProduct.title}
+                                </Link>
+                              ) : (
+                                pin.title || matchedProduct?.title
+                              )}
+                            </h4>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-stone-200">
+                          <span className="text-xs font-bold text-[#881337]">
+                            {pin.price || (matchedProduct ? `₹${matchedProduct.price.toLocaleString("en-IN")}` : "")}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {matchedProduct && (
+                              <button
+                                type="button"
+                                onClick={() => setQuickViewProduct(matchedProduct)}
+                                className="border border-stone-300 text-stone-700 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider font-semibold hover:border-stone-900 hover:text-stone-900 transition cursor-pointer"
+                                title="Quick View"
+                              >
+                                View
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (matchedProduct) {
+                                  addToCart(matchedProduct, productSize, 1);
+                                }
+                              }}
+                              className="bg-[#1c1917] text-white px-2.5 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold hover:bg-[#881337] transition shadow-xs cursor-pointer"
+                            >
+                              + Bag
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
 
             {/* Lookbook Title Badge */}
             <div className="absolute bottom-6 sm:bottom-8 left-5 sm:left-12 right-5 sm:right-auto text-white max-w-md z-10 pointer-events-none">

@@ -190,6 +190,8 @@ export function toTestimonials(docs: ContentDoc[], fallback: Testimonial[]): Tes
 
 export interface LookbookPin {
   id: string;
+  productId?: string;
+  slug?: string;
   top: string;
   left: string;
   title: string;
@@ -226,6 +228,8 @@ export function toLookbooks(docs: ContentDoc[], fallback: Lookbook[]): Lookbook[
           if (!title) return null;
           return {
             id: str(pin.id) ?? pinBase?.id ?? `pin-${index + 1}`,
+            productId: str(pin.productId) ?? pinBase?.productId,
+            slug: str(pin.slug) ?? pinBase?.slug,
             top: str(pin.top) ?? pinBase?.top ?? "50%",
             left: str(pin.left) ?? pinBase?.left ?? "50%",
             title,
