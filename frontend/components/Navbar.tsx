@@ -406,9 +406,21 @@ export default function Navbar() {
               ))}
 
               {/* Lookbook Mega Menu */}
-              {dropdownMenus.filter((menu) => menu.isActive).sort((a, b) => a.position - b.position).map((menu) => (
-              <MegaMenuItem key={menu.key} label={menu.label} categories={menuColumns(menu)} footerHref="/products" accent={settings.colors.accent} textColor={settings.colors.headerText} panelBg={settings.colors.headerBg} />
-              ))}
+              {dropdownMenus.filter((menu) => menu.isActive).sort((a, b) => a.position - b.position).map((menu) => {
+                const isLookbook = menu.key === "lookbook" || menu.label.toLowerCase().includes("lookbook");
+                return (
+                  <MegaMenuItem
+                    key={menu.key}
+                    label={menu.label}
+                    triggerHref={isLookbook ? "/#lookbook" : undefined}
+                    categories={menuColumns(menu)}
+                    footerHref={isLookbook ? "/#lookbook" : "/products"}
+                    accent={settings.colors.accent}
+                    textColor={settings.colors.headerText}
+                    panelBg={settings.colors.headerBg}
+                  />
+                );
+              })}
 
               {/* Shop By Price */}
             </nav>
@@ -645,9 +657,19 @@ export default function Navbar() {
                     </Link>
                   ))}
                   <Link
-                    href="/products"
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className="flex items-center justify-between p-2.5 rounded-lg hover:bg-stone-100"
+                    href="/#lookbook"
+                    onClick={(e) => {
+                      setMobileDrawerOpen(false);
+                      if (window.location.pathname === "/") {
+                        const target = document.getElementById("lookbook");
+                        if (target) {
+                          e.preventDefault();
+                          target.scrollIntoView({ behavior: "smooth" });
+                          window.history.pushState(null, "", "/#lookbook");
+                        }
+                      }
+                    }}
+                    className="flex items-center justify-between p-2.5 rounded-lg hover:bg-stone-100 font-semibold text-[#881337]"
                   >
                     <span>✦ Shop The Lookbook</span>
                     <span>→</span>
@@ -797,6 +819,7 @@ function IconBtn({
    ======================================== */
 function MegaMenuItem({ 
   label, 
+  triggerHref,
   categories,
   footerHref = "/products",
   accent = "#881337",
@@ -804,6 +827,7 @@ function MegaMenuItem({
   panelBg = "#faf7f2",
 }: { 
   label: string;
+  triggerHref?: string;
   categories: Array<{ title: string; items: Array<{ label: string; href: string }> }>;
   footerHref?: string;
   accent?: string;
@@ -829,21 +853,55 @@ function MegaMenuItem({
       onMouseLeave={handleMouseLeave}
     >
       {/* Trigger Button */}
-      <button className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors px-4 py-2 flex items-center gap-1.5" style={{ color: textColor }}>
-        <span>{label}</span>
-        <svg 
-          width="12" 
-          height="12" 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="currentColor" 
-          strokeWidth="2.5"
-          className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+      {triggerHref ? (
+        <Link
+          href={triggerHref}
+          onClick={(e) => {
+            if (triggerHref.includes("#") && window.location.pathname === "/") {
+              const id = triggerHref.split("#")[1];
+              const target = document.getElementById(id);
+              if (target) {
+                e.preventDefault();
+                target.scrollIntoView({ behavior: "smooth" });
+                window.history.pushState(null, "", triggerHref);
+                setIsOpen(false);
+              }
+            }
+          }}
+          className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors px-4 py-2 flex items-center gap-1.5 cursor-pointer"
+          style={{ color: textColor }}
         >
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-        <span className={`absolute bottom-0 left-0 right-0 h-0.5 transition-transform origin-left ${isOpen ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`} style={{ backgroundColor: accent }} />
-      </button>
+          <span>{label}</span>
+          <svg 
+            width="12" 
+            height="12" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2.5"
+            className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+          <span className={`absolute bottom-0 left-0 right-0 h-0.5 transition-transform origin-left ${isOpen ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`} style={{ backgroundColor: accent }} />
+        </Link>
+      ) : (
+        <button className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors px-4 py-2 flex items-center gap-1.5" style={{ color: textColor }}>
+          <span>{label}</span>
+          <svg 
+            width="12" 
+            height="12" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2.5"
+            className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          >
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+          <span className={`absolute bottom-0 left-0 right-0 h-0.5 transition-transform origin-left ${isOpen ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`} style={{ backgroundColor: accent }} />
+        </button>
+      )}
 
       {/* Mega Dropdown */}
       <AnimatePresence>
@@ -902,10 +960,22 @@ function MegaMenuItem({
               <div className="px-6 py-4 border-t border-gray-100" style={{ backgroundColor: `${accent}12` }}>
                 <Link 
                   href={footerHref}
+                  onClick={(e) => {
+                    setIsOpen(false);
+                    if (footerHref.includes("#") && window.location.pathname === "/") {
+                      const id = footerHref.split("#")[1];
+                      const target = document.getElementById(id);
+                      if (target) {
+                        e.preventDefault();
+                        target.scrollIntoView({ behavior: "smooth" });
+                        window.history.pushState(null, "", footerHref);
+                      }
+                    }
+                  }}
                   className="inline-flex items-center gap-2 text-sm font-semibold transition-colors"
                   style={{ color: accent }}
                 >
-                  <span>View All in {label}</span>
+                  <span>{footerHref.includes("#lookbook") ? "✦ Go to Shoppable Lookbook" : `View All in ${label}`}</span>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <path d="M5 12h14M12 5l7 7-7 7" />
                   </svg>
