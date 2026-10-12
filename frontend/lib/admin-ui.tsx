@@ -479,6 +479,21 @@ export function Checkbox({
 }
 
 /* ---------------- Modal ---------------- */
+export type ModalSize = "sm" | "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl" | "5xl" | "6xl" | "full";
+
+const MODAL_SIZES: Record<ModalSize, string> = {
+  sm: "max-w-sm",
+  md: "max-w-md",
+  lg: "max-w-lg",
+  xl: "max-w-xl",
+  "2xl": "max-w-2xl",
+  "3xl": "max-w-3xl",
+  "4xl": "max-w-4xl",
+  "5xl": "max-w-5xl",
+  "6xl": "max-w-6xl",
+  full: "max-w-[96vw] sm:max-w-[94vw] lg:max-w-[1280px]",
+};
+
 export function Modal({
   open,
   onClose,
@@ -486,6 +501,8 @@ export function Modal({
   description,
   children,
   footer,
+  size = "lg",
+  className = "",
 }: {
   open: boolean;
   onClose: () => void;
@@ -493,34 +510,37 @@ export function Modal({
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
+  size?: ModalSize;
+  className?: string;
 }) {
   if (!open) return null;
+  const sizeClass = MODAL_SIZES[size] ?? MODAL_SIZES.lg;
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#14100f]/45 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#14100f]/50 p-0 backdrop-blur-sm sm:items-center sm:p-4 lg:p-6">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-[#ebe6de] bg-white shadow-2xl sm:rounded-3xl"
+        className={`max-h-[95vh] w-full ${sizeClass} flex flex-col overflow-hidden rounded-t-3xl border border-[#ebe6de] bg-white shadow-2xl sm:rounded-3xl ${className}`}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[#f0ebe3] px-6 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#f0ebe3] px-6 py-4 sm:px-8">
           <div>
-            <h2 className="font-serif text-[19px] font-semibold tracking-tight text-[#14100f]">{title}</h2>
+            <h2 className="font-serif text-[20px] font-semibold tracking-tight text-[#14100f]">{title}</h2>
             {description && <p className="mt-1 text-[12.5px] text-stone-500">{description}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+            className="rounded-xl p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
-        {footer && <div className="flex flex-wrap justify-end gap-2 border-t border-[#f0ebe3] px-6 py-4">{footer}</div>}
+        <div className="flex-1 overflow-y-auto px-6 py-6 sm:px-8">{children}</div>
+        {footer && <div className="flex shrink-0 flex-wrap justify-end gap-3 border-t border-[#f0ebe3] bg-[#faf7f2]/60 px-6 py-4 sm:px-8">{footer}</div>}
       </div>
     </div>
   );
