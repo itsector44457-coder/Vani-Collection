@@ -635,16 +635,16 @@ export default function HomeView({
             </div>
           )}
 
-          <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl h-[380px] sm:h-[560px] lg:h-[650px] w-full border border-stone-200">
-            {/* Main Lookbook Photography */}
+          <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl min-h-[520px] sm:min-h-[660px] lg:min-h-[760px] w-full bg-[#12100e] border border-stone-800 flex items-center justify-center p-3 sm:p-6 lg:p-8">
+            {/* Ambient Blurred Aura so the widescreen edges fill with luxury matching tones */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              key={currentLookbook.image}
               src={currentLookbook.image}
-              alt={currentLookbook.title}
-              className="w-full h-full object-cover object-center transition-all duration-700"
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-35 scale-110 pointer-events-none"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/30 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/45 pointer-events-none" />
 
             {/* Prev / Next navigation arrows when multiple lookbooks exist */}
             {allLookbooks.length > 1 && (
@@ -656,7 +656,7 @@ export default function HomeView({
                     setActiveLookbookIdx(nextIdx);
                     setActivePin(allLookbooks[nextIdx]?.pins?.[0]?.id ?? null);
                   }}
-                  className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/85 hover:bg-white text-stone-900 flex items-center justify-center shadow-xl backdrop-blur-md transition hover:scale-110 active:scale-95"
+                  className="absolute left-3 sm:left-6 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-white/90 hover:bg-white text-stone-900 flex items-center justify-center shadow-2xl backdrop-blur-md transition hover:scale-110 active:scale-95 cursor-pointer"
                   aria-label="Previous Lookbook"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -670,7 +670,7 @@ export default function HomeView({
                     setActiveLookbookIdx(nextIdx);
                     setActivePin(allLookbooks[nextIdx]?.pins?.[0]?.id ?? null);
                   }}
-                  className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-white/85 hover:bg-white text-stone-900 flex items-center justify-center shadow-xl backdrop-blur-md transition hover:scale-110 active:scale-95"
+                  className="absolute right-3 sm:right-6 top-1/2 -translate-y-1/2 z-30 w-11 h-11 rounded-full bg-white/90 hover:bg-white text-stone-900 flex items-center justify-center shadow-2xl backdrop-blur-md transition hover:scale-110 active:scale-95 cursor-pointer"
                   aria-label="Next Lookbook"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -680,115 +680,143 @@ export default function HomeView({
               </>
             )}
 
-            {/* Interactive Floating Pulse Pins */}
-            {(currentLookbook.pins ?? []).map((pin) => {
-              const matchedProduct = catalogueProducts.find((p) =>
-                (pin.productId && (p.id === pin.productId || p.productId === pin.productId)) ||
-                (pin.slug && p.slug === pin.slug) ||
-                (pin.title && p.title.toLowerCase().trim() === pin.title.toLowerCase().trim()) ||
-                (pin.title && p.title.toLowerCase().includes(pin.title.toLowerCase().trim()))
-              ) || catalogueProducts[0];
+            {/* Centered Muse / Model Canvas - uncropped, showing the full outfit and head! */}
+            <div className={`relative z-10 ${
+              currentLookbook.layout === 'banner'
+                ? 'w-full h-full min-h-[500px] sm:min-h-[640px] lg:min-h-[740px]'
+                : 'h-[480px] sm:h-[620px] lg:h-[720px] w-full max-w-[560px] mx-auto rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/15'
+            }`}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                key={currentLookbook.image}
+                src={currentLookbook.image}
+                alt={currentLookbook.title}
+                className={`w-full h-full object-cover ${currentLookbook.focalPosition || 'object-top'} transition-all duration-700`}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20 pointer-events-none" />
 
-              const productSize = (matchedProduct && selectedSizes[matchedProduct.id]) || (matchedProduct?.sizes?.[0]) || "M";
+              {/* Lookbook Title Overlay on mobile & tablet */}
+              <div className="absolute bottom-5 left-4 right-4 text-white z-10 pointer-events-none lg:hidden">
+                {currentLookbook.subtitle && (
+                  <span className="text-[9px] uppercase tracking-[0.25em] font-semibold text-[#dfc28c] bg-black/60 px-2.5 py-0.5 rounded-full backdrop-blur-md">
+                    {currentLookbook.subtitle}
+                  </span>
+                )}
+                <h3 className="font-serif text-lg sm:text-2xl font-light mt-1.5 leading-tight drop-shadow-md">
+                  {currentLookbook.title}
+                </h3>
+              </div>
 
-              return (
-                <div
-                  key={pin.id}
-                  style={{ top: pin.top, left: pin.left }}
-                  className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
-                >
-                  <button
-                    onClick={() => setActivePin(activePin === pin.id ? null : pin.id)}
-                    className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#dfc28c] text-stone-900 font-bold text-xs shadow-lg hover:scale-110 transition cursor-pointer"
+              {/* Interactive Floating Pulse Pins */}
+              {(currentLookbook.pins ?? []).map((pin) => {
+                const matchedProduct = catalogueProducts.find((p) =>
+                  (pin.productId && (p.id === pin.productId || p.productId === pin.productId)) ||
+                  (pin.slug && p.slug === pin.slug) ||
+                  (pin.title && p.title.toLowerCase().trim() === pin.title.toLowerCase().trim()) ||
+                  (pin.title && p.title.toLowerCase().includes(pin.title.toLowerCase().trim()))
+                ) || catalogueProducts[0];
+
+                const productSize = (matchedProduct && selectedSizes[matchedProduct.id]) || (matchedProduct?.sizes?.[0]) || "M";
+
+                return (
+                  <div
+                    key={pin.id}
+                    style={{ top: pin.top, left: pin.left }}
+                    className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
                   >
-                    <span className="absolute inset-0 rounded-full bg-[#dfc28c] animate-ping opacity-60" />
-                    <span>+</span>
-                  </button>
+                    <button
+                      onClick={() => setActivePin(activePin === pin.id ? null : pin.id)}
+                      className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#dfc28c] text-stone-900 font-bold text-xs shadow-lg hover:scale-110 transition cursor-pointer"
+                    >
+                      <span className="absolute inset-0 rounded-full bg-[#dfc28c] animate-ping opacity-60" />
+                      <span>+</span>
+                    </button>
 
-                  {/* Pin Tooltip Box */}
-                  <AnimatePresence>
-                    {activePin === pin.id && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute left-1/2 -translate-x-1/2 top-9 sm:top-10 w-48 sm:w-56 bg-white/95 backdrop-blur-md p-3 sm:p-3.5 rounded-xl shadow-2xl border border-stone-200 text-stone-900 z-30"
-                      >
-                        <div className="flex items-start gap-2.5">
-                          {matchedProduct?.image && (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img
-                              src={matchedProduct.image}
-                              alt={pin.title || matchedProduct.title}
-                              className="w-12 h-14 object-cover rounded-md border border-stone-200 shrink-0 bg-stone-100"
-                            />
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <span className="text-[8.5px] sm:text-[9px] uppercase font-bold text-[#881337] tracking-wider block truncate">
-                              {pin.tag || matchedProduct?.fabric || matchedProduct?.category || "Artisanal"}
-                            </span>
-                            <h4 className="font-serif text-xs sm:text-sm font-semibold leading-tight my-0.5 line-clamp-2">
-                              {matchedProduct?.slug ? (
-                                <Link
-                                  href={`/product/${matchedProduct.slug}`}
-                                  className="hover:text-[#881337] transition underline-offset-2 hover:underline"
-                                >
-                                  {pin.title || matchedProduct.title}
-                                </Link>
-                              ) : (
-                                pin.title || matchedProduct?.title
-                              )}
-                            </h4>
+                    {/* Pin Tooltip Box */}
+                    <AnimatePresence>
+                      {activePin === pin.id && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute left-1/2 -translate-x-1/2 top-9 sm:top-10 w-48 sm:w-56 bg-white/95 backdrop-blur-md p-3 sm:p-3.5 rounded-xl shadow-2xl border border-stone-200 text-stone-900 z-30"
+                        >
+                          <div className="flex items-start gap-2.5">
+                            {matchedProduct?.image && (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img
+                                src={matchedProduct.image}
+                                alt={pin.title || matchedProduct.title}
+                                className="w-12 h-14 object-cover rounded-md border border-stone-200 shrink-0 bg-stone-100"
+                              />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[8.5px] sm:text-[9px] uppercase font-bold text-[#881337] tracking-wider block truncate">
+                                {pin.tag || matchedProduct?.fabric || matchedProduct?.category || "Artisanal"}
+                              </span>
+                              <h4 className="font-serif text-xs sm:text-sm font-semibold leading-tight my-0.5 line-clamp-2">
+                                {matchedProduct?.slug ? (
+                                  <Link
+                                    href={`/product/${matchedProduct.slug}`}
+                                    className="hover:text-[#881337] transition underline-offset-2 hover:underline"
+                                  >
+                                    {pin.title || matchedProduct.title}
+                                  </Link>
+                                ) : (
+                                  pin.title || matchedProduct?.title
+                                )}
+                              </h4>
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-stone-200">
-                          <span className="text-xs font-bold text-[#881337]">
-                            {pin.price || (matchedProduct ? `₹${matchedProduct.price.toLocaleString("en-IN")}` : "")}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            {matchedProduct && (
+                          <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-stone-200">
+                            <span className="text-xs font-bold text-[#881337]">
+                              {pin.price || (matchedProduct ? `₹${matchedProduct.price.toLocaleString("en-IN")}` : "")}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {matchedProduct && (
+                                <button
+                                  type="button"
+                                  onClick={() => setQuickViewProduct(matchedProduct)}
+                                  className="border border-stone-300 text-stone-700 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider font-semibold hover:border-stone-900 hover:text-stone-900 transition cursor-pointer"
+                                  title="Quick View"
+                                >
+                                  View
+                                </button>
+                              )}
                               <button
                                 type="button"
-                                onClick={() => setQuickViewProduct(matchedProduct)}
-                                className="border border-stone-300 text-stone-700 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider font-semibold hover:border-stone-900 hover:text-stone-900 transition cursor-pointer"
-                                title="Quick View"
+                                onClick={() => {
+                                  if (matchedProduct) {
+                                    addToCart(matchedProduct, productSize, 1);
+                                  }
+                                }}
+                                className="bg-[#1c1917] text-white px-2.5 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold hover:bg-[#881337] transition shadow-xs cursor-pointer"
                               >
-                                View
+                                + Bag
                               </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (matchedProduct) {
-                                  addToCart(matchedProduct, productSize, 1);
-                                }
-                              }}
-                              className="bg-[#1c1917] text-white px-2.5 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold hover:bg-[#881337] transition shadow-xs cursor-pointer"
-                            >
-                              + Bag
-                            </button>
+                            </div>
                           </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              );
-            })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
 
-            {/* Lookbook Title Badge */}
-            <div className="absolute bottom-6 sm:bottom-8 left-5 sm:left-12 right-5 sm:right-auto text-white max-w-md z-10 pointer-events-none">
+            {/* Lookbook Title Badge on Desktop Widescreen */}
+            <div className="absolute bottom-8 left-8 text-white max-w-sm z-10 pointer-events-none hidden lg:block">
               {currentLookbook.subtitle && (
-                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] font-semibold text-[#dfc28c] bg-black/40 px-2.5 sm:px-3 py-1 rounded-full backdrop-blur-md">
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.3em] font-semibold text-[#dfc28c] bg-black/60 px-3 py-1 rounded-full backdrop-blur-md border border-white/10">
                   {currentLookbook.subtitle}
                 </span>
               )}
-              <h3 className="font-serif text-2xl sm:text-4xl font-light mt-2.5 mb-1.5 sm:mb-2">
+              <h3 className="font-serif text-2xl sm:text-3xl font-light mt-2.5 mb-1.5 leading-snug drop-shadow-md">
                 {currentLookbook.title}
               </h3>
               {currentLookbook.subtitle && (
-                <p className="text-[11px] sm:text-xs text-stone-300 font-light line-clamp-2 sm:line-clamp-none">
+                <p className="text-[11px] text-stone-300 font-light">
                   {currentLookbook.subtitle}
                 </p>
               )}

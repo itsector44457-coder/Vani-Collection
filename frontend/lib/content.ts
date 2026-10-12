@@ -204,6 +204,8 @@ export interface Lookbook {
   title: string;
   subtitle: string;
   image: string;
+  layout?: "theater" | "banner";
+  focalPosition?: string;
   pins: LookbookPin[];
 }
 
@@ -244,6 +246,8 @@ export function toLookbooks(docs: ContentDoc[], fallback: Lookbook[]): Lookbook[
         title: str(doc.title) ?? base?.title ?? "",
         subtitle: str(doc.subtitle) ?? base?.subtitle ?? "",
         image,
+        layout: (str(blocks.layout) === "banner" ? "banner" : "theater") as "theater" | "banner",
+        focalPosition: str(blocks.focalPosition) || "object-top",
         pins: pins.length ? pins : base?.pins ?? [],
       };
     })

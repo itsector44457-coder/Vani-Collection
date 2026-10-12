@@ -129,6 +129,9 @@ interface FormState {
   seoDescription: string;
   // Product collection
   collectionProductIds: string;
+  // Lookbook specific controls
+  lookbookLayout: "theater" | "banner";
+  lookbookFocalPosition: string;
   // Lookbook Hotspot Pins (friendly visual list, no raw JSON)
   lookbookPins: FormPin[];
 }
@@ -158,6 +161,8 @@ const EMPTY_FORM: FormState = {
   seoTitle: "",
   seoDescription: "",
   collectionProductIds: "",
+  lookbookLayout: "theater",
+  lookbookFocalPosition: "object-top",
   lookbookPins: [
     { id: "pin-1", productId: "", slug: "", title: "", price: "", tag: "", top: 35, left: 50 },
   ],
@@ -210,6 +215,8 @@ const toForm = (doc: ContentDoc): FormState => {
     seoDescription: typeof blocks.seoDescription === "string" ? blocks.seoDescription : "",
     // Product collection
     collectionProductIds: Array.isArray(blocks.productIds) ? blocks.productIds.join(", ") : "",
+    lookbookLayout: typeof blocks.layout === "string" && blocks.layout === "banner" ? "banner" : "theater",
+    lookbookFocalPosition: typeof blocks.focalPosition === "string" ? blocks.focalPosition : "object-top",
     lookbookPins,
   };
 };
@@ -443,7 +450,11 @@ export default function ContentPage() {
           top: `${Math.min(100, Math.max(0, p.top))}%`,
           left: `${Math.min(100, Math.max(0, p.left))}%`,
         }));
-      blocks = { pins };
+      blocks = {
+        pins,
+        layout: form.lookbookLayout,
+        focalPosition: form.lookbookFocalPosition,
+      };
     }
 
     const media = textToMedia(form.mediaText);
@@ -906,6 +917,30 @@ export default function ContentPage() {
                   </div>
                 </Field>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Photo Display Style" htmlFor="lookbook-layout" hint="How photo is framed on the storefront">
+                    <Select
+                      id="lookbook-layout"
+                      value={form.lookbookLayout}
+                      onChange={(e) => set("lookbookLayout", e.target.value as "theater" | "banner")}
+                    >
+                      <option value="theater">✨ Luxury Portrait Frame (Full Head-to-Toe with Ambient Aura)</option>
+                      <option value="banner">Cinematic Full-Width Banner (Edge-to-Edge)</option>
+                    </Select>
+                  </Field>
+                  <Field label="Image Focus Point" htmlFor="lookbook-focal" hint="Prevents model's head/face from getting cropped">
+                    <Select
+                      id="lookbook-focal"
+                      value={form.lookbookFocalPosition}
+                      onChange={(e) => set("lookbookFocalPosition", e.target.value)}
+                    >
+                      <option value="object-top">Top (Recommended: Shows Head & Face)</option>
+                      <option value="object-center">Center</option>
+                      <option value="object-bottom">Bottom (Focus on Hemline / Skirt)</option>
+                    </Select>
+                  </Field>
+                </div>
+
                 {/* Friendly Pins Builder (NO JSON REQUIRED) */}
                 <div className="space-y-3 rounded-xl border border-[#ebe6de] bg-[#faf7f2]/80 p-4">
                   <div className="flex items-center justify-between border-b border-[#ebe6de] pb-2">
@@ -1079,7 +1114,7 @@ export default function ContentPage() {
                       <img
                         src={textToMedia(form.mediaText).filter((item) => item.kind !== "video")[0]?.url}
                         alt="Lookbook preview"
-                        className="h-full w-full object-cover"
+                        className={`h-full w-full object-cover ${form.lookbookFocalPosition || "object-top"}`}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 pointer-events-none" />
 
