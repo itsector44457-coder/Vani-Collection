@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vani Collection - Comprehensive Project Feature Specification</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    @page {
+      size: A4;
+      margin: 14mm 16mm;
+      @bottom-right {
+        content: counter(page);
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 8pt;
+        color: #78716c;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #1c1917;
+      background: #ffffff;
+      line-height: 1.55;
+      font-size: 9.5pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .cover {
+      page-break-after: always;
+      min-height: 96vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 30px 10px;
+      border-bottom: 2px solid #881337;
+    }
+
+    .brand-eyebrow {
+      font-size: 9pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.28em;
+      color: #b8935a;
+      margin-bottom: 8px;
+    }
+
+    .brand-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 32pt;
+      font-weight: 700;
+      color: #881337;
+      line-height: 1.15;
+      margin-bottom: 12px;
+    }
+
+    .brand-subtitle {
+      font-size: 13pt;
+      color: #57534e;
+      font-weight: 400;
+      max-width: 620px;
+      line-height: 1.5;
+    }
+
+    .meta-box {
+      background: #faf7f2;
+      border: 1px solid #e7dfd5;
+      border-left: 4px solid #881337;
+      border-radius: 8px;
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin: 35px 0;
+    }
+
+    .meta-item label {
+      display: block;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #78716c;
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+
+    .meta-item span {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #1c1917;
+    }
+
+    .tech-stack-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 15px;
+    }
+
+    .pill {
+      background: #f5f2eb;
+      color: #44403c;
+      border: 1px solid #e0d7cb;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 8pt;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .pill.accent {
+      background: #881337;
+      color: #ffffff;
+      border-color: #881337;
+    }
+
+    .pill.gold {
+      background: #fbf5ea;
+      color: #926b2b;
+      border-color: #e5cca1;
+    }
+
+    h2 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 16pt;
+      color: #881337;
+      border-bottom: 1.5px solid #e7dfd5;
+      padding-bottom: 6px;
+      margin: 22px 0 12px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      page-break-after: avoid;
+    }
+
+    h2 .section-tag {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #b8935a;
+    }
+
+    h3 {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #1c1917;
+      margin: 14px 0 6px 0;
+      page-break-after: avoid;
+    }
+
+    p {
+      margin-bottom: 8px;
+      color: #44403c;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .feature-card {
+      background: #ffffff;
+      border: 1px solid #ebe5db;
+      border-radius: 8px;
+      padding: 12px 14px;
+      page-break-inside: avoid;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+
+    .feature-card.highlight {
+      background: #fdfbf7;
+      border: 1px solid #e0cda9;
+      border-left: 3px solid #b8935a;
+    }
+
+    .feature-title {
+      font-size: 10pt;
+      font-weight: 700;
+      color: #881337;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .feature-desc {
+      font-size: 8.5pt;
+      color: #57534e;
+      line-height: 1.5;
+    }
+
+    ul.bullet-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 6px 0 10px 0;
+    }
+
+    ul.bullet-list li {
+      font-size: 8.5pt;
+      color: #44403c;
+      padding-left: 14px;
+      position: relative;
+      margin-bottom: 4px;
+      line-height: 1.45;
+    }
+
+    ul.bullet-list li::before {
+      content: "•";
+      position: absolute;
+      left: 2px;
+      top: -1px;
+      color: #881337;
+      font-size: 11pt;
+      font-weight: bold;
+    }
+
+    table.spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 16px 0;
+      font-size: 8.5pt;
+      page-break-inside: avoid;
+    }
+
+    table.spec-table th, table.spec-table td {
+      border: 1px solid #e8e2d8;
+      padding: 7px 10px;
+      text-align: left;
+    }
+
+    table.spec-table th {
+      background: #faf7f2;
+      color: #1c1917;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 7.5pt;
+      letter-spacing: 0.08em;
+    }
+
+    table.spec-table tr:nth-child(even) {
+      background: #fcfbf9;
+    }
+
+    .badge-live {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+      font-size: 7pt;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .page-break {
+      page-break-after: always;
+    }
+
+    .footer-note {
+      margin-top: 30px;
+      padding-top: 12px;
+      border-top: 1px solid #e7dfd5;
+      font-size: 8pt;
+      color: #78716c;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== COVER PAGE ==================== -->
+  <div class="cover">
+    <div>
+      <div class="brand-eyebrow">Enterprise Project Specification</div>
+      <h1 class="brand-title">VANI COLLECTION</h1>
+      <p class="brand-subtitle">
+        High-Fashion Artisanal E-Commerce Platform & Full-Stack Atelier Management Suite
+      </p>
+
+      <div class="meta-box">
+        <div class="meta-item">
+          <label>Version</label>
+          <span>Production 2.4</span>
+        </div>
+        <div class="meta-item">
+          <label>Architecture</label>
+          <span>Next.js 16 + Express API</span>
+        </div>
+        <div class="meta-item">
+          <label>Database</label>
+          <span>MongoDB Atlas Enterprise</span>
+        </div>
+        <div class="meta-item">
+          <label>Date</label>
+          <span>October 2026</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 25px;">
+        <h3 style="font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c;">Core Technology Stack</h3>
+        <div class="tech-stack-pills">
+          <span class="pill accent">Next.js 16 (App Router)</span>
+          <span class="pill accent">React 19</span>
+          <span class="pill">Turbopack</span>
+          <span class="pill">Tailwind CSS v4</span>
+          <span class="pill">Framer Motion 13</span>
+          <span class="pill">Lenis Smooth Scroll</span>
+          <span class="pill gold">Node.js + Express REST API</span>
+          <span class="pill gold">MongoDB Mongoose ODM</span>
+          <span class="pill">Cloudinary CDN</span>
+          <span class="pill">Razorpay Payment Ready</span>
+          <span class="pill">TypeScript Strict</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h3 style="font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; margin-bottom: 8px;">Executive Summary</h3>
+      <p style="font-size: 8.5pt; color: #57534e; line-height: 1.55;">
+        Vani Collection is an end-to-end custom digital boutique crafted for luxury handwoven ethnic couture (Pure Mul Cotton, Chanderi, Bagru prints, and festive heirlooms). Engineered without template overhead or high recurring Shopify plugin costs, it provides bespoke editorial storytelling, an interactive shoppable Lookbook with coordinate hotspots, Instagram-style category story reels, seamless bag/checkout mechanics, and a non-technical staff Admin Console for 100% self-managed catalogue and homepage operations.
+      </p>
+      <div class="footer-note">
+        <span>Prepared for: Vani Collection Stakeholders</span>
+        <span>Confidential & Proprietary</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SECTION 1: STOREFRONT & VISUAL EXPERIENCE ==================== -->
+  <div>
+    <h2>
+      <span>1. Storefront Experience & Brand Identity</span>
+      <span class="section-tag">Front-of-House</span>
+    </h2>
+
+    <p style="font-size: 8.5pt; color: #57534e;">
+      The customer-facing portal is designed with a high-fashion Jaipur atelier aesthetic, utilizing warm ivory textures (<code>#faf7f2</code>), rich deep maroon/burgundy accents (<code>#881337</code>), and vintage gold leaf embellishments (<code>#dfc28c</code>, <code>#b8935a</code>).
+    </p>
+
+    <div class="grid-2">
+      <div class="feature-card highlight">
+        <div class="feature-title">✨ Dual-Mode Hero Experience</div>
+        <div class="feature-desc">
+          Allows visitors to toggle instantly between:
+          <ul class="bullet-list" style="margin-top: 4px;">
+            <li><strong>Auto-rotating High-Res Slideshow:</strong> Editorial campaigns with custom eyebrow tags, headlines, focal points, and CTAs.</li>
+            <li><strong>Full-Motion Video Cinema:</strong> Embedded artisanal weaving video showcase with pause/play sound controls.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="feature-card highlight">
+        <div class="feature-title">🌿 Kinetic Smooth Scroll (Lenis Engine)</div>
+        <div class="feature-desc">
+          Integrated with Lenis inertia physics for buttery 60fps scrolling across mobile and desktop. Smart auto-pause disables scroll momentum when search overlays, cart drawer, or modal reels are triggered to eliminate layout jitter.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">📱 Native Mobile App Navigation</div>
+        <div class="feature-desc">
+          Mobile users get a sticky bottom navigation bar with direct thumb shortcuts to Storefront, Category Explorer, Wishlist counter, and Instant Bag drawer with badge notifications.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">📢 Continuous Announcement Marquee</div>
+        <div class="feature-desc">
+          Top banner features an infinite smooth CSS marquee ticker highlighting coupon promotions ("VANIFESTIVE15"), worldwide shipping alerts, and Jaipur atelier authenticity guarantees.
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SECTION 2: SHOPPABLE LOOKBOOK ==================== -->
+    <h2>
+      <span>2. Interactive Shoppable Editorial Lookbook</span>
+      <span class="section-tag">Signature Feature</span>
+    </h2>
+
+    <div class="feature-card highlight" style="margin-bottom: 12px;">
+      <div class="feature-title">⭐ Multi-Lookbook Editorial Switcher with Ambient Luxury Canvas</div>
+      <div class="feature-desc">
+        A custom editorial styling experience that turns fashion photography into direct purchase pathways:
+        <ul class="bullet-list" style="margin-top: 6px;">
+          <li><strong>Multi-Lookbook Support:</strong> Admin can publish multiple independent lookbooks. Visitors switch between them smoothly via Look 1, Look 2 pills and desktop next/prev arrow buttons.</li>
+          <li><strong>Luxury Ambient Theater Frame:</strong> Fixes the vertical model photo cropping issue. Model is displayed in full natural 3:4 portrait height (head to toe uncropped) while outer widescreen space is illuminated by a soft, glowing ambient blurred reflection of the outfit.</li>
+          <li><strong>Shoppable Hotspot Pulse Pins (+):</strong> Gold pins pulse subtly over the muse's outfit. Clicking a pin opens a floating glassmorphic tooltip card.</li>
+          <li><strong>Dynamic Catalogue Product Linking:</strong> Pin tooltips display the linked product's real image thumbnail, title, category/fabric tag, formatted INR price, Quick View modal trigger, and instant "+ Bag" button.</li>
+          <li><strong>Dedicated Navbar Direct Scroll:</strong> Clicking "LOOKBOOK" in the header navigation or dropdown automatically smooth-scrolls straight to <code>#lookbook</code>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ==================== SECTION 3: STORY REELS ==================== -->
+    <h2>
+      <span>3. Instagram-Style Category Stories & Video Reels</span>
+      <span class="section-tag">Engagement Engine</span>
+    </h2>
+
+    <div class="grid-2">
+      <div class="feature-card">
+        <div class="feature-title">🎬 Tap-to-Watch Story Tiles</div>
+        <div class="feature-desc">
+          Instagram-style circular and card tiles showcasing artisanal categories (Pure Mul Cotton, Festive Chanderi, Bagru Handblock, Royal Anarkalis). Unviewed stories feature an animated gradient ring.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">📱 Fullscreen Reel Player Modal</div>
+        <div class="feature-desc">
+          Fullscreen immersive modal with auto-advancing progress timers, sound toggle, swipe/tap navigation between stories, and a direct "Shop this Collection" button linked to active category catalogue.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ==================== SECTION 4: CATALOGUE & PRODUCT DISCOVERY ==================== -->
+  <div>
+    <h2>
+      <span>4. Product Catalogue & Smart Discovery</span>
+      <span class="section-tag">Shopping Mechanics</span>
+    </h2>
+
+    <div class="grid-2">
+      <div class="feature-card">
+        <div class="feature-title">🛍️ Living Product Cards</div>
+        <div class="feature-desc">
+          <ul class="bullet-list">
+            <li><strong>Interactive Image Flip:</strong> Hovering swaps to alternate model angles / fabric close-up.</li>
+            <li><strong>Quick Size Pill Selector:</strong> Pick XS, S, M, L, XL, XXL directly on the card without opening product page.</li>
+            <li><strong>Instant Heart Wishlist Toggle:</strong> 1-tap save/remove with animated counter.</li>
+            <li><strong>Dynamic Badges:</strong> "Bestseller", "New Launch", "Pure Mul", "Festive Luxe".</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">🔍 Quick View Modal & Fast Search</div>
+        <div class="feature-desc">
+          <ul class="bullet-list">
+            <li><strong>Instant Quick View:</strong> Opens full product specifications, image gallery, fabric details, size chart, and add-to-bag without leaving the homepage.</li>
+            <li><strong>Instant Debounced Search:</strong> Header search overlay queries titles, fabrics, tags, and categories in real-time with zero page reload.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>Catalogue Feature</th>
+          <th>Implementation</th>
+          <th>Business Advantage</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Category Filtering</strong></td>
+          <td>Mul Cotton, Festive, Co-ord Sets, Anarkalis, Sarees, Dupattas, Under ₹1,999</td>
+          <td>Allows customers to find desired style in 1 click</td>
+          <td><span class="badge-live">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>Dynamic Variant Matrix</strong></td>
+          <td>Multi-size SKUs (XS, S, M, L, XL, XXL) with independent inventory units</td>
+          <td>Prevents overselling out-of-stock sizes</td>
+          <td><span class="badge-live">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>Fabric & Craft Details</strong></td>
+          <td>Detailed Jaipur weaving notes, 100-count Mul certifications, care guidelines</td>
+          <td>Builds consumer trust for premium handcrafted items</td>
+          <td><span class="badge-live">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>Price Range Slicing</strong></td>
+          <td>Budget filter ("Under ₹1,499", "₹1,500 – ₹1,999", "Premium Collection")</td>
+          <td>Accommodates impulse buyers and luxury bridal shoppers</td>
+          <td><span class="badge-live">Active</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ==================== SECTION 5: BAG, CHECKOUT & PAYMENTS ==================== -->
+    <h2>
+      <span>5. Shopping Bag, Coupons & Checkout Flow</span>
+      <span class="section-tag">Conversion Architecture</span>
+    </h2>
+
+    <div class="grid-2">
+      <div class="feature-card highlight">
+        <div class="feature-title">🛒 Slide-Out Shopping Bag Drawer</div>
+        <div class="feature-desc">
+          Persistent drawer accessible from any page:
+          <ul class="bullet-list">
+            <li><strong>Free Shipping Bar:</strong> Live dynamic progress meter indicating "Add ₹X more for Free Express Delivery".</li>
+            <li><strong>Quantity Increment/Decrement:</strong> In-cart quantity editing with live subtotal calculation.</li>
+            <li><strong>Size & Variant Display:</strong> Explicit breakdown of selected dress sizes.</li>
+            <li><strong>Client-Side Persistence:</strong> Cart automatically preserved in browser storage across sessions.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="feature-card highlight">
+        <div class="feature-title">💳 Secure Multi-Gateway Checkout</div>
+        <div class="feature-desc">
+          Frictionless multi-step checkout:
+          <ul class="bullet-list">
+            <li><strong>Promo Code Engine:</strong> Validates coupons (flat INR off / percentage discount) with instant deduction.</li>
+            <li><strong>Delivery Address Book:</strong> Pin code auto-detection, phone number, and delivery instructions.</li>
+            <li><strong>Payment Modes:</strong> Pre-integrated for UPI / Cards / Netbanking (Razorpay) + Cash on Delivery (COD).</li>
+            <li><strong>Order Confirmation Screen:</strong> Detailed order receipt with tracking ID.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SECTION 6: CUSTOMER PORTAL ==================== -->
+    <h2>
+      <span>6. Customer Portal & Post-Purchase Services</span>
+      <span class="section-tag">Retention & Trust</span>
+    </h2>
+
+    <div class="grid-2">
+      <div class="feature-card">
+        <div class="feature-title">📦 Live Order Tracking</div>
+        <div class="feature-desc">
+          Milestone tracker displaying status steps: Order Placed → Quality Check Jaipur → Dispatched → In Transit → Out for Delivery → Delivered, with courier tracking link.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">⭐ Verified Reviews & Customer Rewards</div>
+        <div class="feature-desc">
+          Customers can post photo reviews, rate products 1-5 stars, and earn loyalty points redeemable as wallet discounts on subsequent orders.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ==================== SECTION 7: ENTERPRISE ADMIN CONSOLE ==================== -->
+  <div>
+    <h2>
+      <span>7. Enterprise Admin & Content Management Console</span>
+      <span class="section-tag">Back-of-House Control</span>
+    </h2>
+
+    <p style="font-size: 8.5pt; color: #57534e;">
+      Secured under <code>/admin</code> with role-based JWT authentication (Super Admin, Catalogue Manager, Fulfillment Staff). Built with dedicated non-technical forms—<strong>zero raw JSON or code editing required by staff.</strong>
+    </p>
+
+    <div class="grid-2">
+      <div class="feature-card highlight">
+        <div class="feature-title">📊 Executive Dashboard (<code>/admin</code>)</div>
+        <div class="feature-desc">
+          Real-time analytics including Total Gross Revenue (GMV), Total Completed Orders, Active Customer Count, Low Stock Warning Badges, and recent activity logs.
+        </div>
+      </div>
+
+      <div class="feature-card highlight">
+        <div class="feature-title">👗 Product Catalogue Manager (<code>/admin/products</code>)</div>
+        <div class="feature-desc">
+          Add/edit products with title, category, fabric type, regular price, sale price, SKU variants, sizes array, primary & hover images, video reels, and stock counts.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">🎨 Visual Lookbook & Hotspot CMS</div>
+        <div class="feature-desc">
+          Edit editorial lookbooks visually:
+          <ul class="bullet-list">
+            <li><strong>Product Dropdown Selector:</strong> Pick any store product from dropdown to automatically fill Name, Price, and Tag.</li>
+            <li><strong>Slider Sliders:</strong> Intuitive 0-100% Top and Left sliders to place pins.</li>
+            <li><strong>Layout & Focal Controls:</strong> Select Luxury Portrait Frame vs Widescreen Banner, and focus on Head/Face vs Center.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">💬 Customer Testimonials & Reviews CMS</div>
+        <div class="feature-desc">
+          Dedicated form for customer reviews with Customer Name, City, Rating (1–5 Stars), Headline, Comments, Product Name, and "Mark as Verified Buyer ✓" badge toggle.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">🚚 Order Management & Fulfillment (<code>/admin/orders</code>)</div>
+        <div class="feature-desc">
+          Track customer orders, update delivery status (Pending, Processing, Shipped, Delivered, Cancelled), add courier tracking numbers, and view invoice receipts.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">🎟️ Coupon & Promotional Discounts (<code>/admin/coupons</code>)</div>
+        <div class="feature-desc">
+          Create coupon codes with percentage or flat discounts, minimum order value thresholds, expiry dates, and maximum redemption limits.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">📦 Inventory & Stock Alerts (<code>/admin/inventory</code>)</div>
+        <div class="feature-desc">
+          Real-time stock monitoring with low-inventory threshold triggers. Prevents customer checkout once stock hits zero.
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-title">⚙️ Navbar & Header Mega Menu CMS</div>
+        <div class="feature-desc">
+          Customize announcement marquee messages, active header navigation links, dropdown category columns, brand logo, and color palettes.
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SECTION 8: SEO & TECHNICAL PERFORMANCE ==================== -->
+    <h2>
+      <span>8. Performance, SEO & Security Highlights</span>
+      <span class="section-tag">Technical Standards</span>
+    </h2>
+
+    <table class="spec-table">
+      <thead>
+        <tr>
+          <th>Standard</th>
+          <th>Implementation Details</th>
+          <th>Audit Metric</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Core Web Vitals</strong></td>
+          <td>Next.js 16 SSR + Static page prerendering (51/51 routes generated statically)</td>
+          <td>Sub-second LCP & 95+ Mobile Score</td>
+        </tr>
+        <tr>
+          <td><strong>Search Engine Optimization</strong></td>
+          <td>Dynamic OpenGraph images, automated <code>sitemap.xml</code>, <code>robots.txt</code>, and FAQPage JSON-LD schema</td>
+          <td>100% Rich Google Snippet compliance</td>
+        </tr>
+        <tr>
+          <td><strong>Data Security</strong></td>
+          <td>HTTP-only cookies, bcrypt password hashing, JWT stateless authorization, CORS origins</td>
+          <td>Enterprise Grade Security</td>
+        </tr>
+        <tr>
+          <td><strong>Responsive Layout</strong></td>
+          <td>Tailwind v4 fluid breakpoints from 360px mobile to 1920px 4K ultrawide monitors</td>
+          <td>Pixel-perfect multi-device fidelity</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer-note">
+      <span>Vani Collection — Master Feature Specification</span>
+      <span>Document Ref: VC-FS-2026-V2</span>
+    </div>
+  </div>
+
+</body>
+</html>

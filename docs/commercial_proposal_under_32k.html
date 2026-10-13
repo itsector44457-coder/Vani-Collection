@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vani Collection - Commercial Proposal & Project Scope (Under ₹32,000)</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+
+    @page {
+      size: A4;
+      margin: 14mm 16mm;
+      @bottom-right {
+        content: counter(page);
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-size: 8pt;
+        color: #78716c;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #1c1917;
+      background: #ffffff;
+      line-height: 1.55;
+      font-size: 9.5pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .cover {
+      page-break-after: always;
+      min-height: 96vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 30px 10px;
+      border-bottom: 2px solid #881337;
+    }
+
+    .proposal-tag {
+      font-size: 8.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.25em;
+      color: #b8935a;
+      margin-bottom: 8px;
+    }
+
+    .proposal-title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 30pt;
+      font-weight: 700;
+      color: #881337;
+      line-height: 1.15;
+      margin-bottom: 10px;
+    }
+
+    .proposal-subtitle {
+      font-size: 13pt;
+      color: #57534e;
+      font-weight: 400;
+      margin-bottom: 25px;
+    }
+
+    .price-callout {
+      background: linear-gradient(135deg, #faf7f2 0%, #f4ede3 100%);
+      border: 1.5px solid #dfc28c;
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin: 25px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 12px rgba(136, 19, 55, 0.05);
+    }
+
+    .price-label {
+      font-size: 9pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: #881337;
+      margin-bottom: 4px;
+    }
+
+    .price-sub {
+      font-size: 9pt;
+      color: #78716c;
+    }
+
+    .price-amount {
+      font-family: 'Playfair Display', serif;
+      font-size: 36pt;
+      font-weight: 700;
+      color: #881337;
+      line-height: 1;
+    }
+
+    .price-terms {
+      font-size: 8.5pt;
+      color: #78716c;
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 30px 0;
+      padding: 16px 20px;
+      background: #faf7f2;
+      border-radius: 8px;
+      border: 1px solid #ebe5db;
+    }
+
+    .meta-cell label {
+      display: block;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #78716c;
+      margin-bottom: 3px;
+      font-weight: 600;
+    }
+
+    .meta-cell span {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #1c1917;
+    }
+
+    h2 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 15pt;
+      color: #881337;
+      border-bottom: 1.5px solid #e7dfd5;
+      padding-bottom: 5px;
+      margin: 22px 0 12px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      page-break-after: avoid;
+    }
+
+    h2 .section-tag {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: #b8935a;
+    }
+
+    h3 {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #1c1917;
+      margin: 12px 0 6px 0;
+      page-break-after: avoid;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid #ebe5db;
+      border-radius: 8px;
+      padding: 12px 14px;
+      page-break-inside: avoid;
+    }
+
+    .card.highlight {
+      background: #fdfbf7;
+      border: 1px solid #dfc28c;
+      border-left: 3.5px solid #881337;
+    }
+
+    .card-title {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #881337;
+      margin-bottom: 4px;
+    }
+
+    .card-desc {
+      font-size: 8.5pt;
+      color: #57534e;
+      line-height: 1.45;
+    }
+
+    ul.check-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 6px 0;
+    }
+
+    ul.check-list li {
+      font-size: 8.5pt;
+      color: #44403c;
+      padding-left: 18px;
+      position: relative;
+      margin-bottom: 5px;
+      line-height: 1.4;
+    }
+
+    ul.check-list li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: #059669;
+      font-weight: bold;
+      font-size: 9pt;
+    }
+
+    table.price-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 16px 0;
+      font-size: 8.5pt;
+      page-break-inside: avoid;
+    }
+
+    table.price-table th, table.price-table td {
+      border: 1px solid #e8e2d8;
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    table.price-table th {
+      background: #faf7f2;
+      color: #1c1917;
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 7.5pt;
+      letter-spacing: 0.08em;
+    }
+
+    table.price-table tr:nth-child(even) {
+      background: #fdfbf9;
+    }
+
+    .total-row {
+      background: #faf7f2 !important;
+      font-weight: 700;
+      border-top: 2px solid #881337;
+    }
+
+    .total-row td {
+      font-size: 10pt;
+      color: #881337;
+    }
+
+    .sign-box {
+      margin-top: 35px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      page-break-inside: avoid;
+    }
+
+    .sign-line {
+      border-top: 1px solid #a8a29e;
+      margin-top: 45px;
+      padding-top: 6px;
+      font-size: 8pt;
+      color: #57534e;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .footer-note {
+      margin-top: 30px;
+      padding-top: 12px;
+      border-top: 1px solid #e7dfd5;
+      font-size: 8pt;
+      color: #78716c;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .page-break {
+      page-break-after: always;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== COVER PAGE ==================== -->
+  <div class="cover">
+    <div>
+      <div class="proposal-tag">Commercial Scope & Quotation</div>
+      <h1 class="proposal-title">VANI COLLECTION</h1>
+      <p class="proposal-subtitle">
+        Bespoke Luxury E-Commerce Atelier Platform — Complete Delivery Under ₹32,000 INR
+      </p>
+
+      <div class="price-callout">
+        <div>
+          <div class="price-label">Fixed Project Investment</div>
+          <div class="price-sub">All-Inclusive Fixed Cost (No Hidden Charges)</div>
+          <p style="font-size: 8.5pt; color: #57534e; margin-top: 6px;">
+            Full Storefront + Interactive Lookbook + Stories + Cart + Complete Admin CMS
+          </p>
+        </div>
+        <div>
+          <div class="price-amount">₹32,000</div>
+          <div class="price-terms">INR (Indian National Rupees)</div>
+        </div>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-cell">
+          <label>Client Organization</label>
+          <span>Vani Collection Atelier</span>
+        </div>
+        <div class="meta-cell">
+          <label>Quotation Reference</label>
+          <span>VC-QUOTE-32K-2026</span>
+        </div>
+        <div class="meta-cell">
+          <label>Delivery Timeline</label>
+          <span>2 to 3 Weeks</span>
+        </div>
+        <div class="meta-cell">
+          <label>Platform Architecture</label>
+          <span>Next.js 16 + Express API</span>
+        </div>
+        <div class="meta-cell">
+          <label>Hosting / Monthly Fees</label>
+          <span>₹0 / month (Zero Platform Fees)</span>
+        </div>
+        <div class="meta-cell">
+          <label>Support Guarantee</label>
+          <span>30 Days Free Post-Launch</span>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <h3 style="font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; margin-bottom: 6px;">Why This Approach Saves ₹60,000+ Annually</h3>
+      <p style="font-size: 8.5pt; color: #57534e; line-height: 1.5;">
+        A comparable custom Shopify store with custom Lookbook apps, Story Reel plugins, and multi-tier variant addons incurs <strong>$29–$79 monthly fees (₹30,000–₹80,000/year recurring)</strong>, plus 2% transaction charges. This custom Next.js 16 build is 100% owned by Vani Collection with <strong>zero recurring app subscriptions, zero transaction commissions, and lightning-fast sub-second speeds.</strong>
+      </p>
+
+      <div class="footer-note">
+        <span>Prepared for: Vani Collection Founders</span>
+        <span>Valid for 30 Days from Issue</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DELIVERABLES BREAKDOWN ==================== -->
+  <div>
+    <h2>
+      <span>1. Scope of Deliverables Included for ₹32,000</span>
+      <span class="section-tag">Module Breakdown</span>
+    </h2>
+
+    <p style="font-size: 8.5pt; color: #57534e; margin-bottom: 12px;">
+      The entire suite described below is delivered turnkey within the <strong>₹32,000 package</strong>. Every component is fully functional, tested, and handed over with complete administrative control.
+    </p>
+
+    <div class="grid-2">
+      <div class="card highlight">
+        <div class="card-title">1. High-Fashion Editorial Storefront</div>
+        <div class="card-desc">
+          <ul class="check-list">
+            <li>Jaipur Atelier royal ivory & burgundy design system.</li>
+            <li>Dual Hero Presentation: Video Cinema Mode + Slideshow.</li>
+            <li>Kinetic smooth scrolling with inertia physics.</li>
+            <li>Continuous top announcement marquee bar with promo codes.</li>
+            <li>Mobile sticky navigation bar with native-app feel.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card highlight">
+        <div class="card-title">2. Interactive Shoppable Lookbook</div>
+        <div class="card-desc">
+          <ul class="check-list">
+            <li>Multi-Lookbook Support (Look 1, Look 2... tabs & sliders).</li>
+            <li>Luxury Ambient Theater Canvas: prevents photo cropping, showing full model head-to-toe with glowing background aura.</li>
+            <li>Shoppable pulse pins (+) with glassmorphic tooltip card.</li>
+            <li>Dynamic product dropdown linking in admin console.</li>
+            <li>Header navbar with direct smooth scroll to <code>#lookbook</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card highlight">
+        <div class="card-title">3. Instagram Story Reels Experience</div>
+        <div class="card-desc">
+          <ul class="check-list">
+            <li>Fullscreen tap-to-view category story reels.</li>
+            <li>Auto-advancing progress bars and pause/play sound controls.</li>
+            <li>Direct collection link button inside the reel player.</li>
+            <li>Admin-managed cover photos, videos, and title tags.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card highlight">
+        <div class="card-title">4. Product Discovery & Shopping Bag</div>
+        <div class="card-desc">
+          <ul class="check-list">
+            <li>Living product cards with hover image flip & size pills.</li>
+            <li>Instant Quick View modal without page reload.</li>
+            <li>Real-time instant search overlay across products & fabrics.</li>
+            <li>Slide-out Bag Drawer with dynamic Free Shipping progress meter.</li>
+            <li>In-drawer quantity controls and local storage persistence.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card highlight">
+        <div class="card-title">5. Checkout & Payment Readiness</div>
+        <div class="card-desc">
+          <ul class="check-list">
+            <li>Coupon discount code application with instant calculation.</li>
+            <li>Customer shipping address book and pin code capture.</li>
+            <li>Cash on Delivery (COD) + Razorpay UPI/Cards readiness.</li>
+            <li>Automated order confirmation screen with tracking ID.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card highlight">
+        <div class="card-title">6. Complete Self-Managed Admin Suite (<code>/admin</code>)</div>
+        <div class="card-desc">
+          <ul class="check-list">
+            <li>Visual Lookbook CMS (no code or raw JSON needed).</li>
+            <li>Product catalogue manager (add/edit products, sizes, prices).</li>
+            <li>Order management & fulfillment status workflow.</li>
+            <li>Coupon discount creator (flat INR off & percentage).</li>
+            <li>Inventory tracking with low-stock alerts.</li>
+            <li>Customer review moderation (Verified Buyer badges).</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== WHAT IS INCLUDED AT NO EXTRA CHARGE ==================== -->
+    <h2>
+      <span>2. Infrastructure, Setup & Support Services</span>
+      <span class="section-tag">Zero Hidden Cost</span>
+    </h2>
+
+    <table class="price-table">
+      <thead>
+        <tr>
+          <th>Setup / Service Item</th>
+          <th>Market Cost</th>
+          <th>Included in ₹32,000 Scope</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Production Cloud Deployment</strong></td>
+          <td>₹5,000</td>
+          <td><span style="color: #059669; font-weight: 700;">Included (Free on Vercel + Cloud DB)</span></td>
+        </tr>
+        <tr>
+          <td><strong>Custom Domain & SSL Setup</strong></td>
+          <td>₹2,500</td>
+          <td><span style="color: #059669; font-weight: 700;">Included (Full DNS & HTTPS configuration)</span></td>
+        </tr>
+        <tr>
+          <td><strong>1-on-1 Admin Training Session</strong></td>
+          <td>₹4,000</td>
+          <td><span style="color: #059669; font-weight: 700;">Included (Video walkthrough for client staff)</span></td>
+        </tr>
+        <tr>
+          <td><strong>30-Day Post-Launch Bug Warranty</strong></td>
+          <td>₹8,000</td>
+          <td><span style="color: #059669; font-weight: 700;">Included (Prompt bug-fixes & technical support)</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- ==================== COMMERCIAL SCHEDULE ==================== -->
+  <div>
+    <h2>
+      <span>3. Project Investment & Milestone Breakdown</span>
+      <span class="section-tag">Payment Structure</span>
+    </h2>
+
+    <p style="font-size: 8.5pt; color: #57534e;">
+      To ensure seamless execution, the project is divided into 3 clear transparent delivery milestones totaling <strong>₹32,000 INR</strong>:
+    </p>
+
+    <table class="price-table">
+      <thead>
+        <tr>
+          <th>Milestone</th>
+          <th>Deliverables / Scope</th>
+          <th>Timeline</th>
+          <th>Amount (INR)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Milestone 1 (Advance)</strong></td>
+          <td>
+            Design system setup, luxury homepage architecture, dual-mode hero, category story reels, and catalogue product grids.
+          </td>
+          <td>Week 1</td>
+          <td>₹12,800 (40%)</td>
+        </tr>
+        <tr>
+          <td><strong>Milestone 2 (Core Engine)</strong></td>
+          <td>
+            Interactive Lookbook with hotspot pins, product dropdown linker, ambient theater frame, shopping bag drawer, and checkout flow.
+          </td>
+          <td>Week 2</td>
+          <td>₹12,800 (40%)</td>
+        </tr>
+        <tr>
+          <td><strong>Milestone 3 (Final Handover)</strong></td>
+          <td>
+            Complete Admin Console, live cloud deployment, custom domain connection, client training, and final handover.
+          </td>
+          <td>Week 3</td>
+          <td>₹6,400 (20%)</td>
+        </tr>
+        <tr class="total-row">
+          <td colspan="3"><strong>TOTAL CONTRACT INVESTMENT (Fixed Price)</strong></td>
+          <td><strong>₹32,000</strong></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ==================== FUTURE ADD-ONS (OUT OF 32K SCOPE) ==================== -->
+    <h2>
+      <span>4. Optional Future Add-Ons (Optional Next Phases)</span>
+      <span class="section-tag">Future Roadmap</span>
+    </h2>
+
+    <p style="font-size: 8.5pt; color: #57534e; margin-bottom: 8px;">
+      The ₹32,000 scope delivers a complete, fully operational boutique. Should Vani Collection wish to expand in the future, the following optional add-ons can be integrated anytime:
+    </p>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📦 Shiprocket / Delhivery API Automation</div>
+        <div class="card-desc">Automated 1-click AWB generation and courier pickup dispatch directly from admin console.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">💬 WhatsApp Automated Order Notifications</div>
+        <div class="card-desc">Automated WhatsApp message sent to customer on order placed, dispatch, and delivery via Interakt/Wati API.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">📱 Native iOS & Android Mobile Apps</div>
+        <div class="card-desc">React Native / Flutter apps deployed to Apple App Store and Google Play Store syncing with same backend.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">🌍 Multi-Currency International Checkout</div>
+        <div class="card-desc">Auto-detection of USD / AED / GBP with localized currency checkout and international courier rates.</div>
+      </div>
+    </div>
+
+    <!-- ==================== SIGN-OFF & ACCEPTANCE ==================== -->
+    <h2>
+      <span>5. Acceptance & Authorization</span>
+      <span class="section-tag">Agreement</span>
+    </h2>
+
+    <p style="font-size: 8.5pt; color: #57534e;">
+      By signing below, both parties acknowledge and agree to the deliverables, milestone payment structure, and terms defined in this commercial proposal.
+    </p>
+
+    <div class="sign-box">
+      <div>
+        <p style="font-weight: 700; color: #1c1917; font-size: 9pt;">For Vani Collection (Client)</p>
+        <div class="sign-line">Authorized Signatory & Date</div>
+      </div>
+      <div>
+        <p style="font-weight: 700; color: #1c1917; font-size: 9pt;">For Development & Architecture Team</p>
+        <div class="sign-line">Authorized Signatory & Date</div>
+      </div>
+    </div>
+
+    <div class="footer-note" style="margin-top: 40px;">
+      <span>Vani Collection — Commercial Quotation (Under ₹32,000)</span>
+      <span>Ref: VC-COMM-32K-FINAL</span>
+    </div>
+  </div>
+
+</body>
+</html>
