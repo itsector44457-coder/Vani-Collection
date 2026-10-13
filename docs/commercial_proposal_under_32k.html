@@ -8,7 +8,7 @@
 
     @page {
       size: A4;
-      margin: 14mm 16mm;
+      margin: 12mm 15mm;
       @bottom-right {
         content: counter(page);
         font-family: 'Plus Jakarta Sans', sans-serif;
@@ -27,19 +27,19 @@
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       color: #1c1917;
       background: #ffffff;
-      line-height: 1.55;
-      font-size: 9.5pt;
+      line-height: 1.5;
+      font-size: 9pt;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
     .cover {
       page-break-after: always;
-      min-height: 96vh;
+      min-height: 94vh;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 30px 10px;
+      padding: 24px 8px;
       border-bottom: 2px solid #881337;
     }
 
@@ -54,26 +54,26 @@
 
     .proposal-title {
       font-family: 'Playfair Display', Georgia, serif;
-      font-size: 30pt;
+      font-size: 28pt;
       font-weight: 700;
       color: #881337;
       line-height: 1.15;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
     .proposal-subtitle {
-      font-size: 13pt;
+      font-size: 12pt;
       color: #57534e;
       font-weight: 400;
-      margin-bottom: 25px;
+      margin-bottom: 20px;
     }
 
     .price-callout {
       background: linear-gradient(135deg, #faf7f2 0%, #f4ede3 100%);
       border: 1.5px solid #dfc28c;
       border-radius: 12px;
-      padding: 24px 28px;
-      margin: 25px 0;
+      padding: 22px 26px;
+      margin: 20px 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -81,7 +81,7 @@
     }
 
     .price-label {
-      font-size: 9pt;
+      font-size: 8.5pt;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.2em;
@@ -90,20 +90,20 @@
     }
 
     .price-sub {
-      font-size: 9pt;
+      font-size: 8.5pt;
       color: #78716c;
     }
 
     .price-amount {
       font-family: 'Playfair Display', serif;
-      font-size: 36pt;
+      font-size: 34pt;
       font-weight: 700;
       color: #881337;
       line-height: 1;
     }
 
     .price-terms {
-      font-size: 8.5pt;
+      font-size: 8pt;
       color: #78716c;
       text-align: right;
       margin-top: 4px;
@@ -112,9 +112,9 @@
     .meta-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin: 30px 0;
-      padding: 16px 20px;
+      gap: 14px;
+      margin: 22px 0;
+      padding: 14px 18px;
       background: #faf7f2;
       border-radius: 8px;
       border: 1px solid #ebe5db;
@@ -131,18 +131,28 @@
     }
 
     .meta-cell span {
-      font-size: 9.5pt;
+      font-size: 9pt;
       font-weight: 700;
       color: #1c1917;
     }
 
+    .platform-fee-badge {
+      display: inline-block;
+      background: #881337;
+      color: #ffffff;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 8pt;
+      font-weight: 700;
+    }
+
     h2 {
       font-family: 'Playfair Display', Georgia, serif;
-      font-size: 15pt;
+      font-size: 14pt;
       color: #881337;
       border-bottom: 1.5px solid #e7dfd5;
-      padding-bottom: 5px;
-      margin: 22px 0 12px 0;
+      padding-bottom: 4px;
+      margin: 18px 0 10px 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -159,25 +169,25 @@
     }
 
     h3 {
-      font-size: 10.5pt;
+      font-size: 10pt;
       font-weight: 700;
       color: #1c1917;
-      margin: 12px 0 6px 0;
+      margin: 10px 0 5px 0;
       page-break-after: avoid;
     }
 
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 12px;
+      gap: 10px;
+      margin-bottom: 10px;
     }
 
     .card {
       background: #ffffff;
       border: 1px solid #ebe5db;
-      border-radius: 8px;
-      padding: 12px 14px;
+      border-radius: 7px;
+      padding: 10px 12px;
       page-break-inside: avoid;
     }
 
@@ -188,31 +198,45 @@
     }
 
     .card-title {
-      font-size: 9.5pt;
+      font-size: 9pt;
       font-weight: 700;
       color: #881337;
       margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-badge {
+      font-size: 6.5pt;
+      text-transform: uppercase;
+      font-weight: 700;
+      background: #059669;
+      color: #ffffff;
+      padding: 1px 5px;
+      border-radius: 3px;
+      letter-spacing: 0.05em;
     }
 
     .card-desc {
-      font-size: 8.5pt;
+      font-size: 8pt;
       color: #57534e;
-      line-height: 1.45;
+      line-height: 1.4;
     }
 
     ul.check-list {
       list-style: none;
       padding-left: 0;
-      margin: 6px 0;
+      margin: 4px 0;
     }
 
     ul.check-list li {
-      font-size: 8.5pt;
+      font-size: 8pt;
       color: #44403c;
-      padding-left: 18px;
+      padding-left: 16px;
       position: relative;
-      margin-bottom: 5px;
-      line-height: 1.4;
+      margin-bottom: 3.5px;
+      line-height: 1.35;
     }
 
     ul.check-list li::before {
@@ -222,20 +246,20 @@
       top: 0;
       color: #059669;
       font-weight: bold;
-      font-size: 9pt;
+      font-size: 8.5pt;
     }
 
     table.price-table {
       width: 100%;
       border-collapse: collapse;
-      margin: 10px 0 16px 0;
-      font-size: 8.5pt;
+      margin: 8px 0 12px 0;
+      font-size: 8.2pt;
       page-break-inside: avoid;
     }
 
     table.price-table th, table.price-table td {
       border: 1px solid #e8e2d8;
-      padding: 8px 12px;
+      padding: 7px 10px;
       text-align: left;
     }
 
@@ -244,7 +268,7 @@
       color: #1c1917;
       font-weight: 700;
       text-transform: uppercase;
-      font-size: 7.5pt;
+      font-size: 7.2pt;
       letter-spacing: 0.08em;
     }
 
@@ -259,33 +283,57 @@
     }
 
     .total-row td {
-      font-size: 10pt;
+      font-size: 9.5pt;
       color: #881337;
     }
 
+    .fee-notice-box {
+      background: #faf7f2;
+      border: 1px solid #dfc28c;
+      border-left: 4px solid #b8935a;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin: 12px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      page-break-inside: avoid;
+    }
+
+    .fee-notice-text {
+      font-size: 8.2pt;
+      color: #44403c;
+      line-height: 1.4;
+    }
+
+    .fee-notice-amount {
+      text-align: right;
+      min-width: 140px;
+    }
+
     .sign-box {
-      margin-top: 35px;
+      margin-top: 25px;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 40px;
+      gap: 35px;
       page-break-inside: avoid;
     }
 
     .sign-line {
       border-top: 1px solid #a8a29e;
-      margin-top: 45px;
-      padding-top: 6px;
-      font-size: 8pt;
+      margin-top: 38px;
+      padding-top: 5px;
+      font-size: 7.5pt;
       color: #57534e;
       text-transform: uppercase;
       letter-spacing: 0.1em;
     }
 
     .footer-note {
-      margin-top: 30px;
-      padding-top: 12px;
+      margin-top: 24px;
+      padding-top: 10px;
       border-top: 1px solid #e7dfd5;
-      font-size: 8pt;
+      font-size: 7.5pt;
       color: #78716c;
       display: flex;
       justify-content: space-between;
@@ -310,9 +358,9 @@
       <div class="price-callout">
         <div>
           <div class="price-label">Fixed Project Investment</div>
-          <div class="price-sub">All-Inclusive Fixed Cost (No Hidden Charges)</div>
+          <div class="price-sub">All-Inclusive Fixed Cost (Turnkey Delivery)</div>
           <p style="font-size: 8.5pt; color: #57534e; margin-top: 6px;">
-            Full Storefront + Interactive Lookbook + Stories + Cart + Complete Admin CMS
+            Full Storefront + Interactive Lookbook + Stories + Cart + Shiprocket Courier Automation + Complete Admin CMS
           </p>
         </div>
         <div>
@@ -328,7 +376,7 @@
         </div>
         <div class="meta-cell">
           <label>Quotation Reference</label>
-          <span>VC-QUOTE-32K-2026</span>
+          <span>VC-QUOTE-32K-2026-REV2</span>
         </div>
         <div class="meta-cell">
           <label>Delivery Timeline</label>
@@ -339,8 +387,8 @@
           <span>Next.js 16 + Express API</span>
         </div>
         <div class="meta-cell">
-          <label>Hosting / Monthly Fees</label>
-          <span>₹0 / month (Zero Platform Fees)</span>
+          <label>Monthly Platform Fee</label>
+          <span><span class="platform-fee-badge">₹299 / month</span></span>
         </div>
         <div class="meta-cell">
           <label>Support Guarantee</label>
@@ -350,9 +398,9 @@
     </div>
 
     <div>
-      <h3 style="font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; margin-bottom: 6px;">Why This Approach Saves ₹60,000+ Annually</h3>
-      <p style="font-size: 8.5pt; color: #57534e; line-height: 1.5;">
-        A comparable custom Shopify store with custom Lookbook apps, Story Reel plugins, and multi-tier variant addons incurs <strong>$29–$79 monthly fees (₹30,000–₹80,000/year recurring)</strong>, plus 2% transaction charges. This custom Next.js 16 build is 100% owned by Vani Collection with <strong>zero recurring app subscriptions, zero transaction commissions, and lightning-fast sub-second speeds.</strong>
+      <h3 style="font-size: 9pt; text-transform: uppercase; letter-spacing: 0.1em; color: #78716c; margin-bottom: 5px;">Why This Approach Saves ₹60,000+ Annually</h3>
+      <p style="font-size: 8.2pt; color: #57534e; line-height: 1.5;">
+        A comparable custom Shopify store with custom Lookbook apps, Story Reel plugins, and multi-tier courier addons incurs <strong>$29–$79 monthly fees (₹30,000–₹80,000/year recurring)</strong>, plus 2% transaction charges. This custom Next.js 16 build is 100% owned by Vani Collection with <strong>zero expensive app store subscriptions, zero transaction commissions, lightning-fast speed, and a nominal platform fee of just ₹299/month for cloud maintenance.</strong>
       </p>
 
       <div class="footer-note">
@@ -369,13 +417,16 @@
       <span class="section-tag">Module Breakdown</span>
     </h2>
 
-    <p style="font-size: 8.5pt; color: #57534e; margin-bottom: 12px;">
-      The entire suite described below is delivered turnkey within the <strong>₹32,000 package</strong>. Every component is fully functional, tested, and handed over with complete administrative control.
+    <p style="font-size: 8.2pt; color: #57534e; margin-bottom: 10px;">
+      The entire suite described below—including the newly added <strong>Shiprocket Courier & Logistics Automation</strong>—is delivered turnkey within the <strong>₹32,000 package</strong>. Every component is fully functional, tested, and handed over with complete administrative control.
     </p>
 
     <div class="grid-2">
       <div class="card highlight">
-        <div class="card-title">1. High-Fashion Editorial Storefront</div>
+        <div class="card-title">
+          <span>1. High-Fashion Editorial Storefront</span>
+          <span class="card-badge">Included</span>
+        </div>
         <div class="card-desc">
           <ul class="check-list">
             <li>Jaipur Atelier royal ivory & burgundy design system.</li>
@@ -388,7 +439,10 @@
       </div>
 
       <div class="card highlight">
-        <div class="card-title">2. Interactive Shoppable Lookbook</div>
+        <div class="card-title">
+          <span>2. Interactive Shoppable Lookbook</span>
+          <span class="card-badge">Included</span>
+        </div>
         <div class="card-desc">
           <ul class="check-list">
             <li>Multi-Lookbook Support (Look 1, Look 2... tabs & sliders).</li>
@@ -401,7 +455,10 @@
       </div>
 
       <div class="card highlight">
-        <div class="card-title">3. Instagram Story Reels Experience</div>
+        <div class="card-title">
+          <span>3. Instagram Story Reels Experience</span>
+          <span class="card-badge">Included</span>
+        </div>
         <div class="card-desc">
           <ul class="check-list">
             <li>Fullscreen tap-to-view category story reels.</li>
@@ -413,7 +470,10 @@
       </div>
 
       <div class="card highlight">
-        <div class="card-title">4. Product Discovery & Shopping Bag</div>
+        <div class="card-title">
+          <span>4. Product Discovery & Shopping Bag</span>
+          <span class="card-badge">Included</span>
+        </div>
         <div class="card-desc">
           <ul class="check-list">
             <li>Living product cards with hover image flip & size pills.</li>
@@ -426,7 +486,10 @@
       </div>
 
       <div class="card highlight">
-        <div class="card-title">5. Checkout & Payment Readiness</div>
+        <div class="card-title">
+          <span>5. Checkout & Payment Readiness</span>
+          <span class="card-badge">Included</span>
+        </div>
         <div class="card-desc">
           <ul class="check-list">
             <li>Coupon discount code application with instant calculation.</li>
@@ -438,17 +501,37 @@
       </div>
 
       <div class="card highlight">
-        <div class="card-title">6. Complete Self-Managed Admin Suite (<code>/admin</code>)</div>
+        <div class="card-title">
+          <span>6. Shiprocket Logistics Automation</span>
+          <span class="card-badge">Included</span>
+        </div>
         <div class="card-desc">
           <ul class="check-list">
-            <li>Visual Lookbook CMS (no code or raw JSON needed).</li>
-            <li>Product catalogue manager (add/edit products, sizes, prices).</li>
-            <li>Order management & fulfillment status workflow.</li>
-            <li>Coupon discount creator (flat INR off & percentage).</li>
-            <li>Inventory tracking with low-stock alerts.</li>
-            <li>Customer review moderation (Verified Buyer badges).</li>
+            <li>Direct Shiprocket API integration for 1-click automated shipping.</li>
+            <li>Instant AWB (Air Waybill) generation directly from Admin Orders.</li>
+            <li>Automated courier pickup scheduling & dispatch requests.</li>
+            <li>Live real-time courier tracking number synced to client order.</li>
+            <li>Printable shipping labels & packing slip generation ready to ship.</li>
           </ul>
         </div>
+      </div>
+    </div>
+
+    <!-- Full-width Admin Card -->
+    <div class="card highlight" style="margin-bottom: 12px;">
+      <div class="card-title">
+        <span>7. Complete Self-Managed Admin Suite (<code>/admin</code>)</span>
+        <span class="card-badge">Included</span>
+      </div>
+      <div class="card-desc">
+        <ul class="check-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px 14px;">
+          <li>Visual Lookbook CMS (no code or raw JSON needed).</li>
+          <li>Product catalogue manager (add/edit products, sizes, prices).</li>
+          <li>Order management & fulfillment status workflow with Shiprocket button.</li>
+          <li>Coupon discount creator (flat INR off & percentage).</li>
+          <li>Inventory tracking with low-stock alerts.</li>
+          <li>Customer review moderation (Verified Buyer badges).</li>
+        </ul>
       </div>
     </div>
 
@@ -478,6 +561,11 @@
           <td><span style="color: #059669; font-weight: 700;">Included (Full DNS & HTTPS configuration)</span></td>
         </tr>
         <tr>
+          <td><strong>Shiprocket Courier API Setup</strong></td>
+          <td>₹4,000</td>
+          <td><span style="color: #059669; font-weight: 700;">Included (API keys, pickup warehouse & live test)</span></td>
+        </tr>
+        <tr>
           <td><strong>1-on-1 Admin Training Session</strong></td>
           <td>₹4,000</td>
           <td><span style="color: #059669; font-weight: 700;">Included (Video walkthrough for client staff)</span></td>
@@ -500,50 +588,71 @@
       <span class="section-tag">Payment Structure</span>
     </h2>
 
-    <p style="font-size: 8.5pt; color: #57534e;">
-      To ensure seamless execution, the project is divided into 3 clear transparent delivery milestones totaling <strong>₹32,000 INR</strong>:
+    <p style="font-size: 8.2pt; color: #57534e;">
+      To ensure smooth collaboration, complete transparency, and mutual trust, the total <strong>₹32,000 INR</strong> project fee is structured into 3 distinct delivery-based milestones:
     </p>
 
     <table class="price-table">
       <thead>
         <tr>
           <th>Milestone</th>
-          <th>Deliverables / Scope</th>
-          <th>Timeline</th>
+          <th>Phase & Deliverables Description</th>
+          <th>Trigger Event</th>
           <th>Amount (INR)</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td><strong>Milestone 1 (Advance)</strong></td>
+          <td><strong>1st Payment: Advance</strong><br><span style="color: #881337; font-weight: 700;">10%</span></td>
           <td>
-            Design system setup, luxury homepage architecture, dual-mode hero, category story reels, and catalogue product grids.
+            <strong>Project Kickoff & Architecture Setup:</strong> Repository setup, luxury atelier theme design tokens, database schema, and initial development environment.
           </td>
-          <td>Week 1</td>
-          <td>₹12,800 (40%)</td>
+          <td>Advance to start work</td>
+          <td><strong style="color: #881337; font-size: 9.5pt;">₹3,200</strong><br><span style="font-size: 7.5pt; color: #78716c;">(10% of total)</span></td>
         </tr>
         <tr>
-          <td><strong>Milestone 2 (Core Engine)</strong></td>
+          <td><strong>2nd Payment: Dev Completion</strong><br><span style="color: #881337; font-weight: 700;">60%</span></td>
           <td>
-            Interactive Lookbook with hotspot pins, product dropdown linker, ambient theater frame, shopping bag drawer, and checkout flow.
+            <strong>Frontend & Backend Full Completion:</strong>
+            <ul style="margin: 3px 0 0 14px; font-size: 7.8pt; color: #57534e; line-height: 1.35;">
+              <li>Full Frontend: Storefront, Luxury Lookbook, Story Reels, Product Grids, Cart Drawer, Checkout UI.</li>
+              <li>Full Backend: REST APIs, Lookbook CMS, Order Management, Shiprocket Courier Automation, Review Moderation.</li>
+            </ul>
           </td>
-          <td>Week 2</td>
-          <td>₹12,800 (40%)</td>
+          <td>After completing Frontend & Backend (Demo walkthrough)</td>
+          <td><strong style="color: #881337; font-size: 9.5pt;">₹19,200</strong><br><span style="font-size: 7.5pt; color: #78716c;">(60% of total)</span></td>
         </tr>
         <tr>
-          <td><strong>Milestone 3 (Final Handover)</strong></td>
+          <td><strong>3rd Payment: Deployment & Handover</strong><br><span style="color: #881337; font-weight: 700;">30%</span></td>
           <td>
-            Complete Admin Console, live cloud deployment, custom domain connection, client training, and final handover.
+            <strong>Final Deployment & Project Takeover:</strong>
+            <ul style="margin: 3px 0 0 14px; font-size: 7.8pt; color: #57534e; line-height: 1.35;">
+              <li>Production cloud deployment and live custom domain connection with SSL certificate.</li>
+              <li>Shiprocket live webhook testing and admin credential handover.</li>
+              <li>Complete project takeover, staff walkthrough, and post-launch warranty start.</li>
+            </ul>
           </td>
-          <td>Week 3</td>
-          <td>₹6,400 (20%)</td>
+          <td>After final live deployment & full project takeover</td>
+          <td><strong style="color: #881337; font-size: 9.5pt;">₹9,600</strong><br><span style="font-size: 7.5pt; color: #78716c;">(Remaining 30%)</span></td>
         </tr>
         <tr class="total-row">
-          <td colspan="3"><strong>TOTAL CONTRACT INVESTMENT (Fixed Price)</strong></td>
+          <td colspan="3"><strong>TOTAL FIXED PROJECT INVESTMENT</strong></td>
           <td><strong>₹32,000</strong></td>
         </tr>
       </tbody>
     </table>
+
+    <!-- Ongoing Platform Fee Callout -->
+    <div class="fee-notice-box">
+      <div class="fee-notice-text">
+        <strong style="color: #881337; font-size: 8.8pt;">Ongoing Platform & Cloud Maintenance Fee: ₹299 / month</strong><br>
+        Covers production cloud server uptime, database maintenance, SSL security renewals, automated backup routines, and platform operational health. (Zero hidden commissions, zero Shopify app fees).
+      </div>
+      <div class="fee-notice-amount">
+        <span style="font-family: 'Playfair Display', serif; font-size: 16pt; font-weight: 700; color: #881337;">₹299</span>
+        <span style="font-size: 8pt; color: #78716c;"> / month</span>
+      </div>
+    </div>
 
     <!-- ==================== FUTURE ADD-ONS (OUT OF 32K SCOPE) ==================== -->
     <h2>
@@ -551,26 +660,26 @@
       <span class="section-tag">Future Roadmap</span>
     </h2>
 
-    <p style="font-size: 8.5pt; color: #57534e; margin-bottom: 8px;">
-      The ₹32,000 scope delivers a complete, fully operational boutique. Should Vani Collection wish to expand in the future, the following optional add-ons can be integrated anytime:
+    <p style="font-size: 8.2pt; color: #57534e; margin-bottom: 8px;">
+      The ₹32,000 scope delivers a complete, fully operational boutique (with Shiprocket automation included). Should Vani Collection wish to expand in subsequent growth phases, the following optional add-ons can be integrated anytime:
     </p>
 
     <div class="grid-2">
       <div class="card">
-        <div class="card-title">📦 Shiprocket / Delhivery API Automation</div>
-        <div class="card-desc">Automated 1-click AWB generation and courier pickup dispatch directly from admin console.</div>
-      </div>
-      <div class="card">
         <div class="card-title">💬 WhatsApp Automated Order Notifications</div>
-        <div class="card-desc">Automated WhatsApp message sent to customer on order placed, dispatch, and delivery via Interakt/Wati API.</div>
+        <div class="card-desc">Automated WhatsApp message sent directly to customer phones on order placed, dispatch tracking link, and out-for-delivery updates via Interakt / Wati API.</div>
       </div>
       <div class="card">
         <div class="card-title">📱 Native iOS & Android Mobile Apps</div>
-        <div class="card-desc">React Native / Flutter apps deployed to Apple App Store and Google Play Store syncing with same backend.</div>
+        <div class="card-desc">Dedicated mobile apps deployed to Apple App Store and Google Play Store syncing seamlessly with the existing database and admin console.</div>
       </div>
       <div class="card">
         <div class="card-title">🌍 Multi-Currency International Checkout</div>
-        <div class="card-desc">Auto-detection of USD / AED / GBP with localized currency checkout and international courier rates.</div>
+        <div class="card-desc">Auto-detection of foreign visitors with real-time currency conversion (USD, AED, GBP, EUR) and international courier rate calculations.</div>
+      </div>
+      <div class="card">
+        <div class="card-title">🤖 AI Personal Stylist & Size Advisor</div>
+        <div class="card-desc">Interactive conversational AI assistant that suggests matching dupattas, jewelry, and exact size recommendations based on customer measurements.</div>
       </div>
     </div>
 
@@ -580,24 +689,24 @@
       <span class="section-tag">Agreement</span>
     </h2>
 
-    <p style="font-size: 8.5pt; color: #57534e;">
-      By signing below, both parties acknowledge and agree to the deliverables, milestone payment structure, and terms defined in this commercial proposal.
+    <p style="font-size: 8.2pt; color: #57534e;">
+      By signing below, both parties acknowledge and agree to the deliverables, the 10% / 60% / 30% milestone payment structure, the ₹299/mo platform fee, and project takeover terms defined in this proposal.
     </p>
 
     <div class="sign-box">
       <div>
-        <p style="font-weight: 700; color: #1c1917; font-size: 9pt;">For Vani Collection (Client)</p>
+        <p style="font-weight: 700; color: #1c1917; font-size: 8.5pt;">For Vani Collection (Client)</p>
         <div class="sign-line">Authorized Signatory & Date</div>
       </div>
       <div>
-        <p style="font-weight: 700; color: #1c1917; font-size: 9pt;">For Development & Architecture Team</p>
+        <p style="font-weight: 700; color: #1c1917; font-size: 8.5pt;">For Development & Architecture Team</p>
         <div class="sign-line">Authorized Signatory & Date</div>
       </div>
     </div>
 
-    <div class="footer-note" style="margin-top: 40px;">
-      <span>Vani Collection — Commercial Quotation (Under ₹32,000)</span>
-      <span>Ref: VC-COMM-32K-FINAL</span>
+    <div class="footer-note" style="margin-top: 30px;">
+      <span>Vani Collection — Commercial Quotation & Project Takeover Schedule (₹32,000)</span>
+      <span>Ref: VC-COMM-32K-REV2</span>
     </div>
   </div>
 
