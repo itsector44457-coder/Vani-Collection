@@ -779,6 +779,13 @@ export const api = {
   },
   editableProduct: (id: string, signal?: AbortSignal) =>
     apiFetch<{ data: AdminEditableProduct }>(`/api/admin/catalogue/${encodeURIComponent(id)}`, { signal }),
+  deleteProduct: (id: string, permanent = false) =>
+    apiFetch<{ data: unknown; message?: string }>(`/api/products/${encodeURIComponent(id)}${permanent ? "?permanent=true" : ""}`, { method: "DELETE" }),
+  bulkDeleteProducts: (ids: string[], permanent = false) =>
+    apiFetch<{ deletedCount?: number; archivedCount?: number; permanent: boolean; message: string }>("/api/products/bulk-delete", {
+      method: "POST",
+      body: { ids, permanent },
+    }),
   categories: (signal?: AbortSignal) => apiFetch<{ data: StoreCategory[] }>("/api/categories", { signal }),
   managedCategories: (signal?: AbortSignal) => apiFetch<{ data: StoreCategory[] }>("/api/categories/manage", { signal }),
   createCategory: (body: Omit<StoreCategory, "_id">) =>

@@ -89,19 +89,20 @@ function ProductsContent() {
     searchParams.get("search") || ""
   );
 
+  // Keep local filter states synchronized with URL query params
+  useEffect(() => {
+    const urlSearch = searchParams.get("search") || searchParams.get("q") || "";
+    if (urlSearch !== searchQuery) {
+      setSearchQuery(urlSearch);
+    }
+    const urlCat = searchParams.get("category") || "all";
+    if (urlCat !== activeCategory) {
+      setActiveCategory(urlCat);
+    }
+  }, [searchParams]);
+
   /**
    * Mirrors the filter state into the URL so a filtered listing is shareable and survives a refresh.
-   *
-   * The logic lives inside the effect rather than in a component-scope `updateURL` helper: the effect
-   * was that helper's only caller, and an inline function is a new reference on every render, which is
-   * what the missing-dependency warning was complaining about.
-   *
-   * The `desired !== current` guard is what makes it safe to depend on `searchParams` at all. Without
-   * it, writing the URL hands back a fresh `searchParams`, the effect re-runs and writes again — a
-   * navigation loop that only stops because Next happens to swallow identical replaces.
-   *
-   * `products` is deliberately not a dependency: the URL is a function of the filters alone. It used
-   * to be listed here, which re-ran the sync on every catalogue load for no reason.
    */
   useEffect(() => {
     const desired = new URLSearchParams();
@@ -145,14 +146,17 @@ function ProductsContent() {
       result = result.filter((p) => p.fabric === activeFabric);
     }
 
-    // Search filter
+    // Search filter: flexible case-insensitive partial matching
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+      const q = searchQuery.toLowerCase().trim();
       result = result.filter(
         (p) =>
           p.title.toLowerCase().includes(q) ||
           p.fabric.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q)
+          p.description.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q) ||
+          p.slug?.toLowerCase().includes(q) ||
+          p.variants?.some((v) => v.sku?.toLowerCase().includes(q) || v.color?.toLowerCase().includes(q))
       );
     }
 

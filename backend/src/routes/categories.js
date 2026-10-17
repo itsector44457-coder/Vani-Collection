@@ -3,6 +3,7 @@ const { z } = require('zod');
 const Category = require('../../models/Category');
 const NavigationMenu = require('../../models/NavigationMenu');
 const Product = require('../../models/Product');
+const Inventory = require('../../models/Inventory');
 const { validate } = require('../middleware/validate');
 const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
@@ -54,8 +55,15 @@ module.exports = ({ auth }) => {
   router.delete('/manage/:id', auth, requireCatalogRole, audit('category.delete', 'Category'), asyncHandler(async (req, res) => {
     const category = await Category.findById(req.params.id);
     if (!category) throw new AppError(404, 'CATEGORY_NOT_FOUND', 'Category not found');
-    if (await Product.exists({ category: category.slug })) {
-      throw new AppError(409, 'CATEGORY_IN_USE', 'Move or delete every product assigned to this category before deleting it');
+
+    // Cascade delete all products in this category and their variant inventory
+    const products = await Product.find({ category: category.slug });
+    const skus = products.flatMap((p) => (p.variants || []).map((v) => v.sku)).filter(Boolean);
+    if (products.length) {
+      await Product.deleteMany({ category: category.slug });
+      if (skus.length) {
+        await Inventory.deleteMany({ sku: { $in: skus } });
+      }
     }
 
     const menus = await NavigationMenu.find({ 'columns.items.categorySlug': category.slug });
@@ -66,7 +74,10 @@ module.exports = ({ auth }) => {
       await menu.save();
     }
     await category.deleteOne();
-    res.status(204).end();
+    res.json({
+      message: `Category "${category.name}" and ${products.length} associated products deleted`,
+      deletedProductsCount: products.length,
+    });
   }));
 
   router.get('/:slug', asyncHandler(async (req, res) => {

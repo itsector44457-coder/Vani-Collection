@@ -18,9 +18,28 @@ module.exports = ({ auth }) => {
   router.get('/', asyncHandler(async (req, res) => {
     const page = Math.max(1, Number(req.query.page) || 1), limit = Math.min(100, Math.max(1, Number(req.query.limit) || 24));
     const filter = { status: 'active' };
-    if (req.query.category) filter.category = req.query.category;
-    if (req.query.q) filter.$text = { $search: String(req.query.q) };
-    const [data, total] = await Promise.all([Product.find(filter).select('-variants.costPrice').sort({ featured: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit), Product.countDocuments(filter)]);
+    if (req.query.category && req.query.category !== 'all') filter.category = req.query.category;
+    const search = String(req.query.q || req.query.search || '').trim();
+    if (search) {
+      const safe = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(safe, 'i');
+      filter.$or = [
+        { name: regex },
+        { description: regex },
+        { shortDescription: regex },
+        { category: regex },
+        { subcategory: regex },
+        { fabric: regex },
+        { craft: regex },
+        { tags: regex },
+        { 'variants.sku': regex },
+        { 'variants.color': regex },
+      ];
+    }
+    const [data, total] = await Promise.all([
+      Product.find(filter).select('-variants.costPrice').sort({ featured: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit),
+      Product.countDocuments(filter),
+    ]);
     res.json({ data, meta: { page, limit, total, pages: Math.ceil(total / limit) } });
   }));
   router.get('/:slug', asyncHandler(async (req, res) => {
@@ -42,9 +61,48 @@ module.exports = ({ auth }) => {
     if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
     res.json({ data: product });
   }));
-  router.delete('/:id', auth, requireRoles('admin', 'super_admin'), audit('product.archive', 'Product'), asyncHandler(async (req, res) => {
+  router.delete('/:id', auth, requireRoles('catalog_manager', 'admin', 'super_admin'), audit('product.delete', 'Product'), asyncHandler(async (req, res) => {
+    const isPermanent = req.query.permanent === 'true' || req.query.hard === 'true';
+    if (isPermanent) {
+      const product = await Product.findByIdAndDelete(req.params.id);
+      if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
+      if (product.variants?.length) {
+        await Inventory.deleteMany({ sku: { $in: product.variants.map((v) => v.sku) } });
+      }
+      return res.json({ data: product, deleted: true, message: 'Product permanently deleted' });
+    }
     const product = await Product.findByIdAndUpdate(req.params.id, { status: 'archived', updatedBy: req.user.id }, { returnDocument: 'after' });
-    if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found'); res.json({ data: product });
+    if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
+    res.json({ data: product, archived: true, message: 'Product archived' });
+  }));
+  const bulkDeleteInput = z.object({
+    ids: z.array(z.string().min(1)).min(1, 'At least one product ID must be provided'),
+    permanent: z.boolean().optional().default(false),
+  });
+  router.post('/bulk-delete', auth, requireRoles('catalog_manager', 'admin', 'super_admin'), validate(bulkDeleteInput), audit('product.bulk_delete', 'Product'), asyncHandler(async (req, res) => {
+    const { ids, permanent } = req.body;
+    if (permanent) {
+      const products = await Product.find({ _id: { $in: ids } });
+      const skus = products.flatMap((p) => (p.variants || []).map((v) => v.sku)).filter(Boolean);
+      await Product.deleteMany({ _id: { $in: ids } });
+      if (skus.length) {
+        await Inventory.deleteMany({ sku: { $in: skus } });
+      }
+      return res.json({
+        deletedCount: products.length,
+        permanent: true,
+        message: `${products.length} products permanently deleted`,
+      });
+    }
+    const result = await Product.updateMany(
+      { _id: { $in: ids } },
+      { $set: { status: 'archived', updatedBy: req.user.id } }
+    );
+    res.json({
+      archivedCount: result.modifiedCount,
+      permanent: false,
+      message: `${result.modifiedCount} products archived`,
+    });
   }));
   return router;
 };

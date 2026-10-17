@@ -9,7 +9,12 @@ function authMiddleware(config) {
     let payload;
     try { payload = jwt.verify(token, config.JWT_ACCESS_SECRET, { issuer: 'vani-api', audience: 'vani-web' }); }
     catch { throw new AppError(401, 'INVALID_TOKEN', 'Session is invalid or expired'); }
-    const user = await User.findById(payload.sub);
+    let user;
+    try {
+      user = await User.findById(payload.sub);
+    } catch {
+      throw new AppError(401, 'INVALID_TOKEN', 'Session is invalid or expired');
+    }
     if (!user || user.status !== 'active') throw new AppError(401, 'ACCOUNT_UNAVAILABLE', 'Account is unavailable');
     req.user = user;
     const allowedDuringPasswordChange = ['/api/auth/me', '/api/auth/logout', '/api/auth/change-credentials'];
@@ -32,7 +37,12 @@ function optionalAuthMiddleware(config) {
       /* an expired token simply means "guest" for optional routes */
       return next();
     }
-    const user = await User.findById(payload.sub);
+    let user;
+    try {
+      user = await User.findById(payload.sub);
+    } catch {
+      return next();
+    }
     if (user && user.status === 'active') {
       if (user.mustChangePassword) throw new AppError(403, 'PASSWORD_CHANGE_REQUIRED', 'Change your temporary password before continuing');
       req.user = user;

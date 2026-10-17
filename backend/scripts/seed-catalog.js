@@ -7,6 +7,14 @@
  *   node scripts/seed-catalog.js              # upsert products + inventory
  */
 require('dotenv').config();
+
+// Local-dev only: some ISP resolvers refuse Atlas SRV lookups.
+if (process.env.DNS_SERVERS) {
+  const dns = require('dns');
+  const servers = process.env.DNS_SERVERS.split(',').map((s) => s.trim()).filter(Boolean);
+  if (servers.length) dns.setServers(servers);
+}
+
 const fs = require('node:fs');
 const path = require('node:path');
 

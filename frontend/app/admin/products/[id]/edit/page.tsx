@@ -45,6 +45,9 @@ export default function EditProductPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteType, setDeleteType] = useState<"permanent" | "archive">("permanent");
+  const [deleting, setDeleting] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const hoverImageChoices = imagesText.split(/\r?\n|,/).map((url) => url.trim()).filter(Boolean);
 
@@ -153,6 +156,20 @@ export default function EditProductPage() {
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const executeDelete = async () => {
+    if (!product) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await api.deleteProduct(product._id, deleteType === "permanent");
+      router.push("/admin/products");
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not delete this product.");
+      setDeleting(false);
+      setShowDeleteModal(false);
     }
   };
 
@@ -309,12 +326,140 @@ export default function EditProductPage() {
               Featured
             </label>
           </div>
-          <div className="mt-5 flex justify-end gap-2">
-            <ButtonGhost type="button" onClick={() => router.push("/admin/products")}>Cancel</ButtonGhost>
-            <ButtonPrimary type="submit" disabled={saving || !configured}>{saving ? "Saving…" : "Save changes"}</ButtonPrimary>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#f0ebe3] pt-4">
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-[12.5px] font-semibold text-rose-700 hover:bg-rose-100 hover:border-rose-300 transition"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+              </svg>
+              Delete Product
+            </button>
+            <div className="flex items-center gap-2">
+              <ButtonGhost type="button" onClick={() => router.push("/admin/products")}>Cancel</ButtonGhost>
+              <ButtonPrimary type="submit" disabled={saving || !configured}>{saving ? "Saving…" : "Save changes"}</ButtonPrimary>
+            </div>
           </div>
         </Card>
       </form>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-[#ebe6de] bg-white shadow-2xl animate-in zoom-in-95 duration-150">
+            <div className="p-5 sm:p-6">
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-200">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <line x1="10" y1="11" x2="10" y2="17" />
+                    <line x1="14" y1="11" x2="14" y2="17" />
+                  </svg>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-serif text-[18px] font-semibold text-[#14100f]">
+                    Delete Product
+                  </h3>
+                  <p className="mt-1 text-[13px] text-stone-600 line-clamp-2">
+                    Are you sure you want to delete <span className="font-semibold text-stone-900">“{product.name}”</span>?
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2.5">
+                <label
+                  className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition ${
+                    deleteType === "permanent"
+                      ? "border-rose-400 bg-rose-50/60 ring-1 ring-rose-300"
+                      : "border-stone-200 hover:bg-stone-50/70"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="editDeleteType"
+                    value="permanent"
+                    checked={deleteType === "permanent"}
+                    onChange={() => setDeleteType("permanent")}
+                    className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                  />
+                  <div className="text-[12px]">
+                    <p className="font-semibold text-stone-900">Delete Permanently (Hard Delete)</p>
+                    <p className="text-stone-500 mt-0.5">
+                      Completely removes this product and all variant SKUs from the database.
+                    </p>
+                  </div>
+                </label>
+
+                <label
+                  className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer transition ${
+                    deleteType === "archive"
+                      ? "border-amber-400 bg-amber-50/60 ring-1 ring-amber-300"
+                      : "border-stone-200 hover:bg-stone-50/70"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="editDeleteType"
+                    value="archive"
+                    checked={deleteType === "archive"}
+                    onChange={() => setDeleteType("archive")}
+                    className="mt-0.5 text-amber-600 focus:ring-amber-500"
+                  />
+                  <div className="text-[12px]">
+                    <p className="font-semibold text-stone-900">Archive Product (Soft Delete)</p>
+                    <p className="text-stone-500 mt-0.5">
+                      Hides from the storefront immediately while preserving past order records.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-[#f0ebe3] bg-[#faf7f2]/90 px-5 py-3.5 sm:px-6">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setShowDeleteModal(false)}
+                className="rounded-xl px-4 py-2 text-[12.5px] font-medium text-stone-600 hover:bg-stone-200/60 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void executeDelete()}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12.5px] font-semibold text-white shadow-sm transition disabled:opacity-50 ${
+                  deleteType === "permanent"
+                    ? "bg-rose-600 hover:bg-rose-700"
+                    : "bg-amber-600 hover:bg-amber-700"
+                }`}
+              >
+                {deleting && (
+                  <svg className="animate-spin h-3.5 w-3.5 text-white" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                )}
+                {deleting
+                  ? "Processing…"
+                  : deleteType === "permanent"
+                    ? "Delete Permanently"
+                    : "Archive Product"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

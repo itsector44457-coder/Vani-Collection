@@ -161,7 +161,7 @@ export default function CategoriesPage() {
   };
 
   const deleteCategory = async (category: StoreCategory) => {
-    if (!category._id || !window.confirm(`Permanently delete "${category.name}"? Products assigned to it must be moved or deleted first. Its category links will also be removed from navbar dropdowns.`)) return;
+    if (!category._id || !window.confirm(`Permanently delete category "${category.name}"?\n\n⚠️ WARNING: All products belonging to this category will also be AUTOMATICALLY DELETED from the catalogue and inventory!`)) return;
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -172,7 +172,7 @@ export default function CategoriesPage() {
       setMenus(refreshed.menus);
       setNavSettings(refreshed.settings);
       if (editingId === category._id) resetForm();
-      setNotice(`Category "${category.name}" permanently deleted.`);
+      setNotice(`Category "${category.name}" and all associated products were permanently deleted.`);
     } catch (cause) {
       setError(errorMessage(cause, "Could not delete this category."));
     } finally {
