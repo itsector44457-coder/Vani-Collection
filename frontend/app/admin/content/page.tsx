@@ -19,6 +19,7 @@ import {
   type BadgeTone,
 } from "@/lib/admin-ui";
 import AdminDataBadge from "@/components/admin/AdminDataBadge";
+import FounderMessageEditor from "@/components/admin/FounderMessageEditor";
 import ContentPageManager from "@/components/admin/ContentPageManager";
 import MediaUploadField from "@/components/admin/MediaUploadField";
 import {
@@ -536,6 +537,8 @@ export default function ContentPage() {
       <div className="flex justify-end">
         <AdminDataBadge resource={content} />
       </div>
+
+      <FounderMessageEditor documents={all} enabled={content.source === "live"} onSaved={content.refresh} />
 
       <ContentPageManager
         documents={all}
