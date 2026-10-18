@@ -394,6 +394,7 @@ export default function Navbar() {
               <MegaMenuItem
                 label={settings.collectionLabel}
                 categories={collectionColumns}
+                footerHref="/collections"
                 accent={settings.colors.accent}
                 textColor={settings.colors.headerText}
                 panelBg={settings.colors.headerBg}
@@ -628,9 +629,18 @@ export default function Navbar() {
 
               {/* Collection groups are driven by the active category catalogue. */}
               <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5" style={{ overscrollBehavior: "contain" }}>
-                <span className="text-[9px] uppercase tracking-[0.3em] font-bold text-stone-400 block mb-3">
-                  Collections
-                </span>
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-[9px] uppercase tracking-[0.3em] font-bold text-stone-400">
+                    Collections
+                  </span>
+                  <Link
+                    href="/collections"
+                    onClick={() => setMobileDrawerOpen(false)}
+                    className="text-[10px] font-semibold text-[#881337] hover:underline"
+                  >
+                    Browse all collections →
+                  </Link>
+                </div>
                 {[...mobileCollectionGroups, ...mobileDropdownGroups].map((group) => {
                   const isExpanded = expandedMobileCategory === group.title;
                   return (
@@ -782,7 +792,7 @@ export default function Navbar() {
 
           {/* Shop */}
           <Link
-            href="/products"
+            href="/collections"
             className="flex flex-col items-center py-1 px-3 rounded-xl transition-colors"
             style={{ color: settings.colors.headerText }}
           >
