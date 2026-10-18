@@ -54,6 +54,15 @@ function InstagramIcon() {
   );
 }
 
+function LocationIcon() {
+  return (
+    <svg {...iconProps} fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M12 2.5c-3.5 0-6.5 3-6.5 6.5 0 5 6.5 12.5 6.5 12.5s6.5-7.5 6.5-12.5c0-3.5-3-6.5-6.5-6.5z" />
+      <circle cx="12" cy="9" r="2.5" />
+    </svg>
+  );
+}
+
 function CloseIcon() {
   return (
     <svg {...iconProps}>
@@ -63,8 +72,9 @@ function CloseIcon() {
 }
 
 const contactItems = [
-  { label: "Call Vani Collection", href: `tel:${PHONE_NUMBER}`, Icon: PhoneIcon, external: false },
+  { label: "Visit Guna Atelier & Contact", href: "/contact", Icon: LocationIcon, external: false },
   { label: "Chat on WhatsApp", href: WHATSAPP_URL, Icon: WhatsAppIcon, external: true },
+  { label: "Call Vani Collection", href: `tel:${PHONE_NUMBER}`, Icon: PhoneIcon, external: false },
   { label: "Visit Instagram", href: INSTAGRAM_URL, Icon: InstagramIcon, external: true },
 ];
 

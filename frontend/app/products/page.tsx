@@ -29,7 +29,7 @@ function canonicalFor(category?: string): string {
   return category && category !== "all" ? absoluteUrl(`/products?category=${encodeURIComponent(category)}`) : absoluteUrl("/products");
 }
 
-const COLLECTION_DESCRIPTION = `Shop handcrafted pure mul cotton, Bagru handblock prints, co-ord sets, Anarkalis and festive heirlooms from ${SITE_NAME}, Jaipur. ${SITE_TAGLINE}.`;
+const COLLECTION_DESCRIPTION = `Shop handcrafted pure mul cotton, Bagru handblock prints, co-ord sets, Anarkalis and festive heirlooms from ${SITE_NAME}, Guna. ${SITE_TAGLINE}.`;
 
 export async function generateMetadata({ searchParams }: ProductsPageProps): Promise<Metadata> {
   const params = await searchParams;
@@ -50,7 +50,7 @@ export async function generateMetadata({ searchParams }: ProductsPageProps): Pro
   const label = categoryLabel(category);
   const title = category ? `${label} | ${SITE_NAME}` : `Our Collection | ${SITE_NAME}`;
   const description = category
-    ? truncate(`${label} handcrafted in Jaipur by ${SITE_NAME} — pure mul cotton, handblock prints and festive weaves. Free shipping over ₹1,999.`, 158)
+    ? truncate(`${label} handcrafted in Guna by ${SITE_NAME} — pure mul cotton, handblock prints and festive weaves. Free shipping over ₹1,999.`, 158)
     : truncate(COLLECTION_DESCRIPTION, 158);
 
   return {
@@ -82,7 +82,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const label = categoryLabel(category);
   const title = category ? `${label} | ${SITE_NAME}` : `Our Collection | ${SITE_NAME}`;
   const description = category
-    ? `${label} handcrafted in Jaipur by ${SITE_NAME}.`
+    ? `${label} handcrafted in Guna by ${SITE_NAME}.`
     : COLLECTION_DESCRIPTION;
 
   // Only the top of the category is needed for `hasPart`; the listing itself renders client-side.

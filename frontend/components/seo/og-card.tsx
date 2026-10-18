@@ -65,7 +65,7 @@ export function brandCard(): ReactElement {
     <div style={frame}>
       <div style={innerFrame}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={eyebrow}>Handcrafted in Jaipur</span>
+          <span style={eyebrow}>Handcrafted in Guna</span>
           <span style={{ display: "flex", width: 54, height: 54, borderRadius: 16, background: GOLD, alignItems: "center", justifyContent: "center", color: INK, fontSize: 34, fontWeight: 700 }}>
             V
           </span>

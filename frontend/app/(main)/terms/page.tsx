@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ManagedContentPage from "../../../components/ManagedContentPage";
+import BreadcrumbSchema from "@/components/seo/breadcrumb-schema";
 import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 
 const DEFAULT_METADATA: Metadata = {
   title: "Terms & Conditions | Vani Collection",
-  description: "Read our terms and conditions for using Vani Collection services and making purchases.",
+  description: "Read our terms of service, ordering policies, and customer guarantees for purchasing handcrafted kurties and suits from Vani Collection.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  return managedPageMetadata(await fetchManagedPage("terms"), DEFAULT_METADATA);
+  return managedPageMetadata(await fetchManagedPage("terms"), DEFAULT_METADATA, "terms");
 }
 
 export default async function TermsPage() {
   const managed = await fetchManagedPage("terms");
-  if (managed) return <ManagedContentPage document={managed} breadcrumb="Terms & Conditions" />;
+  if (managed) return <ManagedContentPage document={managed} breadcrumb="Terms & Conditions" slug="terms" />;
 
   return (
-    <div className="min-h-screen bg-[#faf7f2]">
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Terms & Conditions", path: "/terms" },
+        ]}
+      />
+      <div className="min-h-screen bg-[#faf7f2]">
       {/* Header */}
       <div className="bg-gradient-to-br from-[#1c1917] via-[#3d2012] to-[#881337] text-white py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
@@ -60,7 +68,7 @@ export default async function TermsPage() {
             <h2 className="font-serif text-2xl text-[#881337] mb-6">About Vani Collection</h2>
             <div className="bg-stone-50 p-6 rounded-lg">
               <p className="text-stone-600 text-sm leading-relaxed">
-                Vani Collection Atelier is a boutique fashion brand specializing in handcrafted ethnic wear, including Mul Cotton suits, Anarkalis, and festive ensembles. We are based in Jaipur, Rajasthan, India, and serve customers across India and internationally.
+                Vani Collection Atelier is a boutique fashion brand specializing in handcrafted ethnic wear, including Mul Cotton suits, Anarkalis, and festive ensembles. We are based in Guna, Madhya Pradesh, India, and serve customers across India and internationally.
               </p>
             </div>
           </section>
@@ -262,7 +270,7 @@ export default async function TermsPage() {
             <h2 className="font-serif text-2xl text-[#881337] mb-6">Governing Law</h2>
             <div className="bg-stone-50 p-6 rounded-lg">
               <p className="text-stone-600 text-sm">
-                These Terms shall be governed by and construed in accordance with the laws of India. Any disputes arising under these Terms shall be subject to the exclusive jurisdiction of the courts in Jaipur, Rajasthan.
+                These Terms shall be governed by and construed in accordance with the laws of India. Any disputes arising under these Terms shall be subject to the exclusive jurisdiction of the courts in Guna, Madhya Pradesh.
               </p>
             </div>
           </section>
@@ -284,12 +292,12 @@ export default async function TermsPage() {
             <div className="grid sm:grid-cols-2 gap-6">
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Legal Department</h4>
-                <p className="text-sm text-stone-600 mb-1">📧 legal@vanicollection.com</p>
-                <p className="text-sm text-stone-600">📱 +91-XXX-XXX-XXXX</p>
+                <p className="text-sm text-stone-600 mb-1">📧 Vanicollectionguna@gmail.com</p>
+                <p className="text-sm text-stone-600">📱 +91 98765-43210</p>
               </div>
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Customer Support</h4>
-                <p className="text-sm text-stone-600 mb-1">📧 support@vanicollection.com</p>
+                <p className="text-sm text-stone-600 mb-1">📧 Vanicollectionguna@gmail.com</p>
                 <p className="text-sm text-stone-600">💬 WhatsApp Support Available</p>
               </div>
             </div>
@@ -305,5 +313,6 @@ export default async function TermsPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

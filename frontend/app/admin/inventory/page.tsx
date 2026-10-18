@@ -22,10 +22,10 @@ import { useApiResource } from "@/lib/use-api";
 
 const DEMO_INVENTORY: InventoryRow[] = [
   { _id: "i1", sku: "VC-SR-02-DW", warehouseId: "PRIMARY", onHand: 2, reserved: 1, reorderLevel: 4, location: "A-03-2", version: 7, lastErpSyncAt: new Date(Date.now() - 3600e3 * 2).toISOString(), available: 1, updatedAt: new Date(Date.now() - 3600e3 * 2).toISOString() },
-  { _id: "i2", sku: "VC-SR-02-DW", warehouseId: "JAIPUR-DC", onHand: 12, reserved: 2, reorderLevel: 4, location: "R-11-4", version: 3, lastErpSyncAt: new Date(Date.now() - 3600e3 * 26).toISOString(), available: 10, updatedAt: new Date(Date.now() - 3600e3 * 26).toISOString() },
+  { _id: "i2", sku: "VC-SR-02-DW", warehouseId: "GUNA-DC", onHand: 12, reserved: 2, reorderLevel: 4, location: "R-11-4", version: 3, lastErpSyncAt: new Date(Date.now() - 3600e3 * 26).toISOString(), available: 10, updatedAt: new Date(Date.now() - 3600e3 * 26).toISOString() },
   { _id: "i3", sku: "VC-KT-05-AJ-M", warehouseId: "PRIMARY", onHand: 0, reserved: 0, reorderLevel: 5, location: "B-01-1", version: 12, lastErpSyncAt: new Date(Date.now() - 3600e3 * 5).toISOString(), available: 0, updatedAt: new Date(Date.now() - 3600e3 * 5).toISOString() },
   { _id: "i4", sku: "VC-DP-01-ZG", warehouseId: "PRIMARY", onHand: 34, reserved: 3, reorderLevel: 6, location: "C-07-3", version: 2, lastErpSyncAt: new Date(Date.now() - 86400e3 * 2).toISOString(), available: 31, updatedAt: new Date(Date.now() - 86400e3 * 2).toISOString() },
-  { _id: "i5", sku: "VC-LH-09-GP-S", warehouseId: "JAIPUR-DC", onHand: 5, reserved: 4, reorderLevel: 3, version: 9, lastErpSyncAt: new Date(Date.now() - 3600e3 * 50).toISOString(), available: 1, updatedAt: new Date(Date.now() - 3600e3 * 50).toISOString() },
+  { _id: "i5", sku: "VC-LH-09-GP-S", warehouseId: "GUNA-DC", onHand: 5, reserved: 4, reorderLevel: 3, version: 9, lastErpSyncAt: new Date(Date.now() - 3600e3 * 50).toISOString(), available: 1, updatedAt: new Date(Date.now() - 3600e3 * 50).toISOString() },
 ];
 
 type Mode = "adjust" | "set";

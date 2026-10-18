@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
-import type { HeroSlide, Lookbook, Testimonial } from "../../lib/content";
+import type { HeroSlide, Lookbook, Testimonial, PublishedReel } from "../../lib/content";
+import { DEFAULT_TESTIMONIALS } from "../../lib/content";
 import type { CategoryStory as CmsCategoryStory } from "../../lib/content";
 import { useCatalogue } from "../../lib/use-storefront";
 import StoryReelModal from "../../components/StoryReelModal";
 import LivingProductCard from "../../components/LivingProductCard";
+import ShopFromVideo from "../../components/ShopFromVideo";
 import { api, isApiConfigured, type StoreCategory } from "../../lib/api-client";
 
 export interface HomeViewProps {
@@ -21,6 +23,7 @@ export interface HomeViewProps {
   productCollection?: { title?: string; subtitle?: string; productIds: string[] } | null;
   /** True when at least one block came from the CMS. Drives the small "live content" note. */
   fromCms?: boolean;
+  reels?: PublishedReel[];
 }
 
 /**
@@ -39,6 +42,7 @@ export default function HomeView({
   faqs = [],
   productCollection = null,
   fromCms = false,
+  reels = [],
 }: HomeViewProps = {}) {
   const { addToCart, setQuickViewProduct, toggleWishlist, isInWishlist } = useCart();
 
@@ -62,6 +66,29 @@ export default function HomeView({
   // Quick size selection per product card
   const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<StoreCategory[]>([]);
+
+  // Testimonials Side-Scrollable State
+  const testimonialsScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollTestiLeft, setCanScrollTestiLeft] = useState(false);
+  const [canScrollTestiRight, setCanScrollTestiRight] = useState(true);
+
+  const displayTestimonials = (testimonials && testimonials.length > 0) ? testimonials : DEFAULT_TESTIMONIALS;
+
+  const updateTestimonialScrollState = () => {
+    if (!testimonialsScrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = testimonialsScrollRef.current;
+    setCanScrollTestiLeft(scrollLeft > 10);
+    setCanScrollTestiRight(scrollLeft < scrollWidth - clientWidth - 10);
+  };
+
+  const scrollTestimonials = (direction: "left" | "right") => {
+    if (!testimonialsScrollRef.current) return;
+    const scrollAmount = Math.min(testimonialsScrollRef.current.clientWidth * 0.85, 420);
+    testimonialsScrollRef.current.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  };
   const catalogue = useCatalogue();
   const catalogueProducts = productCollection?.productIds.length
     ? productCollection.productIds
@@ -291,7 +318,7 @@ export default function HomeView({
           >
             {(activeSlide?.tag || !activeSlide) && (
               <p className={`mb-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] sm:mb-3 sm:text-xs ${hasHeroImage ? "text-[#dfc28c]" : "text-[#881337]"}`}>
-                {activeSlide?.tag || "Handcrafted in Jaipur"}
+                {activeSlide?.tag || "Handcrafted in Guna"}
               </p>
             )}
             <h1 className="font-serif text-3xl font-medium leading-[1.08] sm:text-5xl lg:text-6xl">
@@ -299,7 +326,7 @@ export default function HomeView({
             </h1>
             {(activeSlide?.subtitle || !activeSlide) && (
               <p className={`mt-1 text-[10px] font-medium uppercase tracking-[0.16em] sm:mt-2 sm:text-sm ${hasHeroImage ? "text-white/75" : "text-stone-600"}`}>
-                {activeSlide?.subtitle || "Timeless styles, made for you"}
+                {activeSlide?.subtitle || "Speciality in Fancy Kurties & Party Wear Dresses"}
               </p>
             )}
             {(activeSlide?.desc || !activeSlide) && (
@@ -438,7 +465,7 @@ export default function HomeView({
                 The Pure Mul Cotton Sanctuary
               </h3>
               <p className="text-xs sm:text-sm text-stone-200/90 max-w-md font-light mb-3 sm:mb-4 line-clamp-2 sm:line-clamp-none">
-                100-count breathable handloom voile with authentic Jaipur Bagru prints and gossamer Kota Doria dupattas.
+                100-count breathable handloom voile with authentic Guna &amp; Bagru prints and gossamer Kota Doria dupattas.
               </p>
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-semibold text-[#dfc28c] group-hover:text-white transition">
                 <span>Explore Mul Cotton Edit</span>
@@ -596,6 +623,9 @@ export default function HomeView({
           )}
         </div>
       </section>
+
+      {/* ================= 4b. SHOP FROM THE VIDEO (REELS SHOWCASE & MODAL) ================= */}
+      <ShopFromVideo reels={reels} />
 
       {/* ================= 5. INTERACTIVE LOOKBOOK (HOTSPOTS BANNER) ================= */}
       {currentLookbook?.image && (
@@ -826,59 +856,266 @@ export default function HomeView({
       )}
 
       {/* ================= 6. ARTISANAL HERITAGE & CRAFT PILLARS ================= */}
-      {/* ================= 7. VERIFIED CUSTOMER REVIEWS ================= */}
-      {testimonials.length > 0 && (
-      <section className="py-14 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
-        <div className="text-center max-w-xl mx-auto mb-10 sm:mb-14">
-          <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
-            Honest Love
-          </span>
-          <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-stone-900 mt-1 sm:mt-2 font-normal">
-            Echoes from Our Community
-          </h2>
-          <div className="w-12 sm:w-16 h-[1.5px] bg-[#881337] mx-auto mt-3 sm:mt-4" />
+      {/* ================= 7. VERIFIED CUSTOMER REVIEWS (SIDE-SCROLLABLE WITH CUSTOMER PHOTO) ================= */}
+      {displayTestimonials.length > 0 && (
+      <section className="py-14 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12 overflow-hidden">
+        {/* Section Header with Side-Scroll Controls */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 sm:mb-12 gap-5">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#b8935a]/30 bg-[#b8935a]/10 px-3 py-1 text-[10px] font-semibold tracking-[0.25em] uppercase text-[#b8935a] mb-2.5">
+              <span>✦ Honest Love</span>
+            </div>
+            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-stone-900 font-normal">
+              Echoes from Our Community
+            </h2>
+            <p className="text-xs sm:text-sm text-stone-500 font-light mt-1 max-w-lg">
+              Loved by patrons across India for pure fabrics, handcrafted tailoring, and prompt Guna delivery.
+            </p>
+          </div>
+
+          {/* Navigation Arrows for Horizontal Side-Scroll */}
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="hidden sm:inline text-[11px] text-stone-400 font-light">
+              Scroll or drag ✦
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => scrollTestimonials("left")}
+                disabled={!canScrollTestiLeft}
+                aria-label="Previous customer review"
+                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full border flex items-center justify-center transition-all duration-200 ${
+                  canScrollTestiLeft
+                    ? "border-stone-300 text-stone-800 bg-white hover:border-[#881337] hover:bg-[#881337] hover:text-white shadow-sm cursor-pointer"
+                    : "border-stone-200 text-stone-300 bg-stone-50 cursor-not-allowed opacity-60"
+                }`}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollTestimonials("right")}
+                disabled={!canScrollTestiRight}
+                aria-label="Next customer review"
+                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full border flex items-center justify-center transition-all duration-200 ${
+                  canScrollTestiRight
+                    ? "border-stone-300 text-stone-800 bg-white hover:border-[#881337] hover:bg-[#881337] hover:text-white shadow-sm cursor-pointer"
+                    : "border-stone-200 text-stone-300 bg-stone-50 cursor-not-allowed opacity-60"
+                }`}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 lg:gap-8">
-          {testimonials.map((rev) => (
+        {/* Side-Scrollable Track */}
+        <div
+          ref={testimonialsScrollRef}
+          onScroll={updateTestimonialScrollState}
+          className="flex gap-5 sm:gap-6 overflow-x-auto scrollbar-none snap-x snap-mandatory py-3 px-1 -mx-4 sm:-mx-8 lg:-mx-12 px-4 sm:px-8 lg:px-12 scroll-smooth"
+        >
+          {displayTestimonials.map((rev) => (
             <div
               key={rev.id}
-              className="bg-white p-6 sm:p-8 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between hover:shadow-md transition"
+              className="snap-start shrink-0 w-[300px] sm:w-[360px] lg:w-[390px] bg-white p-6 sm:p-7 rounded-2xl border border-stone-200/90 shadow-xs hover:shadow-xl hover:border-[#dfc28c]/60 transition-all duration-300 flex flex-col justify-between group"
             >
               <div>
-                <div
-                  className="flex text-amber-500 text-sm mb-2.5 sm:mb-3"
-                  aria-label={`${rev.rating} out of 5 stars`}
-                >
-                  {"★".repeat(Math.max(0, Math.min(5, Math.round(rev.rating))))}
-                  <span className="text-stone-300">{"★".repeat(Math.max(0, 5 - Math.min(5, Math.round(rev.rating))))}</span>
+                {/* Header: Stars & Verified Badge */}
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div
+                    className="flex items-center gap-1 text-amber-500 text-sm"
+                    aria-label={`${rev.rating} out of 5 stars`}
+                  >
+                    <span>{"★".repeat(Math.max(0, Math.min(5, Math.round(rev.rating))))}</span>
+                    <span className="text-stone-300">{"★".repeat(Math.max(0, 5 - Math.min(5, Math.round(rev.rating))))}</span>
+                    <span className="text-[11px] font-semibold text-stone-700 ml-1">
+                      {rev.rating}.0
+                    </span>
+                  </div>
+                  {rev.verified && (
+                    <span className="text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-800 font-semibold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 shrink-0">
+                      <span>✓</span> Verified Buyer
+                    </span>
+                  )}
                 </div>
+
+                {/* Review Title */}
                 {rev.title && (
-                  <h4 className="font-serif text-base sm:text-lg font-semibold text-stone-900 mb-1.5 sm:mb-2">
+                  <h4 className="font-serif text-base sm:text-lg font-semibold text-stone-900 mb-2 leading-snug group-hover:text-[#881337] transition-colors">
                     &ldquo;{rev.title}&rdquo;
                   </h4>
                 )}
-                <p className="text-xs text-stone-600 leading-relaxed font-light mb-4 sm:mb-6">
+
+                {/* Review Text */}
+                <p className="text-xs sm:text-[13px] text-stone-600 leading-relaxed font-light mb-4">
                   {rev.comment}
                 </p>
+
+                {/* Purchased Product Tag (if available) */}
+                {rev.product && (
+                  <div className="mb-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#faf7f2] border border-[#ebe4d8] text-[11px] text-stone-600 font-medium">
+                    <span className="text-[#881337]">✦</span>
+                    <span className="truncate max-w-[260px]">{rev.product}</span>
+                  </div>
+                )}
               </div>
 
-              <div className="pt-3 sm:pt-4 border-t border-stone-100 flex items-center justify-between text-xs">
-                <div>
-                  <h5 className="font-semibold text-stone-900">{rev.name}</h5>
-                  <p className="text-[10px] sm:text-[11px] text-stone-400">{rev.city} · {rev.date}</p>
+              {/* Customer Profile & Photo Area */}
+              <div className="pt-4 border-t border-stone-100 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {/* Customer Photo with graceful fallback */}
+                  {rev.image ? (
+                    <div className="relative shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={rev.image}
+                        alt={rev.name}
+                        className="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#dfc28c]/60 shadow-sm"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = "none";
+                          const fallbackEl = (e.currentTarget.parentElement as HTMLElement)?.querySelector(".avatar-fallback");
+                          if (fallbackEl) (fallbackEl as HTMLElement).style.display = "flex";
+                        }}
+                      />
+                      <div className="avatar-fallback hidden w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#881337] to-[#1c1917] text-[#dfc28c] font-serif font-bold text-base items-center justify-center border border-[#dfc28c]/40 shadow-sm">
+                        {rev.name.charAt(0)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#881337] to-[#1c1917] text-[#dfc28c] font-serif font-bold text-base flex items-center justify-center border border-[#dfc28c]/40 shadow-sm shrink-0">
+                      {rev.name.charAt(0)}
+                    </div>
+                  )}
+
+                  <div className="min-w-0">
+                    <h5 className="font-semibold text-stone-900 text-xs sm:text-sm truncate">{rev.name}</h5>
+                    <p className="text-[10px] sm:text-[11px] text-stone-400 truncate">
+                      {rev.city}{rev.date ? ` · ${rev.date}` : ""}
+                    </p>
+                  </div>
                 </div>
-                {rev.verified && (
-                  <span className="text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-800 font-semibold px-2 py-0.5 rounded border border-emerald-200">
-                    Verified Buyer ✓
-                  </span>
-                )}
+
+                {/* Decorative Quote Icon */}
+                <span className="text-2xl text-stone-200 font-serif select-none shrink-0 group-hover:text-[#dfc28c]/50 transition-colors">
+                  &rdquo;
+                </span>
               </div>
             </div>
           ))}
         </div>
       </section>
       )}
+
+      {/* ================= 7c. FOUNDER'S MESSAGE ================= */}
+      <section className="py-16 sm:py-24 bg-gradient-to-br from-[#faf7f2] via-[#f5ede0] to-[#faf7f2] border-t border-[#e8dfd5] overflow-hidden">
+        <div className="max-w-[1200px] mx-auto px-4 sm:px-8 lg:px-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-20 items-center">
+
+            {/* ── Left: Layered Photo Composition ── */}
+            <div className="relative flex items-center justify-center h-[460px] sm:h-[520px]">
+              {/* Background decorative circle */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#dfc28c]/20 to-[#881337]/10 blur-3xl" />
+
+              {/* Main founder photo — large */}
+              <div className="absolute top-0 left-[10%] w-[60%] h-[80%] rounded-2xl overflow-hidden shadow-2xl border-4 border-white z-20">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=800&q=80"
+                  alt="Aaiysha & Pawan — Founders of Vani Collection"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+              </div>
+
+              {/* Secondary photo — store / fabric */}
+              <div className="absolute bottom-0 right-[5%] w-[48%] h-[55%] rounded-2xl overflow-hidden shadow-xl border-4 border-white z-30">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80"
+                  alt="Vani Collection atelier fabric display"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+
+              {/* Golden year badge */}
+              <div className="absolute top-[8%] right-[3%] z-40 bg-[#881337] text-white rounded-2xl px-4 py-3 shadow-lg text-center border-2 border-white/20">
+                <p className="font-serif text-2xl font-bold text-[#dfc28c] leading-none">Est.</p>
+                <p className="font-serif text-3xl font-bold text-white leading-none">2018</p>
+              </div>
+
+              {/* Subtle gold dot pattern overlay */}
+              <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(#881337_1px,transparent_1px)] [background-size:20px_20px] z-10" />
+            </div>
+
+            {/* ── Right: Founder's Story ── */}
+            <div className="space-y-6 lg:py-6">
+              <div>
+                <span className="text-[10px] font-bold tracking-[0.35em] uppercase text-[#881337]">
+                  Founder&apos;s Message
+                </span>
+              </div>
+
+              <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-stone-900 font-normal leading-tight">
+                Aaiysha &amp; Pawan
+              </h2>
+
+              <div className="w-10 h-[2px] bg-[#dfc28c]" />
+
+              <p className="text-stone-600 text-sm sm:text-base leading-relaxed">
+                Founded in 2018, Vani Collection was born out of a shared dream and endless hustle.
+                From a small idea to a growing brand, every step has been a journey of learning,
+                creativity, and commitment. We created Vani Collection to offer something fresh —
+                new designs that make our customers look good and feel confident.
+              </p>
+              <p className="text-stone-600 text-sm sm:text-base leading-relaxed">
+                Our forte lies in understanding what makes each person unique and helping them express
+                that through fashion. It hasn&apos;t always been easy — there&apos;s been struggle, late nights,
+                and a lot of learning — but the love we receive from our customers makes it all worth it.
+              </p>
+              <p className="text-stone-700 text-sm sm:text-base leading-relaxed font-medium italic">
+                &ldquo;At the heart of everything we do is <span className="text-[#881337] not-italic font-semibold">you</span>.
+                Because when you look good, we feel proud.&rdquo;
+              </p>
+
+              {/* Signature */}
+              <div className="pt-4 border-t border-stone-200">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="font-serif text-xl font-semibold text-stone-900 italic tracking-wide">
+                      Aaiysha &amp; Pawan
+                    </p>
+                    <p className="text-[11px] text-stone-500 font-medium tracking-wide mt-0.5">
+                      Co-founders, Vani Collection · Guna, Madhya Pradesh
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Link
+                  href="/about"
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#881337] px-6 py-3 text-xs font-bold uppercase tracking-[0.2em] text-white transition hover:bg-[#6d0f2b] shadow-md"
+                >
+                  Our Full Story
+                  <span aria-hidden="true">→</span>
+                </Link>
+                <Link
+                  href="/contact"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#881337]/30 bg-white px-6 py-3 text-xs font-bold uppercase tracking-[0.2em] text-[#881337] transition hover:border-[#881337]"
+                >
+                  Visit Atelier
+                </Link>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
 
       {/* ================= 7b. FAQ (CMS `kind=faq`) ================= */}
       {/* Only rendered when the CMS has published questions, and every one of them is also marked up
@@ -900,7 +1137,7 @@ export default function HomeView({
                   write to us and a person will answer.
                 </p>
                 <a
-                  href="mailto:care@vanicollection.com"
+                  href="mailto:Vanicollectionguna@gmail.com"
                   className="mt-6 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#881337] border-b border-[#881337]/30 pb-1 hover:border-[#881337] transition"
                 >
                   Ask us anything <span aria-hidden="true">→</span>
@@ -938,18 +1175,74 @@ export default function HomeView({
         </section>
       )}
 
-      {/* ================= 9. VIP NEWSLETTER CLUB ================= */}
-      <section className="py-14 sm:py-20 bg-[#1c1917] text-white">
-        <div className="max-w-3xl mx-auto px-5 sm:px-6 text-center">
-          <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#dfc28c]">
-            The Vani Club
-          </span>
-          <h2 className="font-serif text-2xl sm:text-4xl lg:text-5xl font-light mt-1.5 sm:mt-2 mb-2 sm:mb-3">
-            Stay in touch
-          </h2>
-          <p className="text-xs sm:text-sm text-stone-300 font-light max-w-md mx-auto">
-            Newsletter signups are not available yet.
-          </p>
+      {/* ================= 8. THE GUNA ATELIER & CONCIERGE ================= */}
+      <section className="py-16 sm:py-24 bg-white border-t border-[#f0ebe3]">
+        <div className="max-w-[1300px] mx-auto px-4 sm:px-8 lg:px-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+            {/* Visual editorial preview */}
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg border border-stone-200 group">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/contact-editorial.jpg"
+                alt="Vani Collection Guna Atelier"
+                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-6 sm:p-8">
+                <div className="text-white">
+                  <span className="text-[9px] uppercase tracking-[0.3em] font-semibold text-[#dfc28c] bg-black/50 px-3 py-1 rounded-full backdrop-blur-md">
+                    Flagship Atelier
+                  </span>
+                  <p className="font-serif text-xl sm:text-2xl mt-2 font-light">Station Road · Guna, MP</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content & Invitation */}
+            <div className="space-y-6">
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.35em] text-[#881337] block mb-2">
+                  Visit & Connect
+                </span>
+                <h2 className="font-serif text-3xl sm:text-4xl lg:text-[42px] font-light text-stone-900 leading-tight">
+                  Step Into Our Atelier
+                </h2>
+                <div className="w-12 h-[2px] bg-[#dfc28c] mt-4" />
+              </div>
+
+              <p className="text-stone-600 text-sm sm:text-base leading-relaxed font-light">
+                Discover the touch of 100-count pure Mul Cotton and handblock craft in person. Our Guna atelier welcomes you for bespoke styling, festive consultations, and made-to-order ensembles.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t border-stone-100 text-xs text-stone-700">
+                <div>
+                  <p className="font-semibold text-stone-900">Atelier Timings</p>
+                  <p className="text-stone-500 mt-0.5">Mon – Sat · 10:30 am – 7:30 pm</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-stone-900">Concierge Desk</p>
+                  <p className="text-stone-500 mt-0.5">+91 98765-43210</p>
+                </div>
+              </div>
+
+              <div className="pt-2 flex flex-wrap gap-4">
+                <Link
+                  href="/contact"
+                  className="inline-flex items-center gap-2.5 bg-[#1c1917] hover:bg-[#881337] text-white text-xs font-semibold tracking-[0.2em] uppercase px-8 py-4 rounded-full transition shadow-md hover:shadow-lg"
+                >
+                  <span>Explore Contact & Atelier</span>
+                  <span>→</span>
+                </Link>
+                <a
+                  href="https://wa.me/919876543210?text=Hello%20Vani%20Collection%20Atelier!"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 border border-stone-300 hover:border-stone-500 text-stone-800 text-xs font-semibold tracking-[0.15em] uppercase px-6 py-4 rounded-full transition"
+                >
+                  <span>WhatsApp Stylist</span>
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

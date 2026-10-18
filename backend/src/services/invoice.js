@@ -497,7 +497,7 @@ async function renderInvoicePdf(order, options = {}) {
     ['GSTIN', gstinValue],
     seller.pan ? ['PAN', seller.pan] : null,
     seller.phone ? ['Phone', seller.phone] : null,
-    ['Email', seller.email || 'care@vanicollection.com'],
+    ['Email', seller.email || 'Vanicollectionguna@gmail.com'],
   ].filter(Boolean);
   for (const [label, value] of sellerRows) {
     say(doc, fonts, 'body', 8.5);

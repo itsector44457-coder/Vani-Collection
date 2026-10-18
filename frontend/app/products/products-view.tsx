@@ -18,7 +18,7 @@ const FALLBACK_CATEGORIES = [
 
 const FABRICS = [
   "All Fabrics",
-  "100% Pure Jaipuri Mul Cotton",
+  "100% Pure Guna Mul Cotton",
   "Chanderi Silk & Mul Voile Lining",
   "100% Dabu Mud-Resist Mul Cotton",
   "Fine Woven Mul Cotton",
@@ -202,7 +202,7 @@ function ProductsContent() {
       <div className="bg-gradient-to-br from-[#1c1917] via-[#3d2012] to-[#881337] text-white py-16 px-4">
         <div className="max-w-7xl mx-auto text-center">
           <p className="text-[10px] uppercase tracking-[0.4em] text-[#dfc28c] mb-3 font-semibold">
-            Handcrafted in Jaipur
+            Handcrafted in Guna
           </p>
           <h1 className="font-serif text-4xl sm:text-5xl font-light mb-4">
             Our Collection
@@ -510,7 +510,7 @@ function ProductsLoading() {
       <div className="bg-gradient-to-br from-[#1c1917] via-[#3d2012] to-[#881337] text-white py-16 px-4">
         <div className="max-w-7xl mx-auto text-center">
           <p className="text-[10px] uppercase tracking-[0.4em] text-[#dfc28c] mb-3 font-semibold">
-            Handcrafted in Jaipur
+            Handcrafted in Guna
           </p>
           <h1 className="font-serif text-4xl sm:text-5xl font-light mb-4">
             Our Collection

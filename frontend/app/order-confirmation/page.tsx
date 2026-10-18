@@ -186,6 +186,35 @@ function ConfirmationContent() {
               </div>
             </div>
 
+            {/* Royal Gift Confirmation */}
+            {order?.giftOptions?.isGift && (
+              <div className="bg-amber-50/90 rounded-xl p-4 border border-amber-200 text-sm space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-serif font-bold text-sm">
+                  <svg className="w-4 h-4 text-amber-800 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="20 12 20 22 4 22 4 12" />
+                    <rect x="2" y="7" width="20" height="5" />
+                    <line x1="12" y1="22" x2="12" y2="7" />
+                    <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+                    <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+                  </svg>
+                  <span>Royal Atelier Gift Packaging Enclosed</span>
+                </div>
+                <div className="text-xs text-stone-700 space-y-1">
+                  {order.giftOptions.recipientName && (
+                    <p>To: <strong>{order.giftOptions.recipientName}</strong>{order.giftOptions.senderName ? ` · From: ${order.giftOptions.senderName}` : ""}</p>
+                  )}
+                  {order.giftOptions.message && (
+                    <p className="italic text-stone-600 bg-white/80 p-2.5 rounded-lg border border-amber-200/60">
+                      &ldquo;{order.giftOptions.message}&rdquo;
+                    </p>
+                  )}
+                  <p className="text-[11px] text-amber-800 font-medium">
+                    ✓ Hand-written gold calligraphy note card & rigid luxury gift box included.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Delivery Info */}
             <div className="bg-blue-50 rounded-xl p-4 text-sm space-y-1.5">
               <p className="font-semibold text-blue-900 text-xs uppercase tracking-wider mb-2">Delivery Details</p>

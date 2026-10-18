@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-
+// Active environment reload trigger
 if (process.env.DNS_SERVERS) {
   const dns = require('dns');
   const servers = process.env.DNS_SERVERS.split(',').map((s) => s.trim()).filter(Boolean);
@@ -13,7 +13,7 @@ const { loadConfig } = require('./src/config');
 const { buildApp } = require('./src/app');
 const { startIntegrationWorker } = require('./src/workers/integration-worker');
 
-const logger = pino({ level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'warn'), redact: ['req.headers.authorization', 'req.headers.cookie', 'req.body.password'] });
+const logger = pino({ level: process.env.LOG_LEVEL || 'info', redact: ['req.headers.authorization', 'req.headers.cookie', 'req.body.password'] });
 
 async function main() {
   const config = loadConfig();
@@ -22,8 +22,26 @@ async function main() {
   logger.info('MongoDB connected');
 
   const app = buildApp({ config, logger });
-  const server = app.listen(config.PORT, '0.0.0.0', () => logger.info({ port: config.PORT }, 'Vani Collection API listening'));
+  const server = app.listen(config.PORT, '0.0.0.0', () => {
+    logger.info({ port: config.PORT }, 'Vani Collection API listening');
+    console.log(`🌸 Vani Collection API listening on http://localhost:${config.PORT}`);
+  });
   const stopWorker = startIntegrationWorker({ log: logger });
+
+  const { verifyEmailConnection } = require('./src/services/email');
+  if (config.EMAIL_ENABLED) {
+    verifyEmailConnection().then((res) => {
+      if (res.ok) {
+        console.log(`✉️  SMTP Email active: Connected as ${res.user}`);
+      } else {
+        console.log(`⚠️  SMTP Email notice: ${res.error || res.message}`);
+      }
+    }).catch((err) => {
+      console.log(`⚠️  SMTP Email verify error: ${err.message}`);
+    });
+  } else {
+    console.log('✉️  SMTP Email is disabled (set EMAIL_ENABLED=true in .env to activate)');
+  }
 
   const shutdown = async (signal) => {
     logger.info({ signal }, 'shutting down');

@@ -55,11 +55,11 @@ function getEmailConfig() {
     activeConfig = {
       NODE_ENV: 'test',
       EMAIL_ENABLED: false,
-      EMAIL_FROM: 'Vani Collection <care@vanicollection.com>',
+      EMAIL_FROM: 'Vani Collection <Vanicollectionguna@gmail.com>',
       SMTP_PORT: 587,
       SMTP_SECURE: false,
       EMAIL_DEV_CAPTURE: false,
-      SUPPORT_EMAIL: 'care@vanicollection.com',
+      SUPPORT_EMAIL: 'Vanicollectionguna@gmail.com',
       storefrontUrl: 'http://localhost:3000',
       emailConfigured: false,
     };
@@ -67,10 +67,11 @@ function getEmailConfig() {
   return activeConfig;
 }
 
-/** True only when a real SMTP host is present and email is switched on. */
+/** True only when a real SMTP host or user credentials are present and email is switched on. */
 function isEmailConfigured() {
   const config = getEmailConfig();
-  return Boolean(config.EMAIL_ENABLED && config.SMTP_HOST);
+  const hasUserAndPass = Boolean(config.SMTP_USER && config.SMTP_PASS);
+  return Boolean(config.EMAIL_ENABLED && (config.SMTP_HOST || hasUserAndPass));
 }
 
 /** True when a message should actually be handed to SMTP (configured and not in dev-capture). */
@@ -83,12 +84,29 @@ function getTransport() {
   if (transportForTesting) return transportForTesting;
   if (transport) return transport;
   const config = getEmailConfig();
-  transport = nodemailer.createTransport({
-    host: config.SMTP_HOST,
-    port: Number(config.SMTP_PORT) || 587,
-    secure: Boolean(config.SMTP_SECURE),
-    ...(config.SMTP_USER && config.SMTP_PASS ? { auth: { user: config.SMTP_USER, pass: config.SMTP_PASS } } : {}),
-  });
+  const host = config.SMTP_HOST || 'smtp.gmail.com';
+  const port = Number(config.SMTP_PORT) || 587;
+  const user = config.SMTP_USER;
+  // Clean whitespace from Google App Passwords (which are displayed as 4 groups of 4 chars: "xxxx xxxx xxxx xxxx")
+  const pass = config.SMTP_PASS ? String(config.SMTP_PASS).replace(/\s+/g, '') : undefined;
+  const isGmail = host === 'smtp.gmail.com' || (user && user.toLowerCase().endsWith('@gmail.com'));
+
+  if (isGmail && user && pass) {
+    transport = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+    });
+  } else {
+    transport = nodemailer.createTransport({
+      host,
+      port,
+      secure: Boolean(config.SMTP_SECURE || port === 465),
+      ...(user && pass ? { auth: { user, pass } } : {}),
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+  }
   return transport;
 }
 
@@ -124,6 +142,7 @@ function orderEmailData(order, extra = {}) {
     guestEmail: plain.guestEmail,
     couponCode: plain.couponCode,
     notes: plain.notes,
+    giftOptions: plain.giftOptions,
     amounts: plain.amounts,
     payment: { method: plain.payment?.method, status: plain.payment?.status },
     shipment: plain.shipment,
@@ -157,7 +176,7 @@ function templateContext(data = {}) {
   const config = getEmailConfig();
   return {
     storefrontUrl: String(data.storefrontUrl || config.storefrontUrl || 'http://localhost:3000').replace(/\/+$/, ''),
-    supportEmail: data.supportEmail || config.SUPPORT_EMAIL || config.EMAIL_REPLY_TO || 'care@vanicollection.com',
+    supportEmail: data.supportEmail || config.SUPPORT_EMAIL || config.EMAIL_REPLY_TO || 'Vanicollectionguna@gmail.com',
     logoUrl: config.EMAIL_LOGO_URL || '',
   };
 }
@@ -205,14 +224,20 @@ function idempotencyKeyFor({ template, to, dedupeKey }) {
 
 function buildMessage({ to, subject, html, text, replyTo, tags }) {
   const config = getEmailConfig();
+  let from = config.EMAIL_FROM;
+  // If sending via personal Gmail account and EMAIL_FROM is the default,
+  // align From address with authenticated user to prevent Gmail SPF rejection
+  if (config.SMTP_USER && (from.includes('care@vanicollection.com') || from.includes('Vanicollectionguna@gmail.com'))) {
+    from = `Vani Collection <${config.SMTP_USER}>`;
+  }
   const message = {
-    from: config.EMAIL_FROM,
+    from,
     to,
     subject,
     html,
     ...(text ? { text } : {}),
   };
-  const reply = replyTo || config.EMAIL_REPLY_TO;
+  const reply = replyTo || config.EMAIL_REPLY_TO || config.SUPPORT_EMAIL || 'Vanicollectionguna@gmail.com';
   if (reply) message.replyTo = reply;
   if (tags?.length) message.headers = { 'X-Vani-Tags': tags.join(',') };
   return message;
@@ -350,6 +375,17 @@ async function enqueueDelivery({ emailLog, to, subject, html, text, replyTo, tag
         tags: tags || [],
       },
     });
+
+    // Immediate background trigger so users get OTPs and receipts in ~1-2 seconds without waiting for 15s loop
+    setImmediate(async () => {
+      try {
+        const { processPendingEmails } = require('../workers/integration-worker');
+        await processPendingEmails({ limit: 10, log });
+      } catch (err) {
+        log.debug?.({ err: err.message }, 'immediate email trigger deferred to worker interval');
+      }
+    });
+
     return { queued: true, id: emailLog?.id, idempotencyKey, subject };
   } catch (error) {
     if (error?.code === 11000) {
@@ -534,11 +570,26 @@ async function resendEmail(emailLogId, { log = noopLogger } = {}) {
   return { ...result, id: emailLog.id, status: emailLog.status };
 }
 
+async function verifyEmailConnection() {
+  const config = getEmailConfig();
+  if (!isEmailConfigured()) {
+    return { configured: false, ok: false, message: 'EMAIL_ENABLED is false or SMTP credentials missing in .env' };
+  }
+  try {
+    const t = getTransport();
+    await t.verify();
+    return { configured: true, ok: true, user: config.SMTP_USER, host: config.SMTP_HOST || 'gmail' };
+  } catch (err) {
+    return { configured: true, ok: false, error: err.message };
+  }
+}
+
 module.exports = {
   configureEmail,
   getEmailConfig,
   isEmailConfigured,
   shouldDeliver,
+  verifyEmailConnection,
   templateContext,
   renderTemplate,
   sendEmail,

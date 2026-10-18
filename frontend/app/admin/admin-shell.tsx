@@ -208,6 +208,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
       { name: "Reels", href: "/admin/reels", icon: ReelsIcon, matchPrefix: true },
       { name: "Reviews", href: "/admin/reviews", icon: ReviewIcon, matchPrefix: true },
       { name: "Homepage content", href: "/admin/content", icon: ContentIcon, matchPrefix: true },
+      { name: "About Page", href: "/admin/about", icon: ContentIcon, matchPrefix: true },
       { name: "Media library", href: "/admin/media", icon: ContentIcon, matchPrefix: true },
     ],
   },

@@ -1,6 +1,6 @@
-# Vani Collection · Jaipur Atelier 🌸
+# Vani Collection · Speciality in Fancy Kurties & Party Wear Dresses 🌸
 
-A luxury Indian ethnic wear e-commerce experience celebrating authentic craftsmanship, pure handwoven 100-count Mul Cotton, and traditional Bagru block prints.
+A luxury Indian ethnic wear destination based in Guna, Madhya Pradesh — specialising in fancy kurties, royal party wear dresses, pure handwoven 100-count Mul Cotton, and handcrafted festive heirlooms.
 
 ## ✨ Key Features
 - **Editorial Dual-Mode Hero**:
@@ -18,7 +18,7 @@ A luxury Indian ethnic wear e-commerce experience celebrating authentic craftsma
   - Slide-over Cart Drawer with real-time free shipping progress bar & coupon system
   - Lenis smooth momentum scrolling
 - **Design Aesthetic**:
-  - Royal Jaipur palette (Crimson, Deep Wine, Warm Cream, Antique Gold)
+  - Royal heritage palette (Crimson, Deep Wine, Warm Cream, Antique Gold)
   - Serif typography (`Playfair Display` + `Plus Jakarta Sans`)
   - Glassmorphic luxury components & micro-interactions
 

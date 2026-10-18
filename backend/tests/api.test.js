@@ -361,7 +361,7 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
     body: {
       key: 'home.banner.1',
       kind: 'banner',
-      title: 'Handcrafted in Jaipur',
+      title: 'Handcrafted in Guna',
       media: [
         { url: 'https://cdn.example.test/hero.jpg', alt: 'Collection photo', kind: 'image' },
         { url: 'https://cdn.example.test/hero.mp4', alt: 'Collection video', kind: 'video' },
@@ -415,7 +415,7 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
     body: {
       theme: 'midnight',
       brandName: 'Vani Atelier',
-      brandTagline: 'Made in Jaipur',
+      brandTagline: 'Made in Guna',
       logoUrl: '',
       collectionLabel: 'Shop collections',
       announcements: ['Free shipping'],

@@ -12,9 +12,9 @@ const { ensureCategories } = require('../lib/category-defaults');
 const { mergeNavigationMenus } = require('../lib/navigation-defaults');
 
 const DEFAULT_ANNOUNCEMENTS = [
-  '✦ Free Express Shipping Above ₹1,999',
-  '✦ 100% Certified Pure Mul Cotton Handcrafted in Jaipur',
-  '✦ Cash On Delivery & 7-Day Free Exchanges',
+  '✦ Speciality in Fancy Kurties & Party Wear Dresses',
+  '✦ Free Express Shipping Across India Above ₹1,999',
+  '✦ 100% Certified Pure Handcrafted Ensembles · Guna',
 ];
 const DEFAULT_LINKS = [
   { label: 'Stories', href: '/#stories', isActive: true },
@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS = {
   key: 'storefront',
   theme: 'atelier',
   brandName: 'Vani Collection',
-  brandTagline: 'Atelier · Jaipur',
+  brandTagline: 'Speciality in Fancy Kurties & Party Wear Dresses',
   logoUrl: '',
   collectionLabel: 'Collections',
   announcements: DEFAULT_ANNOUNCEMENTS,

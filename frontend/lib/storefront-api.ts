@@ -4,7 +4,7 @@
  * When NEXT_PUBLIC_API_URL is configured, storefront data is loaded from the backend.
  */
 import { apiFetch, ApiError, isApiConfigured, type Paginated } from "./api-client";
-import type { CartItem, OrderAddress, Product, StoreOrder, StoreReview, StoreVariant } from "./storefront-types";
+import type { CartItem, GiftOptions, OrderAddress, Product, StoreOrder, StoreReview, StoreVariant } from "./storefront-types";
 
 const CART_TOKEN_KEY = "vani_cart_token";
 const WISHLIST_KEY = "vani_wishlist";
@@ -188,6 +188,7 @@ export const cartLineToItem = (line: ApiCartLine): CartItem => ({
 export const addressToApi = (address: OrderAddress) => ({
   fullName: address.fullName ?? "",
   phone: (address.phone ?? "").replace(/\D/g, "").slice(-10),
+  email: address.email ?? "",
   line1: address.line1 ?? "",
   line2: address.line2,
   landmark: address.landmark,
@@ -266,6 +267,7 @@ export interface CheckoutPayload {
   shippingAddress: OrderAddress;
   couponCode?: string;
   paymentMethod: "razorpay" | "cod";
+  giftOptions?: GiftOptions;
 }
 
 export interface RazorpayHandoff {
@@ -393,8 +395,28 @@ export async function removeWishlistItem(productId: string): Promise<void> {
   await apiFetch(`/api/customers/wishlist/${productId}`, { method: "DELETE" });
 }
 
-export async function updateProfile(payload: { firstName?: string; lastName?: string; phone?: string }): Promise<void> {
+export async function updateProfile(payload: {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  preferences?: Record<string, boolean>;
+  avatar?: string;
+}): Promise<void> {
   await apiFetch("/api/customers/profile", { method: "PATCH", body: payload });
+}
+
+export async function changeCredentials(payload: {
+  currentPassword: string;
+  newPassword?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+}): Promise<void> {
+  await apiFetch("/api/auth/change-credentials", { method: "PATCH", body: payload });
+}
+
+export async function deleteCustomerAccount(): Promise<void> {
+  await apiFetch("/api/customers/profile", { method: "DELETE" });
 }
 
 export interface ApiAddress {

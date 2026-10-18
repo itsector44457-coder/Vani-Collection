@@ -13,7 +13,7 @@ const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { PINCODE_RE, serviceability } = require('../services/shipping');
 const { FREE_SHIPPING_THRESHOLD, shippingFeeFor } = require('../services/pricing');
-const { queueEmail, orderEmailData, orderRecipient } = require('../services/email');
+const { queueEmail, sendRaw, orderEmailData, orderRecipient } = require('../services/email');
 
 module.exports = ({ config, auth }) => {
   const router = express.Router();
@@ -127,5 +127,63 @@ module.exports = ({ config, auth }) => {
 
     res.json({ data: order, refund: { id: refund.id, amount: refund.amount, status: refund.status } });
   }));
+
+  // Contact Us Inquiry submission
+  router.post('/contact', validate(z.object({
+    name: z.string().trim().min(1, 'Name is required'),
+    email: z.string().trim().email('Valid email is required'),
+    phone: z.string().trim().optional(),
+    message: z.string().trim().min(2, 'Message is required'),
+  })), asyncHandler(async (req, res) => {
+    const { name, email, phone, message } = req.body;
+    const recipient = process.env.ADMIN_EMAIL || config.SUPPORT_EMAIL || 'Vanicollectionguna@gmail.com';
+
+    // 1. Notify atelier concierge / admin
+    await sendRaw({
+      to: recipient,
+      subject: `New Atelier Inquiry from ${name}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #1c1917; max-width: 600px; padding: 24px; border: 1px solid #e7e5e4; border-radius: 12px;">
+          <h2 style="color: #881337; font-size: 22px; margin-top: 0;">New Atelier Customer Inquiry</h2>
+          <p><strong>Name:</strong> ${name}</p>
+          <p><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+          <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
+          <div style="background: #fafaf9; padding: 16px; border-left: 4px solid #881337; margin: 16px 0; border-radius: 4px;">
+            <p style="margin: 0; white-space: pre-wrap;">${message}</p>
+          </div>
+          <p style="font-size: 12px; color: #78716c;">Received on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} via Vani Collection Contact Portal.</p>
+        </div>
+      `,
+      text: `New Atelier Inquiry from ${name}\n\nEmail: ${email}\nPhone: ${phone || 'N/A'}\nMessage:\n${message}`,
+      tags: ['contact', 'inquiry'],
+      log: req.log,
+    });
+
+    // 2. Send acknowledgment to the customer
+    await sendRaw({
+      to: email,
+      subject: 'We have received your message — Vani Collection Atelier',
+      html: `
+        <div style="font-family: 'Times New Roman', serif; line-height: 1.7; color: #1c1917; max-width: 600px; padding: 32px; background: #faf7f2; border: 1px solid #e8dfd5; border-radius: 14px;">
+          <h1 style="color: #881337; font-size: 26px; font-weight: normal; letter-spacing: 2px; text-transform: uppercase; margin-top: 0; text-align: center;">Vani Collection</h1>
+          <p style="text-align: center; color: #78716c; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 24px;">Atelier Concierge</p>
+          <p>Dear ${name},</p>
+          <p>Thank you for reaching out to Vani Collection. We have received your inquiry and our atelier concierge is reviewing your request.</p>
+          <div style="background: #ffffff; padding: 18px; border: 1px solid #e8dfd5; border-radius: 8px; margin: 20px 0; font-family: sans-serif; font-size: 14px; color: #44403c;">
+            <p style="margin: 0 0 8px 0; font-weight: bold; color: #881337;">Your Message Summary:</p>
+            <p style="margin: 0; white-space: pre-wrap;">"${message}"</p>
+          </div>
+          <p>We typically respond within one business day. Should you require immediate assistance regarding an active order or bespoke ensemble, you can also reach us directly via our WhatsApp Concierge or at <a href="mailto:${config.SUPPORT_EMAIL}" style="color: #881337;">${config.SUPPORT_EMAIL}</a>.</p>
+          <p style="margin-top: 30px;">Warm regards,<br /><strong>The Vani Collection Atelier Team</strong></p>
+        </div>
+      `,
+      text: `Dear ${name},\n\nThank you for reaching out to Vani Collection. We have received your inquiry and will respond within one business day.\n\nWarm regards,\nVani Collection Atelier`,
+      tags: ['contact', 'acknowledgement'],
+      log: req.log,
+    });
+
+    res.json({ success: true, message: 'Your message has been sent to our concierge.' });
+  }));
+
   return router;
 };

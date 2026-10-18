@@ -11,6 +11,7 @@ import ProductImageGallery from "../../../components/ProductImageGallery";
 import SizeGuide from "../../../components/SizeGuide";
 import ProductReviews from "../../../components/ProductReviews";
 import RelatedProducts from "../../../components/RelatedProducts";
+import PincodeDeliveryChecker from "../../../components/PincodeDeliveryChecker";
 
 type ProductTab = "description" | "details" | "reviews";
 
@@ -66,6 +67,33 @@ export default function ProductView({ slug }: { slug: string }) {
   const [activeTab, setActiveTab] = useState<ProductTab>("description");
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showAddedToast, setShowAddedToast] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const getWhatsAppShareUrl = () => {
+    if (!product) return "#";
+    const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+    const text =
+      `Namaste Vani Collection Atelier! 🌸\n\n` +
+      `I am interested in:\n*${product.title}*\n` +
+      `• Price: ₹${product.price.toLocaleString("en-IN")}\n` +
+      (activeSize ? `• Selected Size: ${activeSize}\n` : "") +
+      (activeColor ? `• Color: ${activeColor}\n` : "") +
+      (activeVariant?.sku ? `• SKU: ${activeVariant.sku}\n` : "") +
+      `• Product Link: ${currentUrl}\n\n` +
+      `Could you please assist me with availability, delivery schedule, or custom styling?`;
+    return `https://wa.me/919876543210?text=${encodeURIComponent(text)}`;
+  };
+
+  const handleCopyLink = async () => {
+    if (typeof window === "undefined") return;
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch {
+      /* ignore */
+    }
+  };
 
   const productColors = Array.from(new Set((product?.variants ?? [])
     .map((variant) => variant.color)
@@ -268,9 +296,16 @@ export default function ProductView({ slug }: { slug: string }) {
                 <span className="font-medium text-gray-900">Size:</span>
                 <button 
                   onClick={() => setShowSizeGuide(true)}
-                  className="text-sm text-[#881337] hover:underline font-medium"
+                  className="text-sm text-[#881337] hover:underline font-medium inline-flex items-center gap-1.5"
                 >
-                  Size Guide
+                  <svg className="w-4 h-4 text-[#881337]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.3 8.7l-6-6a1 1 0 0 0-1.4 0l-11 11a1 1 0 0 0 0 1.4l6 6a1 1 0 0 0 1.4 0l11-11a1 1 0 0 0 0-1.4z" />
+                    <line x1="14.5" y1="5.5" x2="16.5" y2="7.5" />
+                    <line x1="11.5" y1="8.5" x2="14.5" y2="11.5" />
+                    <line x1="8.5" y1="11.5" x2="10.5" y2="13.5" />
+                    <line x1="5.5" y1="14.5" x2="8.5" y2="17.5" />
+                  </svg>
+                  <span>Size Guide</span>
                 </button>
               </div>
               <div className="grid grid-cols-6 gap-2">
@@ -335,47 +370,95 @@ export default function ProductView({ slug }: { slug: string }) {
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={handleAddToCart}
-                className="py-4 px-6 bg-white border-2 border-[#881337] text-[#881337] font-semibold rounded-xl hover:bg-[#881337] hover:text-white transition"
+                className="py-4 px-6 bg-white border-2 border-[#881337] text-[#881337] font-semibold rounded-xl hover:bg-[#881337] hover:text-white transition shadow-sm text-center"
               >
                 Add to Cart
               </button>
               <button 
                 onClick={handleBuyNow}
-                className="py-4 px-6 bg-[#881337] text-white font-semibold rounded-xl hover:bg-[#701a35] transition"
+                className="py-4 px-6 bg-[#881337] text-white font-semibold rounded-xl hover:bg-[#701a35] transition shadow-md shadow-[#881337]/15 text-center"
               >
                 Buy Now
               </button>
             </div>
+
+            {/* WhatsApp Atelier Inquiries & Share */}
+            <div className="flex items-center gap-2.5">
+              <a
+                href={getWhatsAppShareUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl border border-emerald-600/30 bg-emerald-50/70 text-emerald-900 font-medium text-xs sm:text-sm hover:bg-emerald-100/80 hover:border-emerald-600/50 transition shadow-sm"
+              >
+                <svg className="w-4 h-4 text-emerald-600 shrink-0 fill-current" viewBox="0 0 24 24">
+                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.667-.698c.969.586 1.761.859 2.793.859 3.179 0 5.767-2.587 5.767-5.766.001-3.18-2.585-5.766-5.767-5.766zm10.158 5.765c-.004 5.618-4.577 10.19-10.19 10.19-1.782 0-3.488-.466-4.986-1.334l-5.513 1.446 1.472-5.378c-.952-1.57-1.475-3.376-1.475-5.234.004-5.618 4.578-10.19 10.192-10.19 5.613 0 10.194 4.572 10.196 10.191z" />
+                </svg>
+                <span>Order / Inquire via WhatsApp</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                title={copiedLink ? "Link copied to clipboard!" : "Share this piece"}
+                aria-label="Share this piece"
+                className="inline-flex items-center justify-center h-11 w-11 rounded-xl border border-stone-200 bg-white text-stone-600 hover:text-stone-900 hover:border-stone-400 transition shrink-0 relative"
+              >
+                {copiedLink ? (
+                  <svg className="w-4 h-4 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                )}
+                {copiedLink && (
+                  <span className="absolute -top-7 right-0 text-[10px] font-medium bg-stone-900 text-white px-2 py-0.5 rounded shadow whitespace-nowrap">
+                    Link Copied!
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Pincode & Delivery Estimator */}
+            <PincodeDeliveryChecker />
 
             {/* Key Features */}
             <div className="border-t border-gray-200 pt-6">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M9 12l2 2 4-4" />
                     <circle cx="12" cy="12" r="9" />
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                   </svg>
-                  <span>7-Day Free Exchange</span>
+                  <span className="font-medium text-stone-900">No Return &amp; Exchange</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                    <circle cx="12" cy="10" r="3" />
+                    <rect x="1" y="3" width="15" height="13" />
+                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                    <circle cx="5.5" cy="18.5" r="2.5" />
+                    <circle cx="18.5" cy="18.5" r="2.5" />
                   </svg>
-                  <span>Pan India Delivery</span>
+                  <span>Free Shipping</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
-                  <span>Secure Payments</span>
+                  <span>100% Secure Payment</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-                    <path d="m9 12 2 2 4-4" />
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
                   </svg>
-                  <span>Handcrafted Quality</span>
+                  <span>24/7 Customers Support</span>
                 </div>
               </div>
             </div>

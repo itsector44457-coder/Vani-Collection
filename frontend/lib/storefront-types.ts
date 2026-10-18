@@ -81,6 +81,16 @@ export interface OrderAddress {
   pincode?: string;
 }
 
+export interface GiftOptions {
+  isGift: boolean;
+  packaging?: boolean;
+  recipientName?: string;
+  senderName?: string;
+  message?: string;
+  hidePriceTag?: boolean;
+  fee?: number;
+}
+
 export interface StoreOrder {
   _id: string;
   orderNumber: string;
@@ -88,10 +98,11 @@ export interface StoreOrder {
   status: string;
   statusHistory?: { status: string; at: string; actor?: string; note?: string }[];
   items: OrderLine[];
-  amounts: { subtotal: number; discount: number; shipping: number; tax: number; total: number; currency?: string };
+  amounts: { subtotal: number; discount: number; shipping: number; tax: number; giftFee?: number; total: number; currency?: string };
   payment: { method: string; status: string; providerPaymentId?: string; paidAt?: string };
   shipment?: { awb?: string; courier?: string; trackingUrl?: string; status?: string; estimatedDelivery?: string };
   shippingAddress?: OrderAddress;
+  giftOptions?: GiftOptions;
   couponCode?: string;
 }
 

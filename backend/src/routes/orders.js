@@ -38,7 +38,22 @@ const notifyOrder = (req, template, order, { data: extra = {}, dedupeKey, tags =
   });
 
 const address = z.object({ fullName: z.string().min(2), phone: z.string().regex(/^[6-9]\d{9}$/), email: z.email(), line1: z.string().min(5), line2: z.string().optional(), landmark: z.string().optional(), city: z.string().min(2), state: z.string().min(2), pincode: z.string().regex(/^\d{6}$/), country: z.string().default('IN') });
-const orderInput = z.object({ items: z.array(z.object({ productId: z.string(), sku: z.string(), quantity: z.number().int().min(1).max(10) })).min(1), shippingAddress: address, billingAddress: address.optional(), couponCode: z.string().optional(), paymentMethod: z.enum(['razorpay', 'cod']) });
+const giftOptionsInput = z.object({
+  isGift: z.boolean().default(false),
+  packaging: z.boolean().default(false),
+  recipientName: z.string().max(100).optional(),
+  senderName: z.string().max(100).optional(),
+  message: z.string().max(500).optional(),
+  hidePriceTag: z.boolean().default(true),
+}).optional();
+const orderInput = z.object({
+  items: z.array(z.object({ productId: z.string(), sku: z.string(), quantity: z.number().int().min(1).max(10) })).min(1),
+  shippingAddress: address,
+  billingAddress: address.optional(),
+  couponCode: z.string().optional(),
+  paymentMethod: z.enum(['razorpay', 'cod']),
+  giftOptions: giftOptionsInput,
+});
 
 module.exports = ({ config, auth }) => {
   const router = express.Router();
@@ -68,7 +83,20 @@ module.exports = ({ config, auth }) => {
           coupon.usedCount += 1; await coupon.save({ session });
         }
         const shipping = shippingFeeFor(subtotal - discount);
-        [order] = await Order.create([{ customerId: req.user.id, items, shippingAddress: req.body.shippingAddress, billingAddress: req.body.billingAddress || req.body.shippingAddress, couponCode: code, amounts: { subtotal, discount, shipping, tax, total: subtotal - discount + shipping }, payment: { method: req.body.paymentMethod, status: 'pending' }, status: req.body.paymentMethod === 'cod' ? 'confirmed' : 'pending_payment', statusHistory: [{ status: req.body.paymentMethod === 'cod' ? 'confirmed' : 'pending_payment', actor: req.user.email }] }], { session });
+        const giftFee = req.body.giftOptions?.packaging ? 149 : 0;
+        const total = subtotal - discount + shipping + giftFee;
+        [order] = await Order.create([{
+          customerId: req.user.id,
+          items,
+          shippingAddress: req.body.shippingAddress,
+          billingAddress: req.body.billingAddress || req.body.shippingAddress,
+          couponCode: code,
+          giftOptions: req.body.giftOptions ? { ...req.body.giftOptions, fee: giftFee } : undefined,
+          amounts: { subtotal, discount, shipping, tax, giftFee, total },
+          payment: { method: req.body.paymentMethod, status: 'pending' },
+          status: req.body.paymentMethod === 'cod' ? 'confirmed' : 'pending_payment',
+          statusHistory: [{ status: req.body.paymentMethod === 'cod' ? 'confirmed' : 'pending_payment', actor: req.user.email }],
+        }], { session });
       });
     } finally { await session.endSession(); }
     let paymentOrder = null;

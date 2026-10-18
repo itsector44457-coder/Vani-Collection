@@ -154,18 +154,19 @@ const FALLBACK_DROPDOWN_MENUS: NavigationMenu[] = [
 const FALLBACK_NAV_SETTINGS: NavigationSettings = {
   theme: "atelier",
   brandName: "Vani Collection",
-  brandTagline: "Atelier · Jaipur",
+  brandTagline: "Speciality in Fancy Kurties & Party Wear Dresses",
   logoUrl: "",
   collectionLabel: "Collections",
   announcements: [
-    "✦ Free Express Shipping Above ₹1,999",
-    "✦ 100% Certified Pure Mul Cotton Handcrafted in Jaipur",
-    "✦ Cash On Delivery & 7-Day Free Exchanges",
+    "✦ Speciality in Fancy Kurties & Party Wear Dresses",
+    "✦ Free Express Shipping Across India Above ₹1,999",
+    "✦ 100% Certified Pure Handcrafted Ensembles · Guna",
   ],
   links: [
     { label: "Stories", href: "/#stories", isActive: true },
     { label: "Reels", href: "/reels", isActive: true },
     { label: "Living Looks", href: "/#products", isActive: true },
+    { label: "Contact", href: "/contact", isActive: true },
   ],
   colors: {
     announcementBg: "#1c1917",
@@ -317,7 +318,7 @@ export default function Navbar() {
           }}
           className={`border-b transition-[border-color] duration-300 ${scrolled ? "shadow-sm" : ""}`}
         >
-          <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-12 h-[66px] sm:h-[74px] flex items-center justify-between gap-4">
+          <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 h-[66px] sm:h-[74px] flex items-center gap-2">
             {/* ============ Left: Mobile Drawer Trigger (UNIQUE) ============ */}
             <div className="flex items-center gap-2 lg:hidden">
               <button
@@ -370,7 +371,7 @@ export default function Navbar() {
             {/* Center / Brand Logo */}
             <Link
               href="/"
-              className="flex flex-col leading-none group text-center lg:text-left mx-auto lg:mx-0"
+              className="flex flex-col leading-none group text-center lg:text-left shrink-0"
             >
               {settings.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -388,7 +389,7 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Navigation: Mega Menu Dropdowns */}
-            <nav className="hidden lg:flex items-center gap-1 mx-auto">
+            <nav className="hidden lg:flex items-center gap-0 flex-1 justify-center">
               {/* Collections Mega Menu */}
               <MegaMenuItem
                 label={settings.collectionLabel}
@@ -399,11 +400,39 @@ export default function Navbar() {
               />
 
               {settings.links.filter((link) => link.isActive).map((link) => (
-                <Link key={`${link.label}-${link.href}`} href={link.href} className="group relative px-4 py-2 text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors" style={{ color: settings.colors.headerText }}>
+                <Link key={`${link.label}-${link.href}`} href={link.href} className="group relative px-3 py-2 text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors whitespace-nowrap" style={{ color: settings.colors.headerText }}>
                   <span>{link.label}</span>
                   <span className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100" style={{ backgroundColor: settings.colors.accent }} />
                 </Link>
               ))}
+
+              {!settings.links.some((link) => link.href === "/about" || link.label.toLowerCase().includes("story") || link.label.toLowerCase().includes("about")) && (
+                <Link
+                  href="/about"
+                  className="group relative px-4 py-2 text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors"
+                  style={{ color: settings.colors.headerText }}
+                >
+                  <span>Our Story</span>
+                  <span
+                    className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100"
+                    style={{ backgroundColor: settings.colors.accent }}
+                  />
+                </Link>
+              )}
+
+              {!settings.links.some((link) => link.href === "/contact" || link.label.toLowerCase() === "contact") && (
+                <Link
+                  href="/contact"
+                  className="group relative px-4 py-2 text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors"
+                  style={{ color: settings.colors.headerText }}
+                >
+                  <span>Contact</span>
+                  <span
+                    className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100"
+                    style={{ backgroundColor: settings.colors.accent }}
+                  />
+                </Link>
+              )}
 
               {/* Lookbook Mega Menu */}
               {dropdownMenus.filter((menu) => menu.isActive).sort((a, b) => a.position - b.position).map((menu) => {
@@ -426,7 +455,7 @@ export default function Navbar() {
             </nav>
 
             {/* Right Action Icons */}
-            <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex items-center gap-0.5 shrink-0">
               <div className="hidden lg:block">
                 <IconBtn label="Search" onClick={() => setSearchOpen(true)} accent={settings.colors.accent} textColor={settings.colors.headerText}>
                   <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -566,14 +595,14 @@ export default function Navbar() {
                 </div>
               </div>
 
-              {/* Quick Links for New Features */}
-              <div className="grid grid-cols-2 gap-2.5 px-4 py-3 border-b border-stone-200/80 bg-white/30 shrink-0">
+              {/* Quick Links for Features */}
+              <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-stone-200/80 bg-white/30 shrink-0">
                 <Link
                   href="/reels"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-gradient-to-br from-[#881337] to-[#701a35] text-white font-semibold text-xs shadow-lg"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-gradient-to-br from-[#881337] to-[#701a35] text-white font-semibold text-xs shadow-md"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="none">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="white" stroke="none">
                     <rect x="2" y="2" width="20" height="20" rx="4" />
                     <path d="M10 8l6 4-6 4V8z" fill="#881337" />
                   </svg>
@@ -582,10 +611,18 @@ export default function Navbar() {
                 <Link
                   href="/#stories"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="flex items-center justify-center gap-2 p-3 rounded-xl bg-white border border-stone-200 text-stone-800 font-semibold text-xs hover:bg-stone-50 transition"
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-white border border-stone-200 text-stone-800 font-semibold text-xs hover:bg-stone-50 transition"
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
                   <span>Stories</span>
+                </Link>
+                <Link
+                  href="/contact"
+                  onClick={() => setMobileDrawerOpen(false)}
+                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#dfc28c]/15 border border-[#dfc28c]/40 text-[#7a5c2b] font-semibold text-xs hover:bg-[#dfc28c]/25 transition"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                  <span>Contact</span>
                 </Link>
               </div>
 
@@ -671,16 +708,43 @@ export default function Navbar() {
                     }}
                     className="flex items-center justify-between p-2.5 rounded-lg hover:bg-stone-100 font-semibold text-[#881337]"
                   >
-                    <span>✦ Shop The Lookbook</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[#881337]"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+                      Shop The Lookbook
+                    </span>
+                    <span>→</span>
+                  </Link>
+                  <Link
+                    href="/about"
+                    onClick={() => setMobileDrawerOpen(false)}
+                    className="flex items-center justify-between p-2.5 rounded-lg hover:bg-stone-100 font-medium text-stone-800"
+                  >
+                    <span className="flex items-center gap-2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 14.5L5 19m5.5-5.5L19 2M9.5 14.5c1 1 2.5 2 5 .5M5 19c1 1 2.5 1.5 4.5.5"/><circle cx="17" cy="5" r="2"/></svg>
+                      <span>Our Story &amp; Guna Heritage</span>
+                    </span>
+                    <span>→</span>
+                  </Link>
+                  <Link
+                    href="/contact"
+                    onClick={() => setMobileDrawerOpen(false)}
+                    className="flex items-center justify-between p-2.5 rounded-lg bg-[#dfc28c]/15 text-[#7a5c2b] border border-[#dfc28c]/40 font-semibold text-xs"
+                  >
+                    <span className="flex items-center gap-2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                      <span>Guna Flagship Atelier &amp; Contact</span>
+                    </span>
                     <span>→</span>
                   </Link>
                   <a
                     href="https://wa.me/?text=Hello%20Vani%20Collection%20Atelier!"
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 text-emerald-800 font-medium border border-emerald-200"
+                    className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 text-emerald-800 font-medium border border-emerald-200 text-xs"
                   >
-                    <span>💬 WhatsApp Styling Help</span>
+                    {/* WhatsApp brand SVG */}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    <span>WhatsApp Styling Help</span>
                   </a>
                 </div>
               </div>

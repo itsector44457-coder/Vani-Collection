@@ -1,6 +1,6 @@
 const { z } = require('zod');
 
-const bool = z.string().optional().transform((v) => v === 'true');
+const bool = z.string().optional().transform((v) => v != null && ['true', '1', 'yes'].includes(String(v).trim().toLowerCase()));
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(5000),
@@ -33,9 +33,9 @@ const schema = z.object({
   // Postmark, Zoho, Mailgun …). With EMAIL_ENABLED=false the API never throws — it logs the
   // intent and records a `skipped` EmailLog so the admin console stays auditable.
   EMAIL_ENABLED: bool,
-  EMAIL_FROM: z.string().default('Vani Collection <care@vanicollection.com>'),
+  EMAIL_FROM: z.string().default('Vani Collection <Vanicollectionguna@gmail.com>'),
   EMAIL_REPLY_TO: z.string().optional(),
-  SMTP_HOST: z.string().optional(),
+  SMTP_HOST: z.string().optional().default('smtp.gmail.com'),
   SMTP_PORT: z.coerce.number().int().positive().max(65535).default(587),
   SMTP_SECURE: bool,
   SMTP_USER: z.string().optional(),
@@ -45,7 +45,7 @@ const schema = z.object({
   EMAIL_LOGO_URL: z.string().optional(),
   /** Storefront origin used for links inside emails; falls back to the first CORS origin. */
   STOREFRONT_URL: z.string().optional(),
-  SUPPORT_EMAIL: z.string().default('care@vanicollection.com'),
+  SUPPORT_EMAIL: z.string().default('Vanicollectionguna@gmail.com'),
 
   // Loyalty. Pure internal bookkeeping with no external provider, so it is on by default and needs
   // no credentials — but every rate is configurable and the whole programme can be switched off.
@@ -87,7 +87,7 @@ const schema = z.object({
     'SELLER_STATE_CODE must be a two-digit state code'
   ),
   SELLER_PHONE: z.string().optional(),
-  SELLER_EMAIL: z.string().default('care@vanicollection.com'),
+  SELLER_EMAIL: z.string().default('Vanicollectionguna@gmail.com'),
   /**
    * Optional TrueType font to embed. Left unset on purpose — see `services/invoice.js`: the built-in
    * Helvetica cannot encode U+20B9 and renders ₹ as a superscript one, so the default output writes
@@ -140,19 +140,29 @@ function buildSeller(env) {
 }
 
 function loadConfig() {
-  const parsed = schema.safeParse(process.env);
+  const env = {
+    ...process.env,
+    SMTP_USER: process.env.SMTP_USER || process.env.EMAIL_USER || undefined,
+    SMTP_PASS: process.env.SMTP_PASS || process.env.EMAIL_PASS || undefined,
+    SMTP_HOST: process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com',
+    SMTP_PORT: process.env.SMTP_PORT || process.env.EMAIL_PORT || '587',
+  };
+  const parsed = schema.safeParse(env);
   if (!parsed.success) {
     const details = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ');
     throw new Error(`Invalid environment configuration: ${details}`);
   }
   const corsOrigins = parsed.data.CORS_ORIGINS.split(',').map((v) => v.trim()).filter(Boolean);
+  const emailConfigured = Boolean(
+    parsed.data.EMAIL_ENABLED &&
+    (parsed.data.SMTP_HOST || (parsed.data.SMTP_USER && parsed.data.SMTP_PASS))
+  );
   return {
     ...parsed.data,
     corsOrigins,
     // Links inside emails and the password-reset URL need one canonical storefront origin.
     storefrontUrl: (parsed.data.STOREFRONT_URL || corsOrigins[0] || 'http://localhost:3000').replace(/\/+$/, ''),
-    /** SMTP is only usable with a host; EMAIL_ENABLED alone must not imply "configured". */
-    emailConfigured: Boolean(parsed.data.EMAIL_ENABLED && parsed.data.SMTP_HOST),
+    emailConfigured,
     seller: buildSeller(parsed.data),
     loyalty: {
       enabled: parsed.data.LOYALTY_ENABLED,

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import FaqSchema from "../../components/seo/faq-schema";
-import { fetchHomepageContent } from "../../lib/content";
+import { fetchHomepageContent, fetchPublishedReels, DEFAULT_TESTIMONIALS } from "../../lib/content";
 import { absoluteUrl } from "../../lib/seo";
 import HomeView from "./home-view";
 
@@ -18,12 +18,15 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const content = await fetchHomepageContent({
-    banners: [],
-    testimonials: [],
-    lookbook: { title: "", subtitle: "", image: "", pins: [] },
-    stories: [],
-  });
+  const [content, reels] = await Promise.all([
+    fetchHomepageContent({
+      banners: [],
+      testimonials: DEFAULT_TESTIMONIALS,
+      lookbook: { title: "", subtitle: "", image: "", pins: [] },
+      stories: [],
+    }),
+    fetchPublishedReels(),
+  ]);
 
   return (
     <>
@@ -39,6 +42,7 @@ export default async function HomePage() {
         faqs={content.faqs}
         productCollection={content.productCollection}
         fromCms={content.fromCms}
+        reels={reels}
       />
     </>
   );

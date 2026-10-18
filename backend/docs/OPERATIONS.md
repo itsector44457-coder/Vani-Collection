@@ -50,7 +50,7 @@ Rollout:
 
 1. Set `EMAIL_ENABLED=true`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`.
 2. Set `EMAIL_FROM` to a verified sender on that domain, e.g.
-   `EMAIL_FROM="Vani Collection <care@vanicollection.com>"`. An unverified From address is the
+   `EMAIL_FROM="Vani Collection <Vanicollectionguna@gmail.com>"`. An unverified From address is the
    single most common cause of silent drops.
 3. Set `STOREFRONT_URL` to the canonical storefront origin — every link in every template is built
    from it, and so is the password-reset URL.

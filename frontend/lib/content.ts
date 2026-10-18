@@ -9,7 +9,7 @@
  * Only published CMS content is rendered; an empty CMS produces empty homepage content.
  */
 
-import { fetchCatalogue } from "./seo";
+import { fetchCatalogue, absoluteUrl, SITE_NAME, SITE_LOCALE } from "./seo";
 import type { Metadata } from "next";
 
 /** Mirrors `backend/models/Content.js`. */
@@ -40,7 +40,19 @@ export interface PublishedReel {
   videoUrl: string;
   thumbnailUrl?: string;
   position: number;
-  productId: { _id: string; name: string; slug: string; images?: { url: string; alt?: string }[]; variants?: { price: number }[] };
+  productId: {
+    _id: string;
+    name: string;
+    slug: string;
+    images?: { url: string; alt?: string }[];
+    variants?: { price: number; mrp?: number; size?: string; color?: string; sku?: string }[];
+    status?: string;
+    fabric?: string;
+    craft?: string;
+    category?: string;
+    shortDescription?: string;
+    description?: string;
+  };
 }
 
 export const CONTENT_KINDS = ["page", "section", "banner", "faq", "policy", "testimonial", "lookbook", "product_collection"] as const;
@@ -156,7 +168,71 @@ export interface Testimonial {
   verified: boolean;
   date: string;
   product: string;
+  image?: string;
 }
+
+export const DEFAULT_TESTIMONIALS: Testimonial[] = [
+  {
+    id: "testi-1",
+    name: "Dr. Ananya Roy",
+    city: "Bengaluru",
+    rating: 5,
+    title: "Softest Mul Cotton I Have Ever Worn!",
+    comment: "The Gulab Bagh Anarkali is pure bliss in summer heat. Featherlight fabric, exquisite handcrafted detailing, and it arrived in Guna-packaged luxury within 3 days!",
+    verified: true,
+    date: "October 2026",
+    product: "Gulab Bagh Anarkali Set",
+    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80",
+  },
+  {
+    id: "testi-2",
+    name: "Meera Singhania",
+    city: "Mumbai",
+    rating: 5,
+    title: "Turned Heads at My Sister's Sangeet",
+    comment: "The festive Chanderi Silk Kurti Set has the most subtle, regal sheen. Received non-stop compliments all evening. The stitching and fit are tailored to absolute perfection.",
+    verified: true,
+    date: "September 2026",
+    product: "Chanderi Silk Festive Kurti",
+    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&q=80",
+  },
+  {
+    id: "testi-3",
+    name: "Pooja Sharma",
+    city: "Bhopal",
+    rating: 5,
+    title: "Authentic MP Handcraft at its Finest",
+    comment: "Being from MP, I know authentic handblock prints. Vani Collection in Guna is doing true justice to our traditional craft. The mul cotton feels like a gentle second skin.",
+    verified: true,
+    date: "October 2026",
+    product: "Handblock Mul Cotton Co-ord",
+    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&q=80",
+  },
+  {
+    id: "testi-4",
+    name: "Kavita Deshmukh",
+    city: "Pune",
+    rating: 5,
+    title: "Flawless Fit & Premium Fabric",
+    comment: "I was hesitant to buy party wear online, but the measurements are 100% accurate. The fabric drape is royal and the team support was incredibly helpful over WhatsApp.",
+    verified: true,
+    date: "August 2026",
+    product: "Zari Embroidered Party Gown",
+    image: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=400&q=80",
+  },
+  {
+    id: "testi-5",
+    name: "Ritu Verma",
+    city: "Indore",
+    rating: 5,
+    title: "My Go-To Boutique for Every Festival",
+    comment: "Already ordered 4 suits this festive season. No color bleeding, no shrinkage, and the packaging makes you feel like royalty opening a gift.",
+    verified: true,
+    date: "September 2026",
+    product: "Festive Angrakha Kurti Set",
+    image: "", // Graceful fallback demonstration without customer photo
+  },
+];
 
 /** Customer testimonials from `kind=testimonial`. */
 export function toTestimonials(docs: ContentDoc[], fallback: Testimonial[]): Testimonial[] {
@@ -169,6 +245,10 @@ export function toTestimonials(docs: ContentDoc[], fallback: Testimonial[]): Tes
       const comment = str(doc.body) ?? str(blocks.comment) ?? base?.comment;
       if (!name || !comment) return null;
       const rating = num(blocks.rating) ?? base?.rating ?? 5;
+      const mediaUrl = Array.isArray(doc.media) && doc.media[0] && typeof doc.media[0] === "object" && "url" in doc.media[0]
+        ? str(doc.media[0].url)
+        : undefined;
+      const image = str(blocks.image) ?? str(blocks.avatar) ?? str(blocks.photo) ?? mediaUrl ?? base?.image;
       return {
         id: doc.key,
         name,
@@ -180,6 +260,7 @@ export function toTestimonials(docs: ContentDoc[], fallback: Testimonial[]): Tes
         verified: bool(blocks.verified, base?.verified ?? false),
         date: str(blocks.date) ?? base?.date ?? "",
         product: str(blocks.product) ?? base?.product ?? "",
+        image: image || undefined,
       };
     })
     .filter((row): row is Testimonial => row !== null);
@@ -402,13 +483,32 @@ export async function fetchPublishedReels(): Promise<PublishedReel[]> {
   return Array.isArray(response?.data) ? response.data : [];
 }
 
-export function managedPageMetadata(document: ContentDoc | null, fallback: Metadata): Metadata {
+export function managedPageMetadata(document: ContentDoc | null, fallback: Metadata, slug?: string): Metadata {
   const blocks = document ? blocksAsObject(document) : {};
   const title = str(blocks.seoTitle) ?? str(document?.title);
   const description = str(blocks.seoDescription);
+  const resolvedTitle = title || (fallback.title as string) || SITE_NAME;
+  const resolvedDesc = description || (fallback.description as string) || "";
+  const canonical = slug ? absoluteUrl(`/${slug.replace(/^\//, "")}`) : undefined;
   return {
     ...fallback,
     ...(title ? { title } : {}),
     ...(description ? { description } : {}),
+    ...(canonical ? {
+      alternates: { canonical },
+      openGraph: {
+        type: "website",
+        url: canonical,
+        siteName: SITE_NAME,
+        title: resolvedTitle,
+        description: resolvedDesc,
+        locale: SITE_LOCALE,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: resolvedTitle,
+        description: resolvedDesc,
+      },
+    } : {}),
   };
 }

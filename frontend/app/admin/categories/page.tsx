@@ -24,13 +24,13 @@ const NAV_THEME_PRESETS = {
 const DEFAULT_NAV_SETTINGS: NavigationSettings = {
   theme: "atelier",
   brandName: "Vani Collection",
-  brandTagline: "Atelier · Jaipur",
+  brandTagline: "Speciality in Fancy Kurties & Party Wear Dresses",
   logoUrl: "",
   collectionLabel: "Collections",
   announcements: [
-    "✦ Free Express Shipping Above ₹1,999",
-    "✦ 100% Certified Pure Mul Cotton Handcrafted in Jaipur",
-    "✦ Cash On Delivery & 7-Day Free Exchanges",
+    "✦ Speciality in Fancy Kurties & Party Wear Dresses",
+    "✦ Free Express Shipping Across India Above ₹1,999",
+    "✦ 100% Certified Pure Handcrafted Ensembles · Guna",
   ],
   links: [
     { label: "Stories", href: "/#stories", isActive: true },

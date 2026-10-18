@@ -4,8 +4,10 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { usePathname } from "next/navigation";
 import { apiFetch, ApiError, hasAuthSessionHint, isApiConfigured } from "../lib/api-client";
 import {
+  changeCredentials as changeCredentialsRequest,
   createAddress,
   deleteAddress as deleteAddressRequest,
+  deleteCustomerAccount as deleteCustomerAccountRequest,
   fetchAddresses,
   requestPasswordReset,
   resetPassword as resetPasswordRequest,
@@ -41,11 +43,14 @@ export interface Address {
 }
 
 export interface UserPreferences {
-  newsletter: boolean;
-  smsUpdates: boolean;
-  whatsappUpdates: boolean;
-  preferredSize: string;
-  favoriteCategories: string[];
+  newsletter?: boolean;
+  smsUpdates?: boolean;
+  whatsappUpdates?: boolean;
+  orderUpdates?: boolean;
+  offers?: boolean;
+  whatsapp?: boolean;
+  preferredSize?: string;
+  favoriteCategories?: string[];
 }
 
 interface AuthContextType {
@@ -57,6 +62,8 @@ interface AuthContextType {
   requestSignupOtp: (userData: SignupData) => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   addAddress: (address: Omit<Address, "id">) => Promise<void>;
   updateAddress: (id: string, address: Partial<Address>) => Promise<void>;
   deleteAddress: (id: string) => Promise<void>;
@@ -140,14 +147,21 @@ const toApiAddress = (address: Partial<Address>) => ({
   isDefault: address.isDefault,
 });
 
-const toUiUser = (user: ApiUser): User => ({
+const toUiUser = (user: ApiUser & { preferences?: UserPreferences }): User => ({
   id: user._id,
   email: user.email,
   firstName: user.firstName ?? "",
   lastName: user.lastName ?? "",
   phone: user.phone,
   addresses: (user.addresses ?? []).map(toUiAddress),
-  preferences: readJson<UserPreferences | undefined>(PREFERENCES_KEY, undefined),
+  preferences: user.preferences ?? readJson<UserPreferences | undefined>(PREFERENCES_KEY, undefined) ?? {
+    orderUpdates: true,
+    offers: true,
+    newsletter: false,
+    whatsapp: true,
+    smsUpdates: true,
+    whatsappUpdates: true,
+  },
   createdAt: user.createdAt ?? new Date().toISOString(),
   roles: user.roles,
   mustChangePassword: user.mustChangePassword,
@@ -300,13 +314,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (data: Partial<User>): Promise<void> => {
       if (!configured) throw new Error("Authentication is unavailable because the API is not configured.");
       if (!user) throw new Error("Not authenticated");
-      await updateProfileRequest({ firstName: data.firstName, lastName: data.lastName, phone: data.phone });
-      const nextUser = { ...user, ...data };
+      await updateProfileRequest({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
+        preferences: data.preferences as Record<string, boolean> | undefined,
+      });
+      const nextUser: User = {
+        ...user,
+        ...data,
+        preferences: data.preferences ? { ...(user.preferences || {}), ...data.preferences } : user.preferences,
+      };
       setUser(nextUser);
-      if (data.preferences) writeJson(PREFERENCES_KEY, data.preferences);
+      if (nextUser.preferences) writeJson(PREFERENCES_KEY, nextUser.preferences);
     },
     [configured, user]
   );
+
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string): Promise<void> => {
+      if (!configured) throw new Error("Authentication is unavailable because the API is not configured.");
+      if (!user) throw new Error("Not authenticated");
+      await changeCredentialsRequest({ currentPassword, newPassword });
+    },
+    [configured, user]
+  );
+
+  const deleteAccount = useCallback(async (): Promise<void> => {
+    if (!configured) throw new Error("Authentication is unavailable because the API is not configured.");
+    if (!user) throw new Error("Not authenticated");
+    await deleteCustomerAccountRequest();
+    setSessionLoaded(false);
+    setUser(null);
+    writeJson(USER_KEY, null);
+    writeJson(PREFERENCES_KEY, null);
+  }, [configured, user]);
 
   const addAddress = useCallback(
     async (address: Omit<Address, "id">): Promise<void> => {
@@ -375,6 +417,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       requestSignupOtp,
       logout,
       updateProfile,
+      changePassword,
+      deleteAccount,
       addAddress,
       updateAddress,
       deleteAddress,
@@ -385,7 +429,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       lastResetUrl,
       refresh,
     }),
-    [user, sessionLoading, login, signup, requestSignupOtp, logout, updateProfile, addAddress, updateAddress, deleteAddress, setDefaultAddress, forgotPassword, resetPassword, configured, lastResetUrl, refresh]
+    [user, sessionLoading, login, signup, requestSignupOtp, logout, updateProfile, changePassword, deleteAccount, addAddress, updateAddress, deleteAddress, setDefaultAddress, forgotPassword, resetPassword, configured, lastResetUrl, refresh]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

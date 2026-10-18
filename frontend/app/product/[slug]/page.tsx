@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
   if (!product) {
     const fallbackTitle = `${labelFromSlug(slug)} | ${SITE_NAME}`;
-    const fallbackDescription = `${labelFromSlug(slug)} from ${SITE_NAME} — ${SITE_TAGLINE.toLowerCase()}, handcrafted in Jaipur.`;
+    const fallbackDescription = `${labelFromSlug(slug)} from ${SITE_NAME} — ${SITE_TAGLINE.toLowerCase()}, handcrafted in Guna.`;
     return {
       title: { absolute: fallbackTitle },
       description: fallbackDescription,

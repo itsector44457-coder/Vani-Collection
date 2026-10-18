@@ -65,7 +65,7 @@ const buildApp = ({ config, logger }) => {
   mount('/api/reels', require('./routes/public-reels')());
   mount('/api/orders', require('./routes/orders')({ config, auth }));
   mount('/api/inventory', require('./routes/inventory')({ auth }));
-  mount('/api/customers', require('./routes/customers')({ auth }));
+  mount('/api/customers', require('./routes/customers')({ config, auth }));
   mount('/api/loyalty', require('./routes/loyalty')({ auth }));
   mount('/api/reviews', require('./routes/reviews')({ auth }));
   mount('/api/coupons', require('./routes/coupons')({ auth }));

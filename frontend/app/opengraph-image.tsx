@@ -9,7 +9,7 @@ import { brandCard, OG_SIZE } from "@/components/seo/og-card";
  * define its own `opengraph-image`.
  */
 
-export const alt = "Vani Collection — artisanal pure mul cotton and festive wear, handcrafted in Jaipur";
+export const alt = "Vani Collection — artisanal pure mul cotton and festive wear, handcrafted in Guna";
 export const size = OG_SIZE;
 export const contentType = "image/png";
 

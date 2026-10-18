@@ -36,8 +36,8 @@ const DEMO_CONTENT: ContentDoc[] = [
   { _id: "c1", key: "home.banner.1", kind: "banner", title: "Poetry in Pure Mul Cotton", subtitle: "The Summer Bagru Edit 2026", body: "Featherlight 100-count handspun cotton woven for everyday grace.", ctaLabel: "Shop Pure Mul Sets", ctaHref: "#products", media: [{ url: "/vani-store-front.jpg", alt: "Vani Collection storefront" }], position: 0, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 2).toISOString() },
   { _id: "c2", key: "home.banner.2", kind: "banner", title: "Gulmohar Festive Heirlooms", subtitle: "Chanderi Silk & Zari Soiree", body: "A timeless ode to royal celebrations.", ctaLabel: "Discover Festive Edit", ctaHref: "#products", position: 1, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 2).toISOString() },
   { _id: "c3", key: "home.testimonial.ananya", kind: "testimonial", title: "Softest Mul Cotton I Have Ever Worn!", body: "The Gulab Bagh Anarkali is pure bliss in summer heat.", blocks: { name: "Dr. Ananya Roy", city: "Bengaluru", rating: 5, verified: true, product: "Gulab Bagh Anarkali Set" }, position: 0, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 6).toISOString() },
-  { _id: "c4", key: "home.faq.shipping", kind: "faq", title: "How long does delivery take?", body: "Orders are dispatched within 2–3 working days from Jaipur and usually arrive in 3–7 days. You get a tracking link by email the moment the courier picks it up.", position: 0, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 9).toISOString() },
-  { _id: "c5", key: "home.faq.fabric", kind: "faq", title: "What exactly is mul cotton?", body: "Mul cotton is a fine, handspun weaving native to Jaipur — breathable and lightweight, softer with every wash. We use 100-count mul for most of our everyday pieces.", position: 1, status: "draft", updatedAt: new Date(Date.now() - 86400e3 * 1).toISOString() },
+  { _id: "c4", key: "home.faq.shipping", kind: "faq", title: "How long does delivery take?", body: "Orders are dispatched within 2–3 working days from Guna and usually arrive in 3–7 days. You get a tracking link by email the moment the courier picks it up.", position: 0, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 9).toISOString() },
+  { _id: "c5", key: "home.faq.fabric", kind: "faq", title: "What exactly is mul cotton?", body: "Mul cotton is a fine, handspun weaving native to Guna & Madhya Pradesh — breathable and lightweight, softer with every wash. We use 100-count mul for most of our everyday pieces.", position: 1, status: "draft", updatedAt: new Date(Date.now() - 86400e3 * 1).toISOString() },
 ];
 
 /** What each kind actually drives, so an editor knows the consequence of a change. */
@@ -121,6 +121,7 @@ interface FormState {
   testiVerified: boolean;
   testiProduct: string;
   testiDate: string;
+  testiImage: string;
   // Section / Story specific fields
   sectionFilterKey: string;
   sectionCount: string;
@@ -156,6 +157,7 @@ const EMPTY_FORM: FormState = {
   testiVerified: true,
   testiProduct: "",
   testiDate: "",
+  testiImage: "",
   sectionFilterKey: "",
   sectionCount: "",
   seoTitle: "",
@@ -207,6 +209,7 @@ const toForm = (doc: ContentDoc): FormState => {
     testiVerified: typeof blocks.verified === "boolean" ? blocks.verified : true,
     testiProduct: typeof blocks.product === "string" ? blocks.product : "",
     testiDate: typeof blocks.date === "string" ? blocks.date : "",
+    testiImage: typeof blocks.image === "string" ? blocks.image : (typeof blocks.avatar === "string" ? blocks.avatar : (typeof blocks.photo === "string" ? blocks.photo : (doc.media?.[0]?.url ?? ""))),
     // Section / Story fields
     sectionFilterKey: typeof blocks.filterKey === "string" ? blocks.filterKey : "",
     sectionCount: typeof blocks.count === "string" ? blocks.count : "",
@@ -373,6 +376,7 @@ export default function ContentPage() {
         verified: form.testiVerified,
         product: form.testiProduct.trim() || undefined,
         date: form.testiDate.trim() || undefined,
+        image: form.testiImage.trim() || undefined,
       };
     } else if (form.kind === "faq") {
       if (!form.title.trim()) {
@@ -750,6 +754,34 @@ export default function ContentPage() {
                 <TextInput id="testi-product" value={form.testiProduct} onChange={(e) => set("testiProduct", e.target.value)} placeholder="e.g. Gulab Bagh Anarkali Set" />
               </Field>
 
+              <Field label="Customer Photo / Styling Image (Optional)" htmlFor="testi-image" hint="Direct photo URL. If left empty, an elegant monogram is generated automatically.">
+                <div className="flex gap-3 items-center">
+                  {form.testiImage.trim() ? (
+                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#881337] shrink-0 bg-stone-100 shadow-xs">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={form.testiImage.trim()}
+                        alt="Customer preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 rounded-full border border-dashed border-stone-300 flex items-center justify-center shrink-0 bg-stone-50 text-stone-400 text-[10px] uppercase font-semibold">
+                      Photo
+                    </div>
+                  )}
+                  <TextInput
+                    id="testi-image"
+                    value={form.testiImage}
+                    onChange={(e) => set("testiImage", e.target.value)}
+                    placeholder="https://images.unsplash.com/... or /uploads/customer.jpg"
+                  />
+                </div>
+              </Field>
+
               <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#ebe6de] bg-white px-4 py-3" htmlFor="testi-verified">
                 <input
                   id="testi-verified"
@@ -771,7 +803,7 @@ export default function ContentPage() {
                 <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. How long does delivery take?" />
               </Field>
               <Field label="Answer *" htmlFor="content-body" hint="Answer shown in the accordion and in Google FAQPage structured data">
-                <Textarea id="content-body" rows={5} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="Orders are dispatched within 2–3 working days from Jaipur and usually arrive in 3–7 days..." />
+                <Textarea id="content-body" rows={5} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="Orders are dispatched within 2–3 working days from Guna and usually arrive in 3–7 days..." />
               </Field>
             </div>
           )}
@@ -799,7 +831,7 @@ export default function ContentPage() {
               </Field>
 
               <Field label="Subtitle" htmlFor="content-subtitle" hint="Secondary tagline">
-                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted Jaipur Weaves" />
+                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted Guna Weaves" />
               </Field>
 
               <Field label="Description" htmlFor="content-body" hint="Brief summary copy below the headline">
@@ -1156,7 +1188,7 @@ export default function ContentPage() {
               </Field>
 
               <Field label="Subtitle" htmlFor="content-subtitle">
-                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted in Jaipur since 2018" />
+                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted in Guna since 2018" />
               </Field>
 
               <Field label="Page Content *" htmlFor="content-body" hint="Full body copy / story">

@@ -9,6 +9,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { isApiConfigured } from "../../lib/api-client";
 import { checkServiceability, loadRazorpay, placeOrder, validateCoupon, verifyRazorpayPayment } from "../../lib/storefront-api";
+import GiftOptionsCard from "../../components/GiftOptionsCard";
+import type { GiftOptions } from "../../lib/storefront-types";
 
 /* ─── Types ─── */
 interface Address {
@@ -72,32 +74,27 @@ const PAYMENT_METHODS = [
   {
     id: "upi",
     label: "UPI / GPay / PhonePe",
-    icon: "📱",
-    desc: "Instant payment via UPI apps",
+    desc: "Instant & zero-fee payment via GPay, PhonePe, Paytm, or BHIM",
   },
   {
     id: "card",
     label: "Credit / Debit Card",
-    icon: "💳",
-    desc: "Visa, Mastercard, RuPay",
+    desc: "Visa, Mastercard, RuPay & all major Indian bank cards",
   },
   {
     id: "netbanking",
     label: "Net Banking",
-    icon: "🏦",
-    desc: "All major Indian banks",
+    desc: "All 50+ major Indian banks supported",
   },
   {
     id: "cod",
     label: "Cash on Delivery",
-    icon: "🏠",
-    desc: "Pay when you receive your order",
+    desc: "Pay in cash or UPI when your parcel arrives in Guna packaging",
   },
   {
     id: "emi",
     label: "EMI (No Cost)",
-    icon: "📅",
-    desc: "0% EMI on select banks",
+    desc: "Flexible installments on select credit cards",
   },
 ];
 
@@ -169,13 +166,15 @@ function StepIndicator({ current }: { current: number }) {
 function OrderSummary({
   compact = false,
   discount = 0,
+  giftFee = 0,
 }: {
   compact?: boolean;
   discount?: number;
+  giftFee?: number;
 }) {
   const { cart, subtotal } = useCart();
   const shipping = subtotal >= 1999 ? 0 : 99;
-  const total = subtotal + shipping - discount;
+  const total = subtotal + shipping - discount + giftFee;
   const savings = cart.reduce(
     (s, i) => s + (i.originalPrice - i.price) * i.quantity,
     0,
@@ -239,6 +238,12 @@ function OrderSummary({
               <span className="font-medium">−₹{discount.toLocaleString()}</span>
             </div>
           )}
+          {giftFee > 0 && (
+            <div className="flex justify-between text-amber-900 font-medium">
+              <span>🎁 Royal Gift Box</span>
+              <span>+₹{giftFee.toLocaleString()}</span>
+            </div>
+          )}
           {savings > 0 && (
             <div className="flex justify-between text-emerald-700">
               <span>Product savings</span>
@@ -252,20 +257,37 @@ function OrderSummary({
         </div>
 
         {/* Trust badges */}
-        <div className="border-t border-gray-100 pt-3 grid grid-cols-2 gap-2">
-          {[
-            "🔒 Secure Payments",
-            "🔁 7-Day Exchange",
-            "🚚 Free Shipping >₹1,999",
-            "📦 Pan India COD",
-          ].map((b) => (
-            <span
-              key={b}
-              className="text-[10px] text-gray-500 flex items-center gap-1"
-            >
-              {b}
-            </span>
-          ))}
+        <div className="border-t border-gray-100 pt-3.5 grid grid-cols-2 gap-2.5">
+          <span className="text-[11px] text-gray-700 flex items-center gap-1.5 font-medium">
+            <svg className="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+            </svg>
+            100% Secure Payment
+          </span>
+          <span className="text-[11px] text-gray-700 flex items-center gap-1.5 font-medium">
+            <svg className="w-3.5 h-3.5 text-stone-700 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9" />
+              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+            </svg>
+            No Return &amp; Exchange
+          </span>
+          <span className="text-[11px] text-gray-700 flex items-center gap-1.5 font-medium">
+            <svg className="w-3.5 h-3.5 text-[#881337] shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <rect x="1" y="3" width="15" height="13" />
+              <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+              <circle cx="5.5" cy="18.5" r="2.5" />
+              <circle cx="18.5" cy="18.5" r="2.5" />
+            </svg>
+            Free Shipping &gt;₹1,999
+          </span>
+          <span className="text-[11px] text-gray-700 flex items-center gap-1.5 font-medium">
+            <svg className="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <circle cx="12" cy="12" r="2" />
+              <path d="M6 12h.01M18 12h.01" />
+            </svg>
+            Pan India COD
+          </span>
         </div>
       </div>
     </div>
@@ -293,6 +315,14 @@ export default function CheckoutPage() {
   const [paymentError, setPaymentError] = useState("");
   const [placing, setPlacing] = useState(false);
   const [serviceability, setServiceability] = useState<{ etaDays: number; cod: boolean; shippingFee: number } | null>(null);
+  const [giftOptions, setGiftOptions] = useState<GiftOptions>({
+    isGift: false,
+    packaging: true,
+    recipientName: "",
+    senderName: "",
+    message: "",
+    hidePriceTag: true,
+  });
   const [cardDetails, setCardDetails] = useState({
     number: "",
     expiry: "",
@@ -322,9 +352,10 @@ export default function CheckoutPage() {
     void fill();
   }, [isAuthenticated, user]);
 
+  const giftFee = giftOptions.isGift && giftOptions.packaging ? 149 : 0;
   const shipping = subtotal - promoDiscount >= 1999 ? 0 : serviceability ? serviceability.shippingFee : 99;
   const discount = promoDiscount;
-  const total = subtotal + shipping - discount;
+  const total = subtotal + shipping - discount + giftFee;
 
   /* Empty cart redirect */
   if (cart.length === 0 && step < 3) {
@@ -448,6 +479,7 @@ export default function CheckoutPage() {
           },
           couponCode: promoApplied ? promoCode.trim().toUpperCase() : undefined,
           paymentMethod: paymentMethod === "cod" ? "cod" : "razorpay",
+          giftOptions: giftOptions.isGift ? { ...giftOptions, fee: giftFee } : undefined,
         });
 
         if (paymentMethod === "cod") {
@@ -600,6 +632,12 @@ export default function CheckoutPage() {
           <div className="flex justify-between text-emerald-600 font-medium">
             <span>Promo ({promoCode.trim().toUpperCase()})</span>
             <span>−₹{discount.toLocaleString()}</span>
+          </div>
+        )}
+        {giftFee > 0 && (
+          <div className="flex justify-between text-amber-900 font-medium">
+            <span>🎁 Royal Gift Box</span>
+            <span>+₹{giftFee.toLocaleString()}</span>
           </div>
         )}
         <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-100">
@@ -830,20 +868,37 @@ export default function CheckoutPage() {
               <button
                 key={type}
                 onClick={() => setAddress((p) => ({ ...p, addressType: type }))}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold capitalize border transition ${
+                className={`px-4 py-2 rounded-xl text-xs font-semibold capitalize border transition flex items-center gap-2 ${
                   address.addressType === type
                     ? "bg-[#881337] text-white border-[#881337]"
                     : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
                 }`}
               >
-                {type === "home"
-                  ? "🏠 Home"
-                  : type === "work"
-                    ? "🏢 Work"
-                    : "📍 Other"}
+                {type === "home" ? (
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                ) : type === "work" ? (
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                )}
+                <span>{type}</span>
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Bespoke Royal Gift Packaging & Handwritten Note */}
+        <div className="pt-2">
+          <GiftOptionsCard value={giftOptions} onChange={setGiftOptions} />
         </div>
 
         <div className="flex gap-3">
@@ -891,6 +946,42 @@ export default function CheckoutPage() {
         </div>
       </div>
 
+      {/* Royal Gift Recap */}
+      {giftOptions.isGift && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-stone-800">
+          <div className="flex items-start justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold text-amber-950">
+                <span>🎁</span>
+                <span>Royal Gift Order {giftOptions.packaging ? "(Bespoke Gift Box · +₹149)" : "(Complimentary Calligraphy Note)"}</span>
+              </div>
+              {giftOptions.recipientName && (
+                <p className="text-stone-700">
+                  To: <strong>{giftOptions.recipientName}</strong>
+                  {giftOptions.senderName ? ` · From: ${giftOptions.senderName}` : ""}
+                </p>
+              )}
+              {giftOptions.message && (
+                <p className="italic text-stone-600 bg-white/80 p-2.5 rounded-lg border border-amber-200/60 mt-1.5">
+                  &ldquo;{giftOptions.message}&rdquo;
+                </p>
+              )}
+              {giftOptions.hidePriceTag && (
+                <p className="text-[11px] text-amber-800/90 font-medium">
+                  ✓ Price tags hidden & invoice excluded from box
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setStep(1)}
+              className="text-xs text-[#881337] font-semibold hover:underline shrink-0 ml-3"
+            >
+              Edit Gift
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Payment Options */}
       <div className="space-y-3">
         {PAYMENT_METHODS.map((method) => (
@@ -913,9 +1004,62 @@ export default function CheckoutPage() {
               }}
               className="sr-only"
             />
-            <span className="text-2xl" aria-hidden="true">
-              {method.icon}
-            </span>
+            {/* Real Payment Logo Badges */}
+            <div className="w-14 h-11 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-center shrink-0 p-1">
+              {method.id === "upi" && (
+                <div className="flex flex-col items-center justify-center gap-0.5">
+                  <svg className="h-3.5 w-auto" viewBox="0 0 70 24" fill="none">
+                    <path d="M7.5 4L13 14H2L7.5 4Z" fill="#097939" />
+                    <path d="M11 9.5L16.5 19.5H5.5L11 9.5Z" fill="#ED752E" />
+                    <text x="21" y="17" fontFamily="sans-serif" fontSize="13" fontWeight="800" fill="#2E2E2E">UPI</text>
+                  </svg>
+                  <span className="text-[9px] font-bold text-[#5f259f] tracking-tight">GPay · PhonePe</span>
+                </div>
+              )}
+              {method.id === "card" && (
+                <div className="flex flex-col items-center justify-center">
+                  <div className="flex items-center gap-1">
+                    <svg className="h-3 w-auto" viewBox="0 0 52 18" fill="none">
+                      <path d="M20.5 1.5l-4.2 14.8h-3.4L8.7 5.2c-.3-.9-.6-1.2-1.3-1.6C5.9 2.8 4 2.2 2.2 1.8l.2-.7h6.8c1 0 1.8.6 2 1.8l1.7 8.9 4.1-10.3h3.5zm15.4 10c0-3.9-5.4-4.1-5.4-5.9 0-.6.6-1.2 1.8-1.4.6-.1 2.2-.2 4 .7l.7-3.3c-1-.4-2.3-.7-3.9-.7-4.1 0-7 2.2-7 5.3 0 2.3 2 3.6 3.6 4.4 1.6.8 2.2 1.3 2.2 2 0 1.1-1.3 1.6-2.6 1.6-1.7 0-2.7-.3-4.1-.9l-.7 3.4c1 .5 2.8.8 4.7.8 4.4 0 7.3-2.2 7.3-5.2zM45.5 16.3h3.2L45.9 1.5h-2.9c-.8 0-1.4.4-1.7 1.1l-6 13.7h3.6l.7-2h4.4l.6 2zm-3.8-4.7l1.8-4.9 1 4.9h-2.8zM27.2 1.5l-2.7 14.8h-3.4L23.8 1.5h3.4z" fill="#1A1F71"/>
+                    </svg>
+                    <svg className="h-3 w-auto" viewBox="0 0 34 22" fill="none">
+                      <circle cx="11" cy="11" r="9" fill="#EB001B"/>
+                      <circle cx="23" cy="11" r="9" fill="#F79E1B"/>
+                    </svg>
+                  </div>
+                  <span className="text-[8px] font-bold text-stone-500 uppercase mt-0.5">Cards</span>
+                </div>
+              )}
+              {method.id === "netbanking" && (
+                <div className="flex flex-col items-center justify-center text-stone-800">
+                  <svg className="w-5 h-5 text-stone-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3" />
+                  </svg>
+                  <span className="text-[8px] font-bold text-stone-600 tracking-tight">Bank</span>
+                </div>
+              )}
+              {method.id === "cod" && (
+                <div className="flex flex-col items-center justify-center text-amber-700">
+                  <svg className="w-5 h-5 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="6" width="20" height="12" rx="2" />
+                    <circle cx="12" cy="12" r="2" />
+                    <path d="M6 12h.01M18 12h.01" />
+                  </svg>
+                  <span className="text-[8px] font-bold text-amber-800 uppercase">COD</span>
+                </div>
+              )}
+              {method.id === "emi" && (
+                <div className="flex flex-col items-center justify-center text-stone-700">
+                  <svg className="w-5 h-5 text-[#881337]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  <span className="text-[8px] font-bold text-[#881337]">0% EMI</span>
+                </div>
+              )}
+            </div>
             <div className="flex-1">
               <p className="font-semibold text-gray-900 text-sm">
                 {method.label}
@@ -1097,8 +1241,13 @@ export default function CheckoutPage() {
           </p>
         </div>
         <div className="text-right text-xs text-gray-500">
-          <p>🔒 256-bit SSL</p>
-          <p>Secured by Razorpay</p>
+          <div className="flex items-center gap-1.5 justify-end font-semibold text-emerald-700">
+            <svg className="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 24 24" fill="currentColor">
+              <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3H6a2.25 2.25 0 00-2.25 2.25v8.5A2.25 2.25 0 006 22.75h12a2.25 2.25 0 002.25-2.25v-8.5A2.25 2.25 0 0018 9.75h-.75v-3A5.25 5.25 0 0012 1.5zm-3.25 5.25a3.25 3.25 0 016.5 0v3h-6.5v-3zM12 13a1.5 1.5 0 00-1 2.618V18a1 1 0 102 0v-2.382A1.5 1.5 0 0012 13z" clipRule="evenodd" />
+            </svg>
+            <span>256-bit SSL</span>
+          </div>
+          <p className="text-[11px] text-stone-500 mt-0.5">Secured by Razorpay</p>
         </div>
       </div>
 
@@ -1168,7 +1317,12 @@ export default function CheckoutPage() {
           >
             Vani Collection
           </Link>
-          <div className="text-xs text-gray-500">Secure Checkout 🔒</div>
+          <div className="flex items-center gap-1.5 text-xs text-stone-700 font-medium bg-stone-100 px-3 py-1 rounded-full border border-stone-200">
+            <svg className="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 24 24" fill="currentColor">
+              <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3H6a2.25 2.25 0 00-2.25 2.25v8.5A2.25 2.25 0 006 22.75h12a2.25 2.25 0 002.25-2.25v-8.5A2.25 2.25 0 0018 9.75h-.75v-3A5.25 5.25 0 0012 1.5zm-3.25 5.25a3.25 3.25 0 016.5 0v3h-6.5v-3zM12 13a1.5 1.5 0 00-1 2.618V18a1 1 0 102 0v-2.382A1.5 1.5 0 0012 13z" clipRule="evenodd" />
+            </svg>
+            <span>Secure Checkout</span>
+          </div>
         </div>
       </div>
 
@@ -1194,7 +1348,7 @@ export default function CheckoutPage() {
 
           {/* Order Summary Sidebar */}
           <div className="hidden lg:block">
-            <OrderSummary discount={discount} />
+            <OrderSummary discount={discount} giftFee={giftFee} />
           </div>
         </div>
       </div>

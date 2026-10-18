@@ -133,7 +133,7 @@ export default function Error({ error, reset }: ErrorProps) {
             </p>
             <div className="flex flex-col sm:flex-row gap-2">
               <a
-                href="mailto:support@vanicollection.com?subject=Website Error"
+                href="mailto:Vanicollectionguna@gmail.com?subject=Website Error"
                 className="flex-1 text-xs text-[#881337] hover:underline font-medium text-center sm:text-left"
               >
                 📧 Report Issue via Email

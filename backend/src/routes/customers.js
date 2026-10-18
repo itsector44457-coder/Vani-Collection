@@ -8,11 +8,57 @@ const { AppError, asyncHandler } = require('../lib/errors');
 
 const addressSchema = z.object({ label: z.enum(['home','work','other']).default('home'), fullName: z.string().min(2), phone: z.string().regex(/^[6-9]\d{9}$/), line1: z.string().min(5), line2: z.string().optional(), landmark: z.string().optional(), city: z.string().min(2), state: z.string().min(2), pincode: z.string().regex(/^\d{6}$/), country: z.string().default('IN'), isDefault: z.boolean().optional() });
 
-module.exports = ({ auth }) => {
+const profileSchema = z.object({
+  firstName: z.string().trim().min(1, 'First name is required').max(100).optional(),
+  lastName: z.string().trim().max(100).optional(),
+  phone: z.string().trim().optional(),
+  preferences: z.object({
+    orderUpdates: z.boolean().optional(),
+    offers: z.boolean().optional(),
+    newsletter: z.boolean().optional(),
+    whatsapp: z.boolean().optional(),
+    smsUpdates: z.boolean().optional(),
+    whatsappUpdates: z.boolean().optional(),
+  }).optional(),
+  avatar: z.string().trim().optional(),
+});
+
+module.exports = ({ config, auth }) => {
   const router = express.Router();
   router.use(auth);
   router.get('/profile', asyncHandler(async (req, res) => res.json({ data: req.user.toSafeJSON() })));
-  router.patch('/profile', validate(z.object({ firstName: z.string().min(1).optional(), lastName: z.string().optional(), phone: z.string().regex(/^[6-9]\d{9}$/).optional() })), asyncHandler(async (req, res) => { Object.assign(req.user, req.body); await req.user.save(); res.json({ data: req.user.toSafeJSON() }); }));
+  router.patch('/profile', validate(profileSchema), asyncHandler(async (req, res) => {
+    if (req.body.firstName !== undefined) req.user.firstName = req.body.firstName;
+    if (req.body.lastName !== undefined) req.user.lastName = req.body.lastName;
+    if (req.body.phone !== undefined) {
+      const trimmed = req.body.phone.trim();
+      if (trimmed) {
+        const cleaned = trimmed.replace(/\D/g, '').slice(-10);
+        if (!/^[6-9]\d{9}$/.test(cleaned)) {
+          throw new AppError(422, 'INVALID_PHONE', 'Please provide a valid 10-digit mobile number');
+        }
+        req.user.phone = cleaned;
+      } else {
+        req.user.phone = undefined;
+      }
+    }
+    if (req.body.preferences) {
+      const currentPrefs = req.user.preferences?.toObject ? req.user.preferences.toObject() : (req.user.preferences || {});
+      req.user.preferences = { ...currentPrefs, ...req.body.preferences };
+    }
+    if (req.body.avatar !== undefined) req.user.avatar = req.body.avatar;
+    await req.user.save();
+    res.json({ data: req.user.toSafeJSON() });
+  }));
+  router.delete('/profile', asyncHandler(async (req, res) => {
+    req.user.status = 'blocked';
+    req.user.refreshTokenHashes = [];
+    await req.user.save();
+    const clearOptions = { path: '/', ...(config?.COOKIE_DOMAIN ? { domain: config.COOKIE_DOMAIN } : {}) };
+    res.clearCookie('accessToken', clearOptions);
+    res.clearCookie('refreshToken', clearOptions);
+    res.json({ message: 'Account deactivated successfully' });
+  }));
   router.get('/addresses', asyncHandler(async (req, res) => res.json({ data: req.user.addresses })));
   router.post('/addresses', validate(addressSchema), asyncHandler(async (req, res) => {
     if (req.body.isDefault) req.user.addresses.forEach((a) => { a.isDefault = false; });

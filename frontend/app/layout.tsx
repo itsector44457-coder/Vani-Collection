@@ -10,7 +10,7 @@ import SiteSchema from "../components/seo/site-schema";
 import { SITE_LOCALE, SITE_NAME, SITE_TAGLINE, SITE_URL } from "../lib/seo";
 
 const SITE_DESCRIPTION =
-  "Discover handcrafted luxury in 100-count pure Mul Cotton, Bagru handblock prints, royal Anarkalis, and festive heirlooms by Vani Collection Atelier, Jaipur.";
+  "Vani Collection — Speciality in fancy kurties and party wear dresses. Handcrafted ethnic wear, pure mul cotton, and royal festive ensembles in Guna, Madhya Pradesh.";
 
 export const metadata: Metadata = {
   // Every relative URL in `openGraph`, `twitter` and `alternates` resolves against this, so it has
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
-  keywords: "mul cotton suits, bagru handblock print, anarkali sets, festive suits, women ethnic wear, jaipur atelier",
+  keywords: "fancy kurties, party wear dresses, mul cotton suits, bagru handblock print, anarkali sets, festive suits, women ethnic wear, guna atelier, vani collection",
   applicationName: SITE_NAME,
   authors: [{ name: SITE_NAME, url: SITE_URL }],
   creator: SITE_NAME,

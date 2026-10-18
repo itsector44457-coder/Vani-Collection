@@ -12,19 +12,19 @@ import { API_BASE } from "./api-client";
 
 export const SITE_NAME = "Vani Collection";
 export const SITE_LEGAL_NAME = "Vani Collection Atelier";
-export const SITE_TAGLINE = "Artisanal Pure Mul Cotton & Festive Wear";
+export const SITE_TAGLINE = "Speciality in Fancy Kurties & Party Wear Dresses";
 
 /**
  * Canonical origin for every absolute URL we publish (canonicals, Open Graph, sitemap, JSON-LD).
  * Override with `NEXT_PUBLIC_SITE_URL` per environment; the fallback matches the customer-facing
- * inbox the storefront already advertises (`care@vanicollection.com`).
+ * inbox the storefront already advertises (`Vanicollectionguna@gmail.com`).
  */
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.vanicollection.com").replace(/\/+$/, "");
 
 export const SITE_LOCALE = "en_IN";
 export const SITE_CURRENCY = "INR";
-export const SUPPORT_EMAIL = "care@vanicollection.com";
-export const INSTAGRAM_URL = "https://www.instagram.com/vanicollection_jaipur";
+export const SUPPORT_EMAIL = "Vanicollectionguna@gmail.com";
+export const INSTAGRAM_URL = "https://www.instagram.com/vanicollection_guna";
 
 /** Physical address published in the Organization schema — matches the privacy policy. */
 export const ORG_ADDRESS = {
@@ -49,7 +49,13 @@ export const CATEGORIES = [
   { key: "festive", label: "Festive Edit" },
   { key: "coord-sets", label: "Co-ord Sets" },
   { key: "anarkalis", label: "Anarkalis" },
+  { key: "kurta-sets", label: "Kurta Sets" },
+  { key: "sarees", label: "Sarees" },
+  { key: "dupattas", label: "Dupattas" },
 ] as const;
+
+/** Store phone number — used in LocalBusiness schema and contact pages. */
+export const STORE_PHONE = "+91 98765-43210";
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.label]));
 
@@ -77,7 +83,9 @@ export const categoryUrl = (key: string): string => absoluteUrl(`/products?categ
 export const STATIC_PAGES: { path: string; changeFrequency: "daily" | "weekly" | "monthly" | "yearly"; priority: number; label: string }[] = [
   { path: "/", changeFrequency: "daily", priority: 1, label: "Home" },
   { path: "/products", changeFrequency: "daily", priority: 0.9, label: "Our Collection" },
-  { path: "/reels", changeFrequency: "weekly", priority: 0.6, label: "Reels" },
+  { path: "/about", changeFrequency: "monthly", priority: 0.8, label: "Our Story" },
+  { path: "/contact", changeFrequency: "monthly", priority: 0.8, label: "Contact Us" },
+  { path: "/reels", changeFrequency: "weekly", priority: 0.7, label: "Reels" },
   { path: "/size-guide", changeFrequency: "monthly", priority: 0.6, label: "Size Guide" },
   { path: "/shipping", changeFrequency: "monthly", priority: 0.6, label: "Shipping & Delivery" },
   { path: "/returns", changeFrequency: "monthly", priority: 0.6, label: "Returns & Exchanges" },
@@ -317,7 +325,7 @@ export function productImageUrls(product: SeoProduct): string[] {
 
 /** Meta description for a product: the CMS override wins, then the long copy, then the short. */
 export function productDescription(product: SeoProduct): string {
-  return truncate(product.seo?.description || product.description || product.shortDescription || `${product.name} — handcrafted by ${SITE_LEGAL_NAME}, Jaipur.`, 158);
+  return truncate(product.seo?.description || product.description || product.shortDescription || `${product.name} — handcrafted by ${SITE_LEGAL_NAME}, Guna.`, 158);
 }
 
 /** `<title>` for a product: the CMS override wins, then the product name plus the brand. */

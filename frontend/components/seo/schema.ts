@@ -18,6 +18,7 @@ import {
   SITE_LOCALE,
   SITE_NAME,
   SITE_URL,
+  STORE_PHONE,
   SUPPORT_EMAIL,
   availabilityFromInventory,
   lowestVariant,
@@ -41,7 +42,7 @@ export function organizationSchema(): JsonLdValue {
       url: absoluteUrl("/favicon.svg"),
     },
     email: SUPPORT_EMAIL,
-    description: "Handcrafted pure mul cotton, Bagru handblock prints and festive heirlooms from a family atelier in Jaipur.",
+    description: "Handcrafted pure mul cotton, Bagru handblock prints and festive heirlooms from a family atelier in Guna.",
     address: compact({
       "@type": "PostalAddress",
       streetAddress: ORG_ADDRESS.streetAddress,
@@ -60,6 +61,61 @@ export function organizationSchema(): JsonLdValue {
   });
 }
 
+/* --------------------------------------------------------- LocalBusiness */
+
+/**
+ * ClothingStore (subtype of LocalBusiness) for Google Maps, local pack and knowledge panel.
+ * Critical for searches like "Vani Collection Guna", "kurta shop near me", etc.
+ */
+export function localBusinessSchema(): JsonLdValue {
+  return compact({
+    "@type": "ClothingStore",
+    "@id": `${SITE_URL}/#localbusiness`,
+    name: SITE_NAME,
+    alternateName: SITE_LEGAL_NAME,
+    description: `${SITE_NAME} — Speciality in Fancy Kurties & Party Wear Dresses. Handcrafted pure mul cotton, Bagru handblock prints and festive heirlooms from a family atelier in Guna, Madhya Pradesh.`,
+    url: SITE_URL,
+    telephone: STORE_PHONE,
+    email: SUPPORT_EMAIL,
+    image: absoluteUrl("/vani-store-front.jpg"),
+    logo: absoluteUrl("/favicon.svg"),
+    priceRange: "₹999 - ₹15,000",
+    currenciesAccepted: "INR",
+    paymentAccepted: "Cash, UPI, Credit Card, Debit Card, Net Banking, COD",
+    address: compact({
+      "@type": "PostalAddress",
+      streetAddress: "Station Road",
+      addressLocality: "Guna",
+      addressRegion: "Madhya Pradesh",
+      postalCode: "473001",
+      addressCountry: "IN",
+    }),
+    geo: compact({
+      "@type": "GeoCoordinates",
+      latitude: 24.6354,
+      longitude: 77.3126,
+    }),
+    hasMap: "https://maps.google.com/?q=Vani+Collection+Guna+Madhya+Pradesh",
+    openingHoursSpecification: [
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+        opens: "10:30",
+        closes: "19:30",
+      },
+    ],
+    areaServed: compact({
+      "@type": "Country",
+      name: "India",
+    }),
+    sameAs: [INSTAGRAM_URL],
+    founder: compact({
+      "@type": "Person",
+      name: "Vani Collection",
+    }),
+  });
+}
+
 /* ------------------------------------------------------------------- WebSite */
 
 /** WebSite + SearchAction so Google can surface a sitelinks search box for `/products?search=`. */
@@ -69,7 +125,7 @@ export function websiteSchema(): JsonLdValue {
     "@id": `${SITE_URL}/#website`,
     url: SITE_URL,
     name: SITE_NAME,
-    description: "Artisanal pure mul cotton and festive wear, handcrafted in Jaipur.",
+    description: "Artisanal pure mul cotton and festive wear, handcrafted in Guna.",
     inLanguage: SITE_LOCALE,
     publisher: { "@id": `${SITE_URL}/#organization` },
     potentialAction: {
@@ -195,6 +251,43 @@ export function productSchema({ product, reviewSummary = null, reviews = [] }: P
 
   const seller = { "@type": "Organization" as const, name: SITE_NAME };
 
+  const shippingDetails = {
+    "@type": "OfferShippingDetails",
+    shippingRate: {
+      "@type": "MonetaryAmount",
+      value: "0.00",
+      currency: "INR",
+    },
+    shippingDestination: {
+      "@type": "DefinedRegion",
+      addressCountry: "IN",
+    },
+    deliveryTime: {
+      "@type": "ShippingDeliveryTime",
+      handlingTime: {
+        "@type": "QuantitativeValue",
+        minValue: 1,
+        maxValue: 2,
+        unitCode: "d",
+      },
+      transitTime: {
+        "@type": "QuantitativeValue",
+        minValue: 3,
+        maxValue: 7,
+        unitCode: "d",
+      },
+    },
+  };
+
+  const hasMerchantReturnPolicy = {
+    "@type": "MerchantReturnPolicy",
+    applicableCountry: "IN",
+    returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+    merchantReturnDays: 7,
+    returnMethod: "https://schema.org/ReturnByMail",
+    returnFees: "https://schema.org/FreeReturn",
+  };
+
   const offers: JsonLdValue = singlePrice
     ? compact({
         "@type": "Offer",
@@ -205,6 +298,8 @@ export function productSchema({ product, reviewSummary = null, reviews = [] }: P
         availability: availability ?? undefined,
         itemCondition: "https://schema.org/NewCondition",
         seller,
+        shippingDetails,
+        hasMerchantReturnPolicy,
       })
     : compact({
         "@type": "AggregateOffer",
@@ -213,6 +308,8 @@ export function productSchema({ product, reviewSummary = null, reviews = [] }: P
         offerCount: pool.length,
         priceCurrency: "INR",
         availability: availability ?? undefined,
+        shippingDetails,
+        hasMerchantReturnPolicy,
         offers: pool.slice(0, 20).map((variant) =>
           compact({
             "@type": "Offer",
@@ -225,6 +322,8 @@ export function productSchema({ product, reviewSummary = null, reviews = [] }: P
             availability: availabilityFromInventory(product.inventory, [variant]) ?? undefined,
             itemCondition: "https://schema.org/NewCondition",
             seller,
+            shippingDetails,
+            hasMerchantReturnPolicy,
           })
         ),
       });

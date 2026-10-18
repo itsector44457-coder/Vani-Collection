@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ManagedContentPage from "../../../components/ManagedContentPage";
+import BreadcrumbSchema from "@/components/seo/breadcrumb-schema";
 import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Size Guide | Vani Collection",
-  description: "Find your perfect fit with our comprehensive size guide for ethnic wear, including measurements for kurtas, anarkalis, and more.",
+  title: "Size Guide & Fitting Chart | Vani Collection",
+  description: "Find your perfect fit with our comprehensive ethnic wear size guide, including bust, waist, and length measurements for Kurtis, Anarkalis, and suit sets.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  return managedPageMetadata(await fetchManagedPage("size-guide"), DEFAULT_METADATA);
+  return managedPageMetadata(await fetchManagedPage("size-guide"), DEFAULT_METADATA, "size-guide");
 }
 
 export default async function SizeGuidePage() {
   const managed = await fetchManagedPage("size-guide");
-  if (managed) return <ManagedContentPage document={managed} breadcrumb="Size Guide" />;
+  if (managed) return <ManagedContentPage document={managed} breadcrumb="Size Guide" slug="size-guide" />;
 
   return (
-    <div className="min-h-screen bg-[#faf7f2]">
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Size Guide", path: "/size-guide" },
+        ]}
+      />
+      <div className="min-h-screen bg-[#faf7f2]">
       {/* Header */}
       <div className="bg-gradient-to-br from-[#1c1917] via-[#3d2012] to-[#881337] text-white py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
@@ -342,7 +350,7 @@ export default async function SizeGuidePage() {
                 💬 WhatsApp Size Consultant
               </a>
               <a
-                href="mailto:sizing@vanicollection.com"
+                href="mailto:Vanicollectionguna@gmail.com"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-[#881337] text-white rounded-full text-sm font-medium hover:bg-[#701a35] transition"
               >
                 📧 Email Size Guide
@@ -352,5 +360,6 @@ export default async function SizeGuidePage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

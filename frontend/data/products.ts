@@ -1,6 +1,6 @@
-﻿/**
+/**
  * Vani Collection — Storefront Product Catalog
- * Jaipur Atelier · Handblock Prints · Pure Mul Cotton
+ * Guna Atelier · Handblock Prints · Pure Mul Cotton
  *
  * Used by scripts/seed-catalog.js → upserts products + inventory into MongoDB
  */
@@ -268,7 +268,7 @@ export const PRODUCTS: Product[] = [
     category: "kurta",
     fabric: "Pure Cotton - Bagru Block Print",
     badge: "Under 1999",
-    description: "Earthy rust with traditional Bagru block prints from our Jaipur studio. Tailored straight-cut kurta with matching wide-leg pants and dupatta.",
+    description: "Earthy rust with traditional Bagru block prints from our Guna studio. Tailored straight-cut kurta with matching wide-leg pants and dupatta.",
     sizes: ["XS", "S", "M", "L", "XL", "XXL"],
     rating: 4.7,
     reviews: 345,
@@ -319,7 +319,7 @@ export const PRODUCTS: Product[] = [
   },
   {
     id: "vc-021",
-    title: "Jaipur Blue Pottery Print Pure Cotton Saree",
+    title: "Guna Blue Pottery Print Pure Cotton Saree",
     price: 2499,
     originalPrice: 3499,
     image: "https://images.unsplash.com/photo-1603189343302-e603f7add05a?w=800&q=80",
@@ -327,7 +327,7 @@ export const PRODUCTS: Product[] = [
     category: "saree",
     fabric: "Pure Cotton - Blue Pottery Block Print",
     badge: "Bestseller",
-    description: "Inspired by Jaipur iconic blue pottery art, block-printed by master craftsmen using traditional ceramic-glazed stamps. With unstitched blouse piece.",
+    description: "Inspired by iconic heritage blue pottery art, block-printed by master craftsmen using traditional ceramic-glazed stamps in Guna. With unstitched blouse piece.",
     sizes: ["Free Size"],
     rating: 4.8,
     reviews: 178,

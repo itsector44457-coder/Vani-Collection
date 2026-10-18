@@ -10,7 +10,7 @@ export default function MainLayout({
   return (
     <>
       <Navbar />
-      <main className="flex-grow">{children}</main>
+      <main className="flex-grow pb-16 lg:pb-0">{children}</main>
       <Footer />
       <FloatingContactMenu />
     </>

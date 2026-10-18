@@ -10,7 +10,7 @@ const navigationSettingsSchema = new mongoose.Schema({
   key: { type: String, default: 'storefront', unique: true },
   theme: { type: String, enum: ['atelier', 'midnight', 'forest', 'custom'], default: 'atelier' },
   brandName: { type: String, default: 'Vani Collection', trim: true, maxlength: 80 },
-  brandTagline: { type: String, default: 'Atelier · Jaipur', trim: true, maxlength: 100 },
+  brandTagline: { type: String, default: 'Speciality in Fancy Kurties & Party Wear Dresses', trim: true, maxlength: 100 },
   logoUrl: { type: String, default: '', trim: true, maxlength: 500 },
   collectionLabel: { type: String, default: 'Collections', trim: true, maxlength: 60 },
   announcements: { type: [String], default: [] },

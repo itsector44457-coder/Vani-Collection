@@ -12,7 +12,8 @@
     "seed:admin": "node scripts/seed-admin.js",
     "seed:catalog": "node scripts/seed-catalog.js",
     "mock:erp": "node scripts/mock-erp-server.js",
-    "routes": "node scripts/list-routes.js"
+    "routes": "node scripts/list-routes.js",
+    "test:email": "node scripts/test-email.js"
   },
   "engines": {
     "node": ">=20"

@@ -1,13 +1,17 @@
 import Link from "next/link";
 import type { ContentDoc } from "@/lib/content";
+import BreadcrumbSchema from "@/components/seo/breadcrumb-schema";
 
 export default function ManagedContentPage({
   document,
   breadcrumb,
+  slug,
 }: {
   document: ContentDoc;
   breadcrumb: string;
+  slug?: string;
 }) {
+  const path = slug ? `/${slug.replace(/^\//, "")}` : "/";
   const blocks = document.blocks && typeof document.blocks === "object" && !Array.isArray(document.blocks)
     ? document.blocks as Record<string, unknown>
     : {};
@@ -18,7 +22,14 @@ export default function ManagedContentPage({
   const image = document.media?.[0];
 
   return (
-    <main className="min-h-screen bg-[#faf7f2]">
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: breadcrumb, path },
+        ]}
+      />
+      <main className="min-h-screen bg-[#faf7f2]">
       <header className="bg-gradient-to-br from-[#1c1917] via-[#3d2012] to-[#881337] px-4 py-16 text-white">
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="mb-4 font-serif text-4xl font-light sm:text-5xl">{document.title}</h1>
@@ -53,5 +64,6 @@ export default function ManagedContentPage({
         </article>
       </div>
     </main>
+    </>
   );
 }

@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ManagedContentPage from "../../../components/ManagedContentPage";
+import BreadcrumbSchema from "@/components/seo/breadcrumb-schema";
 import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 
 const DEFAULT_METADATA: Metadata = {
   title: "Privacy Policy | Vani Collection",
-  description: "Learn how Vani Collection protects your privacy and handles your personal information responsibly.",
+  description: "Learn how Vani Collection protects your privacy, secures your shopping data, and handles personal information responsibly.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  return managedPageMetadata(await fetchManagedPage("privacy"), DEFAULT_METADATA);
+  return managedPageMetadata(await fetchManagedPage("privacy"), DEFAULT_METADATA, "privacy");
 }
 
 export default async function PrivacyPage() {
   const managed = await fetchManagedPage("privacy");
-  if (managed) return <ManagedContentPage document={managed} breadcrumb="Privacy Policy" />;
+  if (managed) return <ManagedContentPage document={managed} breadcrumb="Privacy Policy" slug="privacy" />;
 
   return (
-    <div className="min-h-screen bg-[#faf7f2]">
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Privacy Policy", path: "/privacy" },
+        ]}
+      />
+      <div className="min-h-screen bg-[#faf7f2]">
       {/* Header */}
       <div className="bg-gradient-to-br from-[#1c1917] via-[#3d2012] to-[#881337] text-white py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
@@ -287,15 +295,15 @@ export default async function PrivacyPage() {
             <div className="grid sm:grid-cols-2 gap-6">
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Privacy Officer</h4>
-                <p className="text-sm text-stone-600 mb-1">📧 privacy@vanicollection.com</p>
-                <p className="text-sm text-stone-600">📱 +91-XXX-XXX-XXXX</p>
+                <p className="text-sm text-stone-600 mb-1">📧 Vanicollectionguna@gmail.com</p>
+                <p className="text-sm text-stone-600">📱 +91 98765-43210</p>
               </div>
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Mailing Address</h4>
                 <p className="text-sm text-stone-600">
                   Vani Collection Atelier<br />
-                  Guna, Madhya Pradesh, India<br />
-                  PIN: XXXXXX
+                  Station Road, Guna, Madhya Pradesh, India<br />
+                  PIN: 473001
                 </p>
               </div>
             </div>
@@ -303,5 +311,6 @@ export default async function PrivacyPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ManagedContentPage from "../../../components/ManagedContentPage";
+import BreadcrumbSchema from "@/components/seo/breadcrumb-schema";
 import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Shipping Information | Vani Collection",
-  description: "Learn about our shipping policies, delivery times, and shipping charges for Vani Collection products across India.",
+  title: "Shipping & Delivery Policy | Vani Collection",
+  description: "Learn about our shipping policies, express delivery times across India, and free shipping over ₹1,999 for Vani Collection artisanal kurties and dresses.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  return managedPageMetadata(await fetchManagedPage("shipping"), DEFAULT_METADATA);
+  return managedPageMetadata(await fetchManagedPage("shipping"), DEFAULT_METADATA, "shipping");
 }
 
 export default async function ShippingPage() {
   const managed = await fetchManagedPage("shipping");
-  if (managed) return <ManagedContentPage document={managed} breadcrumb="Shipping" />;
+  if (managed) return <ManagedContentPage document={managed} breadcrumb="Shipping" slug="shipping" />;
 
   return (
-    <div className="min-h-screen bg-[#faf7f2]">
+    <>
+      <BreadcrumbSchema
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Shipping & Delivery", path: "/shipping" },
+        ]}
+      />
+      <div className="min-h-screen bg-[#faf7f2]">
       {/* Header */}
       <div className="bg-gradient-to-br from-[#1c1917] via-[#3d2012] to-[#881337] text-white py-16 px-4">
         <div className="max-w-4xl mx-auto text-center">
@@ -72,7 +80,7 @@ export default async function ShippingPage() {
                 <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</span>
                 <div>
                   <h4 className="font-semibold text-stone-800">Dispatch</h4>
-                  <p className="text-sm text-stone-600">Orders dispatched from our Jaipur atelier</p>
+                  <p className="text-sm text-stone-600">Orders dispatched from our Guna atelier</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-4 bg-purple-50 rounded-lg">
@@ -113,8 +121,8 @@ export default async function ShippingPage() {
             <h2 className="font-serif text-2xl text-[#881337] mb-6">International Shipping</h2>
             <p className="text-stone-600 mb-4">We ship worldwide! Contact us for international shipping quotes:</p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <p className="text-blue-800 text-sm mb-2">📧 Email: international@vanicollection.com</p>
-              <p className="text-blue-800 text-sm">📱 WhatsApp: +91-XXX-XXX-XXXX</p>
+              <p className="text-blue-800 text-sm mb-2">📧 Email: Vanicollectionguna@gmail.com</p>
+              <p className="text-blue-800 text-sm">📱 WhatsApp: +91 98765-43210</p>
             </div>
           </section>
 
@@ -124,7 +132,7 @@ export default async function ShippingPage() {
             <p className="text-stone-600 mb-4">Our customer support team is here to help:</p>
             <div className="flex flex-col sm:flex-row gap-4">
               <a
-                href="mailto:support@vanicollection.com"
+                href="mailto:Vanicollectionguna@gmail.com"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-[#881337] text-white rounded-full text-sm font-medium hover:bg-[#701a35] transition"
               >
                 📧 Email Support
@@ -142,5 +150,6 @@ export default async function ShippingPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

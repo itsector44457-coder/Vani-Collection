@@ -95,7 +95,7 @@ export default function CartDrawer() {
                   </div>
                   <h3 className="font-serif text-xl text-stone-800 mb-2">Your Bag is Empty</h3>
                   <p className="text-xs text-stone-500 max-w-xs mb-6">
-                    Explore our pure mul cotton handcrafted suits and festive edits crafted by Jaipur master artisans.
+                    Explore our pure mul cotton handcrafted suits and festive edits crafted by Guna master artisans.
                   </p>
                   <button
                     onClick={() => setIsCartOpen(false)}
@@ -208,11 +208,33 @@ export default function CartDrawer() {
                 {/* Checkout button */}
                 <button
                   onClick={() => { setIsCartOpen(false); router.push("/checkout"); }}
-                  className="w-full bg-[#881337] hover:bg-[#6b0f2b] text-white py-3.5 rounded-full text-xs uppercase tracking-[0.2em] font-semibold transition shadow-md flex items-center justify-center gap-2 group"
+                  className="w-full bg-[#881337] hover:bg-[#6b0f2b] text-white py-3.5 rounded-full text-xs uppercase tracking-[0.2em] font-semibold transition shadow-md flex items-center justify-center gap-2 group cursor-pointer"
                 >
                   <span>Proceed to Checkout</span>
                   <span className="group-hover:translate-x-1 transition-transform">→</span>
                 </button>
+
+                {/* Secure Payment & Gateway Mini-Strip */}
+                <div className="pt-2 border-t border-stone-100 flex flex-col items-center gap-1.5 text-center">
+                  <div className="flex items-center gap-1.5 text-[10.5px] font-medium text-stone-500">
+                    <svg className="w-3 h-3 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3H6a2.25 2.25 0 00-2.25 2.25v8.5A2.25 2.25 0 006 22.75h12a2.25 2.25 0 002.25-2.25v-8.5A2.25 2.25 0 0018 9.75h-.75v-3A5.25 5.25 0 0012 1.5zm-3.25 5.25a3.25 3.25 0 016.5 0v3h-6.5v-3zM12 13a1.5 1.5 0 00-1 2.618V18a1 1 0 102 0v-2.382A1.5 1.5 0 0012 13z" clipRule="evenodd" />
+                    </svg>
+                    <span>100% Secure &amp; Encrypted Checkout</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 opacity-80">
+                    {/* Mini UPI */}
+                    <span className="px-1.5 py-0.5 rounded bg-stone-100 text-[9px] font-black text-stone-700 border border-stone-200">UPI</span>
+                    {/* Mini GPay */}
+                    <span className="px-1.5 py-0.5 rounded bg-stone-100 text-[9px] font-black text-stone-700 border border-stone-200">GPay</span>
+                    {/* Mini PhonePe */}
+                    <span className="px-1.5 py-0.5 rounded bg-stone-100 text-[9px] font-black text-[#5f259f] border border-stone-200">PhonePe</span>
+                    {/* Mini Cards */}
+                    <span className="px-1.5 py-0.5 rounded bg-stone-100 text-[9px] font-black text-blue-900 border border-stone-200">Cards</span>
+                    {/* Mini COD */}
+                    <span className="px-1.5 py-0.5 rounded bg-amber-50 text-[9px] font-black text-amber-800 border border-amber-200">COD</span>
+                  </div>
+                </div>
               </div>
             )}
           </motion.div>
