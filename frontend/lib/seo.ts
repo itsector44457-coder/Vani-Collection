@@ -82,6 +82,7 @@ export const categoryUrl = (key: string): string => absoluteUrl(`/products?categ
  */
 export const STATIC_PAGES: { path: string; changeFrequency: "daily" | "weekly" | "monthly" | "yearly"; priority: number; label: string }[] = [
   { path: "/", changeFrequency: "daily", priority: 1, label: "Home" },
+  { path: "/collections", changeFrequency: "daily", priority: 0.95, label: "Collections" },
   { path: "/products", changeFrequency: "daily", priority: 0.9, label: "Our Collection" },
   { path: "/about", changeFrequency: "monthly", priority: 0.8, label: "Our Story" },
   { path: "/contact", changeFrequency: "monthly", priority: 0.8, label: "Contact Us" },
