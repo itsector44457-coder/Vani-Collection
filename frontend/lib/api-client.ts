@@ -181,14 +181,12 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 export async function uploadAdminMedia(files: File[], type: "image" | "video"): Promise<string[]> {
   if (!isApiConfigured()) throw new ApiError(503, "API_NOT_CONFIGURED", "NEXT_PUBLIC_API_URL is not configured");
   if (files.length === 0) throw new ApiError(422, "NO_FILES", "Choose a file to upload");
-  if (type === "video" && files.length !== 1) throw new ApiError(422, "INVALID_FILE_COUNT", "Upload one video at a time");
-  if (type === "image" && files.length > 6) throw new ApiError(422, "INVALID_FILE_COUNT", "Upload up to 6 images at a time");
 
   const path = `/api/uploads/${type === "image" ? "images" : "videos"}`;
   const send = () => {
     const form = new FormData();
-    if (type === "image") files.forEach((file) => form.append("files", file));
-    else form.append("file", files[0]);
+    const field = type === "image" ? "files" : "file";
+    files.forEach((file) => form.append(field, file));
     return fetch(`${API_BASE}${path}`, { method: "POST", credentials: "include", cache: "no-store", body: form });
   };
 

@@ -27,9 +27,9 @@ export default function MediaUploadField({
       setError(`Choose ${isImage ? "image" : "video"} files only.`);
       return;
     }
-    const maxSize = isImage ? 8 * 1024 * 1024 : 50 * 1024 * 1024;
+    const maxSize = 1073741824; // 1 GB
     if (files.some((file) => file.size > maxSize)) {
-      setError(`Each ${type} must be no larger than ${isImage ? "8 MB" : "50 MB"}.`);
+      setError("Each file must be no larger than 1 GB.");
       return;
     }
     setUploading(true);
@@ -48,7 +48,7 @@ export default function MediaUploadField({
         <input
           type="file"
           accept={isImage ? "image/*" : "video/*"}
-          multiple={multiple ?? isImage}
+          multiple={multiple ?? true}
           disabled={disabled || uploading}
           onChange={handleFiles}
           className="sr-only"
@@ -57,7 +57,7 @@ export default function MediaUploadField({
         {uploading ? "Uploading…" : `Upload ${isImage ? "image(s)" : "video"}`}
       </label>
       <span className="ml-2 text-[11px] text-stone-500">
-        {isImage ? "Up to 6 files, 8 MB each" : "One video, up to 50 MB"}
+        Max 1 GB per file
       </span>
       {error && <p role="alert" className="mt-1 text-xs text-rose-700">{error}</p>}
     </div>

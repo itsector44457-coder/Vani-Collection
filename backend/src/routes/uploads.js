@@ -9,8 +9,8 @@ try { cloudinary = require('cloudinary').v2; } catch { cloudinary = null; }
 
 module.exports = ({ auth }) => {
   const router = express.Router();
-  const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: 6 } });
-  const videoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 } });
+  const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 1073741824 /* 1 GB */ } });
+  const videoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 1073741824 /* 1 GB */ } });
   const configureCloudinary = () => {
     if (!cloudinary || !process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
       throw new AppError(503, 'MEDIA_NOT_CONFIGURED', 'Cloudinary credentials are not configured');
@@ -53,19 +53,19 @@ module.exports = ({ auth }) => {
     res.json({ data: { images, videos, total: images + videos } });
   }));
 
-  router.post('/images', auth, requireRoles('catalog_manager','admin','super_admin'), handleUpload(imageUpload.array('files', 6)), asyncHandler(async (req, res) => {
+  router.post('/images', auth, requireRoles('catalog_manager','admin','super_admin'), handleUpload(imageUpload.array('files')), asyncHandler(async (req, res) => {
     if (!req.files?.length) throw new AppError(422, 'NO_FILES', 'At least one image file is required');
     if (req.files.some((file) => !file.mimetype.startsWith('image/'))) throw new AppError(422, 'INVALID_MEDIA_TYPE', 'Only image files are accepted');
     configureCloudinary();
     const uploaded = await Promise.all(req.files.map((file) => uploadOrReuse(cloudinary, file, 'image')));
     res.status(201).json({ data: uploaded });
   }));
-  router.post('/videos', auth, requireRoles('catalog_manager','admin','super_admin'), handleUpload(videoUpload.single('file')), asyncHandler(async (req, res) => {
-    if (!req.file) throw new AppError(422, 'NO_FILES', 'A video file is required');
-    if (!req.file.mimetype.startsWith('video/')) throw new AppError(422, 'INVALID_MEDIA_TYPE', 'Only video files are accepted');
+  router.post('/videos', auth, requireRoles('catalog_manager','admin','super_admin'), handleUpload(videoUpload.array('file')), asyncHandler(async (req, res) => {
+    if (!req.files?.length) throw new AppError(422, 'NO_FILES', 'At least one video file is required');
+    if (req.files.some((file) => !file.mimetype.startsWith('video/'))) throw new AppError(422, 'INVALID_MEDIA_TYPE', 'Only video files are accepted');
     configureCloudinary();
-    const uploaded = await uploadOrReuse(cloudinary, req.file, 'video');
-    res.status(201).json({ data: [uploaded] });
+    const uploaded = await Promise.all(req.files.map((file) => uploadOrReuse(cloudinary, file, 'video')));
+    res.status(201).json({ data: uploaded });
   }));
   return router;
 };
