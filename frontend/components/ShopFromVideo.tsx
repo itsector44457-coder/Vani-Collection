@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import Link from "next/link";
 import { useCart } from "../context/CartContext";
 import type { PublishedReel } from "../lib/content";
@@ -413,18 +413,49 @@ export default function ShopFromVideo({
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!activeReel?.productId) return;
-    const product = activeReel.productId;
-    const variant = product.variants?.[0];
-    addToCart({
-      id: product._id,
-      productId: product._id,
-      name: product.name,
-      price: variant?.price || 4250,
-      image: product.images?.[0]?.url || activeReel.thumbnailUrl || "",
-      size: variant?.size || "Free Size",
-      slug: product.slug,
-      quantity: 1,
-    });
+    const reelProduct = activeReel.productId;
+    const variant = reelProduct.variants?.find((candidate) => candidate.sku) ?? reelProduct.variants?.[0];
+    const image = reelProduct.images?.[0]?.url || activeReel.thumbnailUrl || "";
+    const variants = (reelProduct.variants ?? []).flatMap((candidate) =>
+      candidate.sku
+        ? [{
+            sku: candidate.sku,
+            size: candidate.size,
+            color: candidate.color,
+            price: candidate.price,
+            mrp: candidate.mrp ?? candidate.price,
+          }]
+        : [],
+    );
+
+    addToCart(
+      {
+        id: reelProduct._id,
+        productId: reelProduct._id,
+        slug: reelProduct.slug,
+        title: reelProduct.name,
+        category: reelProduct.category || "",
+        fabric: reelProduct.fabric || reelProduct.craft || "",
+        price: variant?.price ?? 4250,
+        originalPrice: variant?.mrp ?? variant?.price ?? 4250,
+        rating: 0,
+        reviewsCount: 0,
+        image,
+        hoverImage: reelProduct.images?.[1]?.url || image,
+        sizes: (reelProduct.variants ?? [])
+          .map((candidate) => candidate.size)
+          .filter((size): size is string => Boolean(size)),
+        description: reelProduct.shortDescription || reelProduct.description || reelProduct.name,
+        details: [
+          reelProduct.fabric ? `Fabric: ${reelProduct.fabric}` : "",
+          reelProduct.craft ? `Craft: ${reelProduct.craft}` : "",
+        ].filter((detail): detail is string => Boolean(detail)),
+        variants,
+      },
+      variant?.size || "Free Size",
+      1,
+      variant?.color,
+    );
     setAddedToast(true);
     setTimeout(() => setAddedToast(false), 2500);
   };
