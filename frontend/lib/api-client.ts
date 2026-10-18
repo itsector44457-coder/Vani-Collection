@@ -329,6 +329,7 @@ export interface AdminEditableProduct {
 }
 
 export interface StoreCategory {
+  bannerImage?: string;
   _id?: string;
   name: string;
   slug: string;

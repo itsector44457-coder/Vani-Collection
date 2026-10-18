@@ -1,3 +1,4 @@
+import { FOUNDER_KEY, toFounderMessage, type FounderMessage } from "./founder";
 /**
  * CMS content bridge.
  *
@@ -419,6 +420,7 @@ export interface HomepageContent<TBanners, TTestimonials, TLookbook, TStories> {
   lookbook: TLookbook;
   lookbooks: Lookbook[];
   stories: TStories;
+  founder: FounderMessage;
   faqs: FaqItem[];
   productCollection: { title?: string; subtitle?: string; productIds: string[] } | null;
   /** True when at least one published homepage block came from the CMS. */
@@ -458,6 +460,7 @@ export async function fetchHomepageContent(fallbacks: {
     : [];
 
   return {
+    founder: toFounderMessage(published.find((item) => item.key === FOUNDER_KEY)),
     banners: toHeroSlides(banners, fallbacks.banners),
     testimonials: toTestimonials(testimonials, fallbacks.testimonials),
     lookbook: toLookbook(lookbookList, fallbacks.lookbook),
@@ -469,7 +472,7 @@ export async function fetchHomepageContent(fallbacks: {
       subtitle: str(productCollection.subtitle),
       productIds,
     } : null,
-    fromCms: Boolean(banners.length || testimonials.length || lookbookList.length || stories.length || faqs.length || productCollection),
+    fromCms: Boolean(published.some((item) => item.key === FOUNDER_KEY) || banners.length || testimonials.length || lookbookList.length || stories.length || faqs.length || productCollection),
   };
 }
 

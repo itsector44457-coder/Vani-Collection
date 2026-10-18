@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, ButtonGhost, ButtonPrimary, Card } from "@/lib/admin-ui";
 import MediaUploadField from "@/components/admin/MediaUploadField";
@@ -44,6 +45,7 @@ const blankCategory = () => ({
   name: "",
   slug: "",
   description: "",
+  bannerImage: "",
   navigationGroup: "Collections",
   position: 0,
   isActive: true,
@@ -117,6 +119,7 @@ export default function CategoriesPage() {
         await api.updateCategory(editingId, {
           name: form.name.trim(),
           description: form.description.trim() || undefined,
+          bannerImage: form.bannerImage.trim(),
           navigationGroup: form.navigationGroup.trim(),
           position: Number(form.position) || 0,
           isActive: form.isActive,
@@ -127,6 +130,7 @@ export default function CategoriesPage() {
           name: form.name.trim(),
           slug: slug!,
           description: form.description.trim() || undefined,
+          bannerImage: form.bannerImage.trim(),
           navigationGroup: form.navigationGroup.trim(),
           position: Number(form.position) || 0,
         });
@@ -151,6 +155,7 @@ export default function CategoriesPage() {
       name: category.name,
       slug: category.slug,
       description: category.description || "",
+      bannerImage: category.bannerImage || "",
       navigationGroup: category.navigationGroup,
       position: category.position,
       isActive: category.isActive,
@@ -291,6 +296,21 @@ export default function CategoriesPage() {
               <label className="block text-xs font-semibold text-stone-600">Description
                 <textarea rows={3} maxLength={500} className={`${inputClass} mt-1.5 resize-y`} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
               </label>
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-stone-600">Collection banner image
+                  <input maxLength={2000} className={`${inputClass} mt-1.5`} value={form.bannerImage} onChange={(event) => setForm((current) => ({ ...current, bannerImage: event.target.value }))} placeholder="https://… or /image.jpg" />
+                </label>
+                <p className="text-xs text-stone-500">Shown on /collections. Upload a square image or paste its URL. Leave blank to use the default image.</p>
+                <MediaUploadField key={editingId || "new-category"} type="image" multiple={false} disabled={saving} onUploaded={(urls) => setForm((current) => ({ ...current, bannerImage: urls[0] ?? current.bannerImage }))} />
+                {form.bannerImage && (
+                  <>
+                    <div className="relative aspect-square max-w-48 overflow-hidden rounded-xl bg-stone-100">
+                      <Image key={form.bannerImage} src={/^(https?:\/\/|\/(?!\/))/.test(form.bannerImage) ? form.bannerImage : "/product-not-found.jpg"} alt="Collection banner preview" fill unoptimized sizes="192px" className="object-cover" />
+                    </div>
+                    <ButtonGhost type="button" disabled={saving} onClick={() => setForm((current) => ({ ...current, bannerImage: "" }))}>Use default image</ButtonGhost>
+                  </>
+                )}
+              </div>
               <label className="block text-xs font-semibold text-stone-600">Display order
                 <input type="number" min={0} max={10000} className={`${inputClass} mt-1.5`} value={form.position} onChange={(event) => setForm((current) => ({ ...current, position: Number(event.target.value) }))} />
               </label>

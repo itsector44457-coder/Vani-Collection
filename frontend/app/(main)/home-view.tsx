@@ -1,5 +1,7 @@
 "use client";
 
+import FounderMessage from "@/components/FounderMessage";
+import type { FounderMessage as FounderContent } from "@/lib/founder";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,6 +16,7 @@ import ShopFromVideo from "../../components/ShopFromVideo";
 import { api, isApiConfigured, type StoreCategory } from "../../lib/api-client";
 
 export interface HomeViewProps {
+  founder?: FounderContent;
   banners?: HeroSlide[];
   testimonials?: Testimonial[];
   lookbook?: Lookbook;
@@ -34,6 +37,7 @@ export interface HomeViewProps {
  * Content arrives as props; only published CMS blocks and live API products are rendered.
  */
 export default function HomeView({
+  founder,
   banners = [],
   testimonials = [],
   lookbook = { title: "", subtitle: "", image: "", pins: [] },
@@ -1011,111 +1015,7 @@ export default function HomeView({
       </section>
       )}
 
-      {/* ================= 7c. FOUNDER'S MESSAGE ================= */}
-      <section className="py-16 sm:py-24 bg-gradient-to-br from-[#faf7f2] via-[#f5ede0] to-[#faf7f2] border-t border-[#e8dfd5] overflow-hidden">
-        <div className="max-w-[1200px] mx-auto px-4 sm:px-8 lg:px-12">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-20 items-center">
-
-            {/* ── Left: Layered Photo Composition ── */}
-            <div className="relative flex items-center justify-center h-[460px] sm:h-[520px]">
-              {/* Background decorative circle */}
-              <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#dfc28c]/20 to-[#881337]/10 blur-3xl" />
-
-              {/* Main founder photo — large */}
-              <div className="absolute top-0 left-[10%] w-[60%] h-[80%] rounded-2xl overflow-hidden shadow-2xl border-4 border-white z-20">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=800&q=80"
-                  alt="Aaiysha & Pawan — Founders of Vani Collection"
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-              </div>
-
-              {/* Secondary photo — store / fabric */}
-              <div className="absolute bottom-0 right-[5%] w-[48%] h-[55%] rounded-2xl overflow-hidden shadow-xl border-4 border-white z-30">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&q=80"
-                  alt="Vani Collection atelier fabric display"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* Golden year badge */}
-              <div className="absolute top-[8%] right-[3%] z-40 bg-[#881337] text-white rounded-2xl px-4 py-3 shadow-lg text-center border-2 border-white/20">
-                <p className="font-serif text-2xl font-bold text-[#dfc28c] leading-none">Est.</p>
-                <p className="font-serif text-3xl font-bold text-white leading-none">2018</p>
-              </div>
-
-              {/* Subtle gold dot pattern overlay */}
-              <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(#881337_1px,transparent_1px)] [background-size:20px_20px] z-10" />
-            </div>
-
-            {/* ── Right: Founder's Story ── */}
-            <div className="space-y-6 lg:py-6">
-              <div>
-                <span className="text-[10px] font-bold tracking-[0.35em] uppercase text-[#881337]">
-                  Founder&apos;s Message
-                </span>
-              </div>
-
-              <h2 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-stone-900 font-normal leading-tight">
-                Aaiysha &amp; Pawan
-              </h2>
-
-              <div className="w-10 h-[2px] bg-[#dfc28c]" />
-
-              <p className="text-stone-600 text-sm sm:text-base leading-relaxed">
-                Founded in 2018, Vani Collection was born out of a shared dream and endless hustle.
-                From a small idea to a growing brand, every step has been a journey of learning,
-                creativity, and commitment. We created Vani Collection to offer something fresh —
-                new designs that make our customers look good and feel confident.
-              </p>
-              <p className="text-stone-600 text-sm sm:text-base leading-relaxed">
-                Our forte lies in understanding what makes each person unique and helping them express
-                that through fashion. It hasn&apos;t always been easy — there&apos;s been struggle, late nights,
-                and a lot of learning — but the love we receive from our customers makes it all worth it.
-              </p>
-              <p className="text-stone-700 text-sm sm:text-base leading-relaxed font-medium italic">
-                &ldquo;At the heart of everything we do is <span className="text-[#881337] not-italic font-semibold">you</span>.
-                Because when you look good, we feel proud.&rdquo;
-              </p>
-
-              {/* Signature */}
-              <div className="pt-4 border-t border-stone-200">
-                <div className="flex items-center gap-4">
-                  <div>
-                    <p className="font-serif text-xl font-semibold text-stone-900 italic tracking-wide">
-                      Aaiysha &amp; Pawan
-                    </p>
-                    <p className="text-[11px] text-stone-500 font-medium tracking-wide mt-0.5">
-                      Co-founders, Vani Collection · Guna, Madhya Pradesh
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-3 pt-2">
-                <Link
-                  href="/about"
-                  className="inline-flex items-center gap-2 rounded-xl bg-[#881337] px-6 py-3 text-xs font-bold uppercase tracking-[0.2em] text-white transition hover:bg-[#6d0f2b] shadow-md"
-                >
-                  Our Full Story
-                  <span aria-hidden="true">→</span>
-                </Link>
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#881337]/30 bg-white px-6 py-3 text-xs font-bold uppercase tracking-[0.2em] text-[#881337] transition hover:border-[#881337]"
-                >
-                  Visit Atelier
-                </Link>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
+      <FounderMessage content={founder} />
 
       {/* ================= 7b. FAQ (CMS `kind=faq`) ================= */}
       {/* Only rendered when the CMS has published questions, and every one of them is also marked up
@@ -1179,21 +1079,29 @@ export default function HomeView({
       <section className="py-16 sm:py-24 bg-white border-t border-[#f0ebe3]">
         <div className="max-w-[1300px] mx-auto px-4 sm:px-8 lg:px-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
-            {/* Visual editorial preview */}
-            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg border border-stone-200 group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/contact-editorial.jpg"
-                alt="Vani Collection Guna Atelier"
-                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
+            {/* Interactive atelier location, with a direct link if maps cannot load. */}
+            <div className="overflow-hidden rounded-2xl border border-stone-200 bg-[#faf7f2] shadow-lg">
+              <iframe
+                title="Vani Collection atelier location in Guna, Madhya Pradesh"
+                src="https://www.google.com/maps?q=Vani+Collection+Station+Road+Guna+Madhya+Pradesh&output=embed"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+                className="aspect-[4/3] min-h-[280px] w-full border-0"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-6 sm:p-8">
-                <div className="text-white">
-                  <span className="text-[9px] uppercase tracking-[0.3em] font-semibold text-[#dfc28c] bg-black/50 px-3 py-1 rounded-full backdrop-blur-md">
-                    Flagship Atelier
-                  </span>
-                  <p className="font-serif text-xl sm:text-2xl mt-2 font-light">Station Road · Guna, MP</p>
+              <div className="flex flex-wrap items-center justify-between gap-4 border-t border-stone-200 px-5 py-4 sm:px-6">
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.25em] text-[#881337]">Flagship Atelier</p>
+                  <p className="mt-1 font-serif text-lg text-stone-900">Station Road · Guna, MP</p>
                 </div>
+                <a
+                  href="https://www.google.com/maps/dir/?api=1&destination=Vani+Collection+Station+Road+Guna+Madhya+Pradesh"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#881337] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#6d0f2b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#881337]"
+                >
+                  Get directions <span aria-hidden="true">↗</span>
+                </a>
               </div>
             </div>
 

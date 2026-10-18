@@ -35,10 +35,11 @@ const EXTRA_IMAGES = [
 ];
 
 function categoryImage(category: StoreCategory, index: number): string {
-  return CATEGORY_IMAGES[category.slug] ?? EXTRA_IMAGES[index % EXTRA_IMAGES.length];
+  return category.bannerImage?.trim() || CATEGORY_IMAGES[category.slug] || EXTRA_IMAGES[index % EXTRA_IMAGES.length];
 }
 
 export default function CollectionsView() {
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
   const [productCounts, setProductCounts] = useState<Record<string, number>>({});
   const [countsLoading, setCountsLoading] = useState(isApiConfigured());
@@ -161,7 +162,8 @@ export default function CollectionsView() {
                 >
                   <div className="relative aspect-square overflow-hidden bg-[#eee8df]">
                     <Image
-                      src={categoryImage(category, index)}
+                      src={failedImages[category.slug] ? "/product-not-found.jpg" : categoryImage(category, index)}
+                      onError={() => setFailedImages((current) => current[category.slug] ? current : { ...current, [category.slug]: true })}
                       alt={`${category.name} collection`}
                       fill
                       unoptimized

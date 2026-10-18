@@ -34,6 +34,7 @@ export default async function HomePage() {
           content the reader cannot see. Emits nothing when the CMS has no FAQ blocks. */}
       <FaqSchema items={content.faqs} />
       <HomeView
+        founder={content.founder}
         banners={content.banners}
         testimonials={content.testimonials}
         lookbook={content.lookbook}

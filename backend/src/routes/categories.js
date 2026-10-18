@@ -14,6 +14,10 @@ const categoryInput = z.object({
   name: z.string().trim().min(2).max(80),
   slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   description: z.string().trim().max(500).optional(),
+  bannerImage: z.string().trim().max(2000).refine((value) => {
+    if (!value || /^\/(?!\/)/.test(value)) return true;
+    try { return ['http:', 'https:'].includes(new URL(value).protocol); } catch { return false; }
+  }, 'Use an http(s) image URL or a local path starting with /').optional(),
   navigationGroup: z.string().trim().min(2).max(60),
   position: z.number().int().min(0).max(10000).optional(),
   isActive: z.boolean().optional(),
