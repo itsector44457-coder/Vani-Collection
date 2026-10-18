@@ -18,6 +18,8 @@ const remotePatterns = [
 ];
 
 const nextConfig: NextConfig = {
+  // The Arena preview is served from a per-session *.e2b.app origin.
+  allowedDevOrigins: ["*.e2b.app"],
   images: {
     remotePatterns,
   },
