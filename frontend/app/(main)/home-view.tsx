@@ -1,8 +1,10 @@
 "use client";
 
 import FounderMessage from "@/components/FounderMessage";
+import CustomerReviews from "@/components/CustomerReviews";
+import InspiredLooks from "@/components/InspiredLooks";
 import type { FounderMessage as FounderContent } from "@/lib/founder";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
@@ -71,28 +73,8 @@ export default function HomeView({
   const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<StoreCategory[]>([]);
 
-  // Testimonials Side-Scrollable State
-  const testimonialsScrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollTestiLeft, setCanScrollTestiLeft] = useState(false);
-  const [canScrollTestiRight, setCanScrollTestiRight] = useState(true);
+  const displayTestimonials = testimonials.length > 0 ? testimonials : DEFAULT_TESTIMONIALS;
 
-  const displayTestimonials = (testimonials && testimonials.length > 0) ? testimonials : DEFAULT_TESTIMONIALS;
-
-  const updateTestimonialScrollState = () => {
-    if (!testimonialsScrollRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = testimonialsScrollRef.current;
-    setCanScrollTestiLeft(scrollLeft > 10);
-    setCanScrollTestiRight(scrollLeft < scrollWidth - clientWidth - 10);
-  };
-
-  const scrollTestimonials = (direction: "left" | "right") => {
-    if (!testimonialsScrollRef.current) return;
-    const scrollAmount = Math.min(testimonialsScrollRef.current.clientWidth * 0.85, 420);
-    testimonialsScrollRef.current.scrollBy({
-      left: direction === "left" ? -scrollAmount : scrollAmount,
-      behavior: "smooth",
-    });
-  };
   const catalogue = useCatalogue();
   const catalogueProducts = productCollection?.productIds.length
     ? productCollection.productIds
@@ -859,161 +841,9 @@ export default function HomeView({
         </section>
       )}
 
-      {/* ================= 6. ARTISANAL HERITAGE & CRAFT PILLARS ================= */}
-      {/* ================= 7. VERIFIED CUSTOMER REVIEWS (SIDE-SCROLLABLE WITH CUSTOMER PHOTO) ================= */}
-      {displayTestimonials.length > 0 && (
-      <section className="py-14 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12 overflow-hidden">
-        {/* Section Header with Side-Scroll Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 sm:mb-12 gap-5">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#b8935a]/30 bg-[#b8935a]/10 px-3 py-1 text-[10px] font-semibold tracking-[0.25em] uppercase text-[#b8935a] mb-2.5">
-              <span>✦ Honest Love</span>
-            </div>
-            <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl text-stone-900 font-normal">
-              Echoes from Our Community
-            </h2>
-            <p className="text-xs sm:text-sm text-stone-500 font-light mt-1 max-w-lg">
-              Loved by patrons across India for pure fabrics, handcrafted tailoring, and prompt Guna delivery.
-            </p>
-          </div>
+      <InspiredLooks products={catalogueProducts} image={currentLookbook.image} loading={catalogue.loading} />
 
-          {/* Navigation Arrows for Horizontal Side-Scroll */}
-          <div className="flex items-center gap-3 shrink-0">
-            <span className="hidden sm:inline text-[11px] text-stone-400 font-light">
-              Scroll or drag ✦
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => scrollTestimonials("left")}
-                disabled={!canScrollTestiLeft}
-                aria-label="Previous customer review"
-                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full border flex items-center justify-center transition-all duration-200 ${
-                  canScrollTestiLeft
-                    ? "border-stone-300 text-stone-800 bg-white hover:border-[#881337] hover:bg-[#881337] hover:text-white shadow-sm cursor-pointer"
-                    : "border-stone-200 text-stone-300 bg-stone-50 cursor-not-allowed opacity-60"
-                }`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollTestimonials("right")}
-                disabled={!canScrollTestiRight}
-                aria-label="Next customer review"
-                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full border flex items-center justify-center transition-all duration-200 ${
-                  canScrollTestiRight
-                    ? "border-stone-300 text-stone-800 bg-white hover:border-[#881337] hover:bg-[#881337] hover:text-white shadow-sm cursor-pointer"
-                    : "border-stone-200 text-stone-300 bg-stone-50 cursor-not-allowed opacity-60"
-                }`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Side-Scrollable Track */}
-        <div
-          ref={testimonialsScrollRef}
-          onScroll={updateTestimonialScrollState}
-          className="flex gap-5 sm:gap-6 overflow-x-auto scrollbar-none snap-x snap-mandatory py-3 px-1 -mx-4 sm:-mx-8 lg:-mx-12 px-4 sm:px-8 lg:px-12 scroll-smooth"
-        >
-          {displayTestimonials.map((rev) => (
-            <div
-              key={rev.id}
-              className="snap-start shrink-0 w-[300px] sm:w-[360px] lg:w-[390px] bg-white p-6 sm:p-7 rounded-2xl border border-stone-200/90 shadow-xs hover:shadow-xl hover:border-[#dfc28c]/60 transition-all duration-300 flex flex-col justify-between group"
-            >
-              <div>
-                {/* Header: Stars & Verified Badge */}
-                <div className="flex items-center justify-between gap-2 mb-3">
-                  <div
-                    className="flex items-center gap-1 text-amber-500 text-sm"
-                    aria-label={`${rev.rating} out of 5 stars`}
-                  >
-                    <span>{"★".repeat(Math.max(0, Math.min(5, Math.round(rev.rating))))}</span>
-                    <span className="text-stone-300">{"★".repeat(Math.max(0, 5 - Math.min(5, Math.round(rev.rating))))}</span>
-                    <span className="text-[11px] font-semibold text-stone-700 ml-1">
-                      {rev.rating}.0
-                    </span>
-                  </div>
-                  {rev.verified && (
-                    <span className="text-[9px] sm:text-[10px] bg-emerald-50 text-emerald-800 font-semibold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1 shrink-0">
-                      <span>✓</span> Verified Buyer
-                    </span>
-                  )}
-                </div>
-
-                {/* Review Title */}
-                {rev.title && (
-                  <h4 className="font-serif text-base sm:text-lg font-semibold text-stone-900 mb-2 leading-snug group-hover:text-[#881337] transition-colors">
-                    &ldquo;{rev.title}&rdquo;
-                  </h4>
-                )}
-
-                {/* Review Text */}
-                <p className="text-xs sm:text-[13px] text-stone-600 leading-relaxed font-light mb-4">
-                  {rev.comment}
-                </p>
-
-                {/* Purchased Product Tag (if available) */}
-                {rev.product && (
-                  <div className="mb-4 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#faf7f2] border border-[#ebe4d8] text-[11px] text-stone-600 font-medium">
-                    <span className="text-[#881337]">✦</span>
-                    <span className="truncate max-w-[260px]">{rev.product}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Customer Profile & Photo Area */}
-              <div className="pt-4 border-t border-stone-100 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  {/* Customer Photo with graceful fallback */}
-                  {rev.image ? (
-                    <div className="relative shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={rev.image}
-                        alt={rev.name}
-                        className="w-11 h-11 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#dfc28c]/60 shadow-sm"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLElement).style.display = "none";
-                          const fallbackEl = (e.currentTarget.parentElement as HTMLElement)?.querySelector(".avatar-fallback");
-                          if (fallbackEl) (fallbackEl as HTMLElement).style.display = "flex";
-                        }}
-                      />
-                      <div className="avatar-fallback hidden w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#881337] to-[#1c1917] text-[#dfc28c] font-serif font-bold text-base items-center justify-center border border-[#dfc28c]/40 shadow-sm">
-                        {rev.name.charAt(0)}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#881337] to-[#1c1917] text-[#dfc28c] font-serif font-bold text-base flex items-center justify-center border border-[#dfc28c]/40 shadow-sm shrink-0">
-                      {rev.name.charAt(0)}
-                    </div>
-                  )}
-
-                  <div className="min-w-0">
-                    <h5 className="font-semibold text-stone-900 text-xs sm:text-sm truncate">{rev.name}</h5>
-                    <p className="text-[10px] sm:text-[11px] text-stone-400 truncate">
-                      {rev.city}{rev.date ? ` · ${rev.date}` : ""}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Decorative Quote Icon */}
-                <span className="text-2xl text-stone-200 font-serif select-none shrink-0 group-hover:text-[#dfc28c]/50 transition-colors">
-                  &rdquo;
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-      )}
+      <CustomerReviews reviews={displayTestimonials} />
 
       <FounderMessage content={founder} />
 

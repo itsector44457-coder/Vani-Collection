@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import PaymentIcons from "./PaymentIcons";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, isApiConfigured, type StoreCategory } from "../lib/api-client";
@@ -27,8 +28,6 @@ const FOOTER_LINKS = {
     { label: "Terms & conditions", href: "/terms" },
   ],
 };
-
-const PAYMENTS = ["UPI", "Cards", "Net banking", "Cash on Delivery"];
 
 function ArrowIcon({ direction = "right" }: { direction?: "right" | "up" }) {
   return (
@@ -355,12 +354,7 @@ export default function Footer() {
             <span className="hidden text-white/25 sm:inline">|</span>
             <span className="text-white/50">Made with care in Guna, Madhya Pradesh</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="mr-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/45">We accept</span>
-            {PAYMENTS.map((method) => (
-              <span key={method} className="rounded-full border border-white/15 px-2.5 py-1 text-[9px] text-white/70">{method}</span>
-            ))}
-          </div>
+          <PaymentIcons />
           <div className="flex items-center gap-4 text-[11px]">
             <Link href="/privacy" className="transition hover:text-[#e6c88f]">Privacy</Link>
             <Link href="/terms" className="transition hover:text-[#e6c88f]">Terms</Link>
