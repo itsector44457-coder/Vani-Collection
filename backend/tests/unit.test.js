@@ -241,6 +241,29 @@ test('Cloudinary media count filters by folder and resource type', async () => {
   ]);
 });
 
+test('Cloudinary media errors surface a clear MEDIA_NOT_CONFIGURED error instead of a raw 500', async () => {
+  const cloudinary = {
+    search: {
+      expression() { return this; },
+      sort_by() { return this; },
+      max_results() { return this; },
+      async execute() { throw { error: { http_code: 401, message: 'cloud_name mismatch' } }; },
+    },
+  };
+  await assert.rejects(countCloudinaryAssets(cloudinary, 'image'), (err) => {
+    assert.equal(err.status, 503);
+    assert.equal(err.code, 'MEDIA_NOT_CONFIGURED');
+    assert.match(err.message, /cloud_name mismatch/);
+    return true;
+  });
+  await assert.rejects(listCloudinaryAssets(cloudinary, 'image'), (err) => {
+    assert.equal(err.status, 503);
+    assert.equal(err.code, 'MEDIA_NOT_CONFIGURED');
+    assert.match(err.message, /cloud_name mismatch/);
+    return true;
+  });
+});
+
 test('access cookie lifetime follows the configured access-token expiry', () => {
   const config = { ...loadConfig(), ACCESS_TOKEN_TTL: '5m' };
   const tokens = issueTokens({ id: 'user-1', roles: ['admin'] }, config);
