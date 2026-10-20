@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { isApiConfigured } from "../lib/api-client";
 import {
@@ -63,6 +63,23 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const freeShippingThreshold = FREE_SHIPPING_THRESHOLD;
 const OBJECT_ID = /^[0-9a-f]{24}$/i;
+const QUANTITY_UPDATE_DEBOUNCE_MS = 160;
+
+function projectCartSnapshot(snapshot: CartSnapshot, pendingQuantities: ReadonlyMap<string, number>): CartSnapshot {
+  const lines = snapshot.lines.map((line) => {
+    const quantity = pendingQuantities.get(line.lineId);
+    return quantity === undefined ? line : { ...line, quantity, inStock: line.available >= quantity };
+  });
+
+  return {
+    ...snapshot,
+    lines,
+    subtotal: lines.reduce((total, line) => total + line.price * line.quantity, 0),
+    savings: lines.reduce((total, line) => total + Math.max(0, line.originalPrice - line.price) * line.quantity, 0),
+    count: lines.reduce((total, line) => total + line.quantity, 0),
+    hasUnavailable: lines.some((line) => !line.inStock || line.available === 0),
+  };
+}
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -79,11 +96,50 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [lastRemoved, setLastRemoved] = useState<CartItem | null>(null);
   const [nonce, setNonce] = useState(0);
+  const serverSnapshotRef = useRef<CartSnapshot | null>(null);
+  const pendingQuantityUpdatesRef = useRef(new Map<string, number>());
+  const quantityFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const quantityFlushRunningRef = useRef(false);
 
   const applySnapshot = useCallback((next: CartSnapshot) => {
-    setSnapshot(next);
-    setCart(next.lines.map(cartLineToItem));
+    serverSnapshotRef.current = next;
+    const projected = projectCartSnapshot(next, pendingQuantityUpdatesRef.current);
+    setSnapshot(projected);
+    setCart(projected.lines.map(cartLineToItem));
   }, []);
+
+  const flushPendingQuantityUpdates = useCallback(async () => {
+    if (!configured || quantityFlushRunningRef.current) return;
+    if (quantityFlushTimerRef.current !== null) {
+      clearTimeout(quantityFlushTimerRef.current);
+      quantityFlushTimerRef.current = null;
+    }
+
+    quantityFlushRunningRef.current = true;
+    try {
+      const pending = pendingQuantityUpdatesRef.current;
+      while (pending.size > 0) {
+        const nextEntry = pending.entries().next();
+        if (nextEntry.done) break;
+        const [lineId, requestedQuantity] = nextEntry.value;
+
+        try {
+          const next = await updateCartLine(lineId, requestedQuantity);
+          if (pending.get(lineId) === requestedQuantity) pending.delete(lineId);
+          applySnapshot(next);
+        } catch (cause) {
+          if (pending.get(lineId) === requestedQuantity) {
+            pending.delete(lineId);
+            setError((cause as Error)?.message ?? "Could not update the quantity");
+            if (serverSnapshotRef.current) applySnapshot(serverSnapshotRef.current);
+          }
+        }
+      }
+    } finally {
+      quantityFlushRunningRef.current = false;
+      if (pendingQuantityUpdatesRef.current.size === 0) setIsSyncing(false);
+    }
+  }, [applySnapshot, configured]);
 
   /* ---------------------------------------------------------------- cart load */
 
@@ -210,7 +266,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!variant) {
-        setError("Yeh size/colour abhi online order ke liye uplabdh nahi hai — koi aur option chune ya atelier se sampark kare.");
+        setError("This size or colour is not available to order online. Please choose another option or contact our atelier.");
         return false;
       }
       setIsSyncing(true);
@@ -288,16 +344,28 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         setCart((previous) => previous.map((item) => (item.id === id && item.size === size && (color === undefined || item.color === color) ? { ...item, quantity } : item)));
         return;
       }
+
+      // Update the visible bag immediately, then persist only the latest requested quantity.
+      pendingQuantityUpdatesRef.current.set(line.lineId, quantity);
+      if (serverSnapshotRef.current) applySnapshot(serverSnapshotRef.current);
+      else setCart((previous) => previous.map((item) => (item.lineId === line.lineId ? { ...item, quantity } : item)));
+      setError(null);
       setIsSyncing(true);
-      updateCartLine(line.lineId, quantity)
-        .then(applySnapshot)
-        .catch((cause) => setError((cause as Error)?.message ?? "Could not update the quantity"))
-        .finally(() => setIsSyncing(false));
+
+      if (quantityFlushTimerRef.current !== null) clearTimeout(quantityFlushTimerRef.current);
+      quantityFlushTimerRef.current = setTimeout(() => {
+        quantityFlushTimerRef.current = null;
+        void flushPendingQuantityUpdates();
+      }, QUANTITY_UPDATE_DEBOUNCE_MS);
     },
-    [applySnapshot, configured, findLine, removeFromCart]
+    [applySnapshot, configured, findLine, flushPendingQuantityUpdates, removeFromCart]
   );
 
   const clearCart = useCallback(() => {
+    if (quantityFlushTimerRef.current !== null) clearTimeout(quantityFlushTimerRef.current);
+    quantityFlushTimerRef.current = null;
+    pendingQuantityUpdatesRef.current.clear();
+    serverSnapshotRef.current = null;
     setCart([]);
     setSnapshot(null);
     setLastRemoved(null);
