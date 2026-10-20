@@ -392,6 +392,33 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
   });
   assert.equal(categoryCreate.status, 201, JSON.stringify(categoryCreate.body));
   assert.equal((await api('/api/categories')).body.data.some((category) => category.slug === 'handwoven-linen'), true);
+
+  const initialMulCottonCount = (await api('/api/categories')).body.data.find((category) => category.slug === 'mul-cotton').productCount;
+  assert.equal(typeof initialMulCottonCount, 'number');
+  const countProductSkus = ['VC-COUNT-LIVE-M', 'VC-COUNT-DRAFT-M'];
+  try {
+    const activeCountProduct = await api('/api/products', {
+      method: 'POST',
+      token: adminToken,
+      body: { name: 'Category Count Active Piece', slug: 'category-count-active-piece', category: 'mul-cotton', status: 'active', variants: [{ sku: countProductSkus[0], mrp: 1200, price: 900 }] },
+    });
+    assert.equal(activeCountProduct.status, 201, JSON.stringify(activeCountProduct.body));
+    const countAfterActiveProduct = (await api('/api/categories')).body.data.find((category) => category.slug === 'mul-cotton').productCount;
+    assert.equal(countAfterActiveProduct, initialMulCottonCount + 1);
+
+    const draftCountProduct = await api('/api/products', {
+      method: 'POST',
+      token: adminToken,
+      body: { name: 'Category Count Draft Piece', slug: 'category-count-draft-piece', category: 'mul-cotton', status: 'draft', variants: [{ sku: countProductSkus[1], mrp: 1200, price: 900 }] },
+    });
+    assert.equal(draftCountProduct.status, 201, JSON.stringify(draftCountProduct.body));
+    const countAfterDraftProduct = (await api('/api/categories')).body.data.find((category) => category.slug === 'mul-cotton').productCount;
+    assert.equal(countAfterDraftProduct, countAfterActiveProduct);
+  } finally {
+    await Product.deleteMany({ slug: { $in: ['category-count-active-piece', 'category-count-draft-piece'] } });
+    await Inventory.deleteMany({ sku: { $in: countProductSkus } });
+  }
+
   const invalidProductCategory = await api('/api/products', {
     method: 'POST',
     token: adminToken,

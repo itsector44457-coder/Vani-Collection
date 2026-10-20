@@ -44,7 +44,18 @@ module.exports = ({ auth }) => {
 
   router.get('/', asyncHandler(async (_req, res) => {
     await ensureCategories(Category, Product);
-    const data = await Category.find({ isActive: true }).sort({ position: 1, name: 1 }).lean();
+    const [categories, productCounts] = await Promise.all([
+      Category.find({ isActive: true }).sort({ position: 1, name: 1 }).lean(),
+      Product.aggregate([
+        { $match: { status: 'active' } },
+        { $group: { _id: '$category', productCount: { $sum: 1 } } },
+      ]),
+    ]);
+    const countsBySlug = new Map(productCounts.map(({ _id, productCount }) => [_id, productCount]));
+    const data = categories.map((category) => ({
+      ...category,
+      productCount: countsBySlug.get(category.slug) || 0,
+    }));
     res.json({ data });
   }));
 

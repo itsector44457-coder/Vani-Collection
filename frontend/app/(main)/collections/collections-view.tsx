@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { api, isApiConfigured, type StoreCategory } from "@/lib/api-client";
-import { listProducts } from "@/lib/storefront-api";
 
 const FALLBACK_CATEGORIES: StoreCategory[] = [
   { name: "Mul Cotton", slug: "mul-cotton", navigationGroup: "By Fabric", position: 0, isActive: true },
@@ -41,7 +40,6 @@ function categoryImage(category: StoreCategory, index: number): string {
 export default function CollectionsView() {
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
-  const [productCounts, setProductCounts] = useState<Record<string, number>>({});
   const [countsLoading, setCountsLoading] = useState(isApiConfigured());
 
   useEffect(() => {
@@ -51,31 +49,17 @@ export default function CollectionsView() {
     let cancelled = false;
 
     const loadCategories = async () => {
+      setCountsLoading(true);
       try {
         const { data } = await api.categories(controller.signal);
+        if (cancelled) return;
         const activeCategories = data
           .filter((category) => category.isActive)
           .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
-        const categoriesToCount = activeCategories.length ? activeCategories : FALLBACK_CATEGORIES;
-
-        if (!cancelled && activeCategories.length) setCategories(activeCategories);
-
-        const results = await Promise.allSettled(
-          categoriesToCount.map(async (category) => {
-            const result = await listProducts({ category: category.slug, limit: 1 }, controller.signal);
-            return [category.slug, result.total] as const;
-          }),
-        );
-
-        if (cancelled) return;
-        const counts: Record<string, number> = {};
-        results.forEach((result) => {
-          if (result.status === "fulfilled") counts[result.value[0]] = result.value[1];
-        });
-        setProductCounts(counts);
+        if (activeCategories.length) setCategories(activeCategories);
       } catch (cause) {
         if ((cause as Error)?.name !== "AbortError") {
-          console.error("Could not load collection categories", cause);
+          console.error("Could not load collection categories and product counts", cause);
         }
       } finally {
         if (!cancelled) setCountsLoading(false);
@@ -83,9 +67,11 @@ export default function CollectionsView() {
     };
 
     void loadCategories();
+    window.addEventListener("focus", loadCategories);
     return () => {
       cancelled = true;
       controller.abort();
+      window.removeEventListener("focus", loadCategories);
     };
   }, []);
 
@@ -139,7 +125,7 @@ export default function CollectionsView() {
           className="grid grid-cols-2 gap-x-3 gap-y-6 min-[480px]:grid-cols-3 min-[480px]:gap-x-4 sm:gap-x-6 sm:gap-y-9 xl:grid-cols-4"
         >
           {categories.map((category, index) => {
-            const count = productCounts[category.slug];
+            const count = category.productCount;
             const countLabel = count !== undefined
               ? `${count.toLocaleString("en-IN")} ${count === 1 ? "product" : "products"}`
               : countsLoading

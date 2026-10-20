@@ -21,6 +21,8 @@ import StylistConciergeBand from "../../components/StylistConciergeBand";
 import { api, isApiConfigured, type StoreCategory } from "../../lib/api-client";
 import { STORE_PHONE_DISPLAY, storeWhatsAppUrl } from "../../lib/site-contact";
 
+const FALLBACK_CATEGORY_SLUGS = ["mul-cotton", "festive", "coord-sets", "anarkalis"];
+
 export interface HomeViewProps {
   founder?: FounderContent;
   testimonials?: Testimonial[];
@@ -93,21 +95,32 @@ export default function HomeView({
   useEffect(() => {
     if (!isApiConfigured()) return;
     const controller = new AbortController();
-    void api.categories(controller.signal)
-      .then(({ data }) => {
+    let cancelled = false;
+
+    const refreshCategories = async () => {
+      try {
+        const { data } = await api.categories(controller.signal);
+        if (cancelled) return;
         setCategories(data);
         setActiveTab((current) => current === "all" || current === "budget" || data.some((category) => category.slug === current) ? current : "all");
-      })
-      .catch((cause: unknown) => {
-        if ((cause as Error)?.name !== "AbortError") console.error("Could not load homepage categories", cause);
-      });
-    return () => controller.abort();
+      } catch (cause: unknown) {
+        if ((cause as Error)?.name !== "AbortError") console.error("Could not load homepage categories and product counts", cause);
+      }
+    };
+
+    void refreshCategories();
+    // Re-fetch the no-store category totals when shoppers return after an Admin product change.
+    window.addEventListener("focus", refreshCategories);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.removeEventListener("focus", refreshCategories);
+    };
   }, []);
 
-  const fallbackCategorySlugs = ["mul-cotton", "festive", "coord-sets", "anarkalis"];
   const categoryTabs = categories.length
     ? categories.map((category) => ({ key: category.slug, label: category.name }))
-    : fallbackCategorySlugs.map((slug) => ({ key: slug, label: slug.replace(/-/g, " ") }));
+    : FALLBACK_CATEGORY_SLUGS.map((slug) => ({ key: slug, label: slug.replace(/-/g, " ") }));
 
   const handleSizeChange = (productId: string, size: string) => {
     setSelectedSizes((prev) => ({ ...prev, [productId]: size }));
@@ -221,17 +234,20 @@ export default function HomeView({
         items={(categories.length
           ? categories
           : // Demo / no-API mode: derive the tiles from the bundled catalogue so the section still shows.
-            [...new Set(catalogueProducts.map((product) => product.category))].map((slug) => ({
+            [...new Set(catalogueProducts.map((product) => product.category))].map((slug): StoreCategory => ({
               _id: slug,
               slug,
               name: slug.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
-              bannerImage: undefined as string | undefined,
+              bannerImage: undefined,
+              navigationGroup: "By Category",
+              position: 0,
+              isActive: true,
             }))
         ).map((category) => {
           const inCategory = catalogueProducts.filter((product) => product.category === category.slug);
           return {
             category,
-            count: inCategory.length,
+            count: category.productCount ?? inCategory.length,
             image: category.bannerImage || inCategory[0]?.image || undefined,
           };
         })}
