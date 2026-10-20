@@ -147,7 +147,7 @@ export default function Navbar() {
       {displayedAnnouncement && (
         <div
           aria-live="polite"
-          className="px-3 py-1.5 text-center text-[9px] font-medium tracking-wide sm:text-[10px]"
+          className="vani-announcement px-3 py-1.5 text-center text-[9px] font-medium tracking-wide sm:text-[10px]"
           style={{
             backgroundColor: settings.colors.announcementBg,
             color: settings.colors.announcementText,
@@ -159,10 +159,10 @@ export default function Navbar() {
       )}
 
       <header
-        className="sticky top-0 z-50 border-b shadow-sm"
-        style={{ backgroundColor: settings.colors.headerBg, borderColor: settings.colors.announcementBorder, color: settings.colors.headerText }}
+        className="vani-navbar sticky top-0 z-50 border-b"
+        style={{ "--nav-header-bg": settings.colors.headerBg, "--nav-accent": settings.colors.accent, borderColor: settings.colors.announcementBorder, color: settings.colors.headerText } as React.CSSProperties}
       >
-        <div className="mx-auto flex h-14 max-w-[1500px] items-center gap-2 px-3 sm:h-16 sm:px-6 lg:px-8">
+        <div className="vani-navbar__inner mx-auto flex h-14 max-w-[1500px] items-center gap-2 px-3 sm:h-16 sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={() => setMobileDrawerOpen(true)}
@@ -179,7 +179,7 @@ export default function Navbar() {
           <Link
             href="/"
             aria-label={settings.brandName}
-            className="flex min-w-0 flex-1 flex-col items-center justify-center leading-none xl:flex-none xl:items-start"
+            className="vani-brand-name flex min-w-0 flex-1 flex-col items-center justify-center leading-none xl:flex-none xl:items-start"
           >
             {settings.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -196,21 +196,21 @@ export default function Navbar() {
             )}
           </Link>
 
-          <nav ref={desktopNavRef} aria-label="Primary navigation" className="hidden min-w-0 flex-1 items-center justify-center gap-1 xl:flex">
+          <nav ref={desktopNavRef} aria-label="Primary navigation" className="vani-desktop-nav hidden min-w-0 flex-1 items-center justify-center gap-1 xl:flex">
             <div className="relative shrink-0">
               <button
                 type="button"
                 onClick={() => setOpenDesktopMenu((current) => current === "collections" ? null : "collections")}
                 aria-expanded={openDesktopMenu === "collections"}
                 aria-controls="desktop-collections-menu"
-                className="flex min-h-10 items-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold uppercase tracking-wide transition hover:bg-black/5 2xl:px-3 2xl:text-xs"
+                className="nav-snake-link flex min-h-10 items-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold uppercase tracking-wide transition hover:bg-black/5 2xl:px-3 2xl:text-xs"
                 style={{ color: settings.colors.headerText }}
               >
                 <span>{settings.collectionLabel || "Collections"}</span>
                 <ChevronIcon open={openDesktopMenu === "collections"} />
               </button>
               {openDesktopMenu === "collections" && (
-                <div id="desktop-collections-menu" className="absolute left-0 top-full z-50 mt-1 max-h-[70vh] w-64 overflow-y-auto rounded-xl border border-stone-200 bg-white p-2 shadow-xl">
+                <div id="desktop-collections-menu" className="vani-dropdown absolute left-0 top-full z-50 mt-1 max-h-[70vh] w-64 overflow-y-auto rounded-xl border border-stone-200 bg-white p-2 shadow-xl">
                   <Link href="/collections" onClick={closeMenus} className="nav-snake-link flex min-h-10 items-center rounded-lg px-3 text-sm font-semibold text-stone-900 transition hover:bg-stone-50" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
                     All collections <span className="ml-auto text-[var(--nav-accent)]">→</span>
                   </Link>
@@ -248,13 +248,13 @@ export default function Navbar() {
                   onClick={() => setOpenDesktopMenu((current) => current === "more" ? null : "more")}
                   aria-expanded={openDesktopMenu === "more"}
                   aria-controls="desktop-more-menu"
-                  className="flex min-h-10 items-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold uppercase tracking-wide transition hover:bg-black/5"
+                  className="nav-snake-link flex min-h-10 items-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold uppercase tracking-wide transition hover:bg-black/5"
                   style={{ color: settings.colors.headerText }}
                 >
                   More <ChevronIcon open={openDesktopMenu === "more"} />
                 </button>
                 {openDesktopMenu === "more" && (
-                  <div id="desktop-more-menu" className="absolute right-0 top-full z-50 mt-1 max-h-[70vh] w-60 overflow-y-auto rounded-xl border border-stone-200 bg-white p-2 shadow-xl">
+                  <div id="desktop-more-menu" className="vani-dropdown absolute right-0 top-full z-50 mt-1 max-h-[70vh] w-60 overflow-y-auto rounded-xl border border-stone-200 bg-white p-2 shadow-xl">
                     {overflowDesktopLinks.map((link) => (
                       <Link key={`${link.label}-${link.href}`} href={link.href} onClick={closeMenus} className="nav-snake-link flex min-h-10 items-center rounded-lg px-3 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-[var(--nav-accent)]" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
                         {link.label}
@@ -308,7 +308,7 @@ export default function Navbar() {
             type="button"
             aria-label="Close navigation menu"
             onClick={closeMobileDrawer}
-            className="animate-fadeIn fixed inset-0 z-[90] bg-black/35 xl:hidden"
+            className="vani-drawer-backdrop fixed inset-0 z-[90] bg-black/35 xl:hidden"
           />
           <div
             ref={mobileDrawerRef}
@@ -317,7 +317,7 @@ export default function Navbar() {
             aria-modal="true"
             aria-labelledby="mobile-navigation-title"
             tabIndex={-1}
-            className="animate-fadeIn fixed inset-y-0 left-0 z-[91] flex h-[100dvh] w-[min(88vw,22rem)] flex-col shadow-xl focus:outline-none xl:hidden"
+            className="vani-mobile-drawer fixed inset-y-0 left-0 z-[91] flex h-[100dvh] w-[min(88vw,22rem)] flex-col shadow-xl focus:outline-none xl:hidden"
             style={{ backgroundColor: settings.colors.mobileDrawerBg }}
           >
             <div className="flex min-h-16 items-center justify-between border-b border-stone-200 px-4">
@@ -407,7 +407,7 @@ export default function Navbar() {
       {!isProductPage && (
         <nav
           aria-label="Mobile quick navigation"
-          className="fixed inset-x-0 bottom-0 z-40 border-t bg-white/95 shadow-sm backdrop-blur xl:hidden"
+          className="vani-mobile-bottom fixed inset-x-0 bottom-0 z-40 border-t bg-white/95 shadow-sm backdrop-blur xl:hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: settings.colors.mobileBottomBg, borderColor: settings.colors.announcementBorder }}
         >
           <div className="mx-auto grid max-w-lg grid-cols-3 px-2 py-1">

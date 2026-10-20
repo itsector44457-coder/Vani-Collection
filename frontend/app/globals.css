@@ -376,3 +376,126 @@ button[data-no-red-fill]:not(:disabled):active {
     will-change: auto;
   }
 }
+
+/* Vani Collection — polished, glassy navigation skin. */
+.vani-announcement {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.13em;
+}
+
+.vani-navbar {
+  isolation: isolate;
+  background-color: var(--nav-header-bg, #faf7f2);
+  background-color: color-mix(in srgb, var(--nav-header-bg, #faf7f2) 92%, transparent);
+  box-shadow: 0 8px 30px rgb(41 37 36 / 3%);
+  -webkit-backdrop-filter: saturate(150%) blur(16px);
+  backdrop-filter: saturate(150%) blur(16px);
+  transition: box-shadow 250ms ease, background-color 250ms ease;
+}
+
+.vani-navbar__inner {
+  position: relative;
+}
+
+.vani-brand-name {
+  letter-spacing: 0.035em;
+  transition: letter-spacing 250ms ease, opacity 250ms ease;
+}
+
+.vani-navbar a:focus-visible,
+.vani-navbar button:focus-visible,
+.vani-mobile-drawer a:focus-visible,
+.vani-mobile-drawer button:focus-visible {
+  outline: 2px solid var(--nav-accent, #881337);
+  outline-offset: 3px;
+}
+
+.vani-desktop-nav > a,
+.vani-desktop-nav > div > button {
+  position: relative;
+  border-radius: 0 !important;
+  transition: color 220ms ease, opacity 220ms ease;
+}
+
+.vani-dropdown {
+  animation: vani-menu-in 200ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  transform-origin: top center;
+  box-shadow: 0 20px 60px rgb(28 25 23 / 12%);
+}
+
+.vani-dropdown a {
+  transition: color 200ms ease, background-color 200ms ease, padding-left 200ms ease;
+}
+
+.vani-dropdown a:hover {
+  padding-left: 1rem;
+}
+
+.nav-snake-link {
+  position: relative;
+  transition: color 220ms ease, background-color 220ms ease, transform 220ms ease;
+}
+
+.nav-snake-link--mobile {
+  border-radius: 12px;
+}
+
+@media (hover: hover) {
+  .nav-snake-link--mobile:hover {
+    transform: translateX(3px);
+  }
+}
+
+.vani-mobile-drawer {
+  animation: vani-drawer-in 280ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+  border-right: 1px solid rgb(120 113 108 / 12%);
+}
+
+.vani-drawer-backdrop {
+  animation: vani-backdrop-in 200ms ease both;
+}
+
+.vani-mobile-bottom {
+  border-color: rgb(120 113 108 / 18%);
+  padding-top: 5px;
+}
+
+.nav-snake-link--quick {
+  min-height: 52px;
+  border-radius: 13px;
+  transition: color 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+
+.nav-snake-link--quick:active {
+  transform: scale(0.96);
+}
+
+@keyframes vani-menu-in {
+  from { opacity: 0; transform: translateY(-7px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes vani-drawer-in {
+  from { opacity: 0.7; transform: translateX(-18px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes vani-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vani-navbar *,
+  .vani-navbar *::before,
+  .vani-navbar *::after,
+  .vani-mobile-drawer,
+  .vani-drawer-backdrop,
+  .vani-dropdown {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
