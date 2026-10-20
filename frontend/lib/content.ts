@@ -46,7 +46,7 @@ export interface PublishedReel {
     name: string;
     slug: string;
     images?: { url: string; alt?: string }[];
-    variants?: { price: number; mrp?: number; size?: string; color?: string; sku?: string }[];
+    variants?: { price: number; mrp?: number; size?: string; color?: string; sku?: string; active?: boolean }[];
     status?: string;
     fabric?: string;
     craft?: string;

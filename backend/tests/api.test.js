@@ -233,6 +233,15 @@ maybeTest('catalogue, checkout, stock reservation and idempotent ERP sync work e
   assert.equal(publishedReels.status, 200);
   assert.equal(publishedReels.body.data.length, 1);
   assert.equal(publishedReels.body.data[0].title, 'Summer collection');
+  const publishedVariant = publishedReels.body.data[0].productId.variants?.[0];
+  assert.ok(publishedVariant, 'published video includes its linked product variants');
+  assert.equal(publishedVariant.sku, 'VC-AN-01-M');
+  assert.equal(publishedVariant.size, 'M');
+  assert.equal(publishedVariant.color, 'Maroon');
+  assert.equal(publishedVariant.price, 3999);
+  assert.equal(publishedVariant.mrp, 4999);
+  assert.equal(publishedVariant.active, true);
+  assert.equal(publishedVariant.costPrice, undefined, 'private product costs must not be exposed publicly');
   await Reel.updateOne({ _id: reel.body.data._id }, { $set: { isActive: false } });
   assert.equal((await api('/api/reels')).body.data.length, 0, 'inactive reels must stay hidden publicly');
   await Reel.updateOne({ _id: reel.body.data._id }, { $set: { isActive: true } });

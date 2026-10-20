@@ -200,7 +200,7 @@ export default function ShopFromVideo({
   const dialogRef = useModalDialog<HTMLDivElement>(activeReelIndex !== null, closeModal);
 
   const activeProduct = activeReel?.productId;
-  const sellableVariants = (activeProduct?.variants ?? []).filter((variant) => Boolean(variant.sku));
+  const sellableVariants = (activeProduct?.variants ?? []).filter((variant) => Boolean(variant.sku) && variant.active !== false);
   const activeSizes = [...new Set(sellableVariants.map((variant) => variant.size).filter((size): size is string => Boolean(size)))];
   const preferredSize = user?.preferences?.preferredSize;
   if (activeReel && selectionReelId !== activeReel._id) {
