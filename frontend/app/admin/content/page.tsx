@@ -44,7 +44,7 @@ const DEMO_CONTENT: ContentDoc[] = [
 
 /** What each kind actually drives, so an editor knows the consequence of a change. */
 const KIND_HINTS: Record<string, string> = {
-  banner: "Homepage hero slides, in `position` order",
+  banner: "Legacy homepage banner records; the storefront hero now uses the fixed Vani Collection photo.",
   testimonial: "Homepage customer reviews — managed in Admin → Homepage reviews (consent + verified checks)",
   lookbook: "Homepage shoppable lookbook (first published block only)",
   faq: "Homepage FAQ accordion + FAQPage structured data",
@@ -531,7 +531,7 @@ export default function ContentPage() {
       <PageHeading
         eyebrow="Content"
         title="Website content"
-        subtitle="Manage structured storefront pages, homepage product placement, banners, lookbook and FAQs. Homepage reviews and Journal articles now have their own safer editors in the sidebar."
+        subtitle="Manage storefront pages, homepage product placement, lookbook and FAQs. The hero uses the Vani Collection storefront photo with a fixed Shop Now link; reviews and Journal articles have dedicated editors."
         action={
           <ButtonPrimary onClick={openCreate} disabled={content.source !== "live"}>
             New block

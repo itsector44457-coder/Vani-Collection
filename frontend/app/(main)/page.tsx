@@ -41,7 +41,6 @@ export default async function HomePage() {
       <FaqSchema items={content.faqs} />
       <HomeView
         founder={content.founder}
-        banners={content.banners}
         testimonials={content.testimonials}
         lookbook={content.lookbook}
         lookbooks={content.lookbooks}

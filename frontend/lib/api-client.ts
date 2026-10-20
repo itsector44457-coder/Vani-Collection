@@ -346,6 +346,8 @@ export interface StoreCategory {
   navigationGroup: string;
   position: number;
   isActive: boolean;
+  /** Number of active storefront products currently in this category. */
+  productCount?: number;
 }
 
 export interface NavigationMenuLink {

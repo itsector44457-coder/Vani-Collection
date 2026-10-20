@@ -233,6 +233,15 @@ maybeTest('catalogue, checkout, stock reservation and idempotent ERP sync work e
   assert.equal(publishedReels.status, 200);
   assert.equal(publishedReels.body.data.length, 1);
   assert.equal(publishedReels.body.data[0].title, 'Summer collection');
+  const publishedVariant = publishedReels.body.data[0].productId.variants?.[0];
+  assert.ok(publishedVariant, 'published video includes its linked product variants');
+  assert.equal(publishedVariant.sku, 'VC-AN-01-M');
+  assert.equal(publishedVariant.size, 'M');
+  assert.equal(publishedVariant.color, 'Maroon');
+  assert.equal(publishedVariant.price, 3999);
+  assert.equal(publishedVariant.mrp, 4999);
+  assert.equal(publishedVariant.active, true);
+  assert.equal(publishedVariant.costPrice, undefined, 'private product costs must not be exposed publicly');
   await Reel.updateOne({ _id: reel.body.data._id }, { $set: { isActive: false } });
   assert.equal((await api('/api/reels')).body.data.length, 0, 'inactive reels must stay hidden publicly');
   await Reel.updateOne({ _id: reel.body.data._id }, { $set: { isActive: true } });
@@ -392,6 +401,33 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
   });
   assert.equal(categoryCreate.status, 201, JSON.stringify(categoryCreate.body));
   assert.equal((await api('/api/categories')).body.data.some((category) => category.slug === 'handwoven-linen'), true);
+
+  const initialMulCottonCount = (await api('/api/categories')).body.data.find((category) => category.slug === 'mul-cotton').productCount;
+  assert.equal(typeof initialMulCottonCount, 'number');
+  const countProductSkus = ['VC-COUNT-LIVE-M', 'VC-COUNT-DRAFT-M'];
+  try {
+    const activeCountProduct = await api('/api/products', {
+      method: 'POST',
+      token: adminToken,
+      body: { name: 'Category Count Active Piece', slug: 'category-count-active-piece', category: 'mul-cotton', status: 'active', variants: [{ sku: countProductSkus[0], mrp: 1200, price: 900 }] },
+    });
+    assert.equal(activeCountProduct.status, 201, JSON.stringify(activeCountProduct.body));
+    const countAfterActiveProduct = (await api('/api/categories')).body.data.find((category) => category.slug === 'mul-cotton').productCount;
+    assert.equal(countAfterActiveProduct, initialMulCottonCount + 1);
+
+    const draftCountProduct = await api('/api/products', {
+      method: 'POST',
+      token: adminToken,
+      body: { name: 'Category Count Draft Piece', slug: 'category-count-draft-piece', category: 'mul-cotton', status: 'draft', variants: [{ sku: countProductSkus[1], mrp: 1200, price: 900 }] },
+    });
+    assert.equal(draftCountProduct.status, 201, JSON.stringify(draftCountProduct.body));
+    const countAfterDraftProduct = (await api('/api/categories')).body.data.find((category) => category.slug === 'mul-cotton').productCount;
+    assert.equal(countAfterDraftProduct, countAfterActiveProduct);
+  } finally {
+    await Product.deleteMany({ slug: { $in: ['category-count-active-piece', 'category-count-draft-piece'] } });
+    await Inventory.deleteMany({ sku: { $in: countProductSkus } });
+  }
+
   const invalidProductCategory = await api('/api/products', {
     method: 'POST',
     token: adminToken,
