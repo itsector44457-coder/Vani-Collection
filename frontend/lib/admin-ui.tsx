@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 /* ---------------- Brand tokens ---------------- */
 export const T = {
@@ -494,6 +494,9 @@ const MODAL_SIZES: Record<ModalSize, string> = {
   full: "max-w-[96vw] sm:max-w-[94vw] lg:max-w-[1280px]",
 };
 
+let modalScrollLockCount = 0;
+let modalPreviousOverflow = "";
+
 export function Modal({
   open,
   onClose,
@@ -513,28 +516,113 @@ export function Modal({
   size?: ModalSize;
   className?: string;
 }) {
+  const reactId = useId().replace(/:/g, "");
+  const titleId = `admin-modal-title-${reactId}`;
+  const descriptionId = description ? `admin-modal-description-${reactId}` : undefined;
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+
+    if (!previouslyFocusedRef.current && document.activeElement instanceof HTMLElement) {
+      previouslyFocusedRef.current = document.activeElement;
+    }
+
+    modalScrollLockCount += 1;
+    if (modalScrollLockCount === 1) {
+      modalPreviousOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    }
+
+    const focusableSelector = [
+      "a[href]",
+      "button:not([disabled])",
+      "input:not([disabled])",
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      "[tabindex]:not([tabindex='-1'])",
+    ].join(",");
+
+    const frame = window.requestAnimationFrame(() => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const first = dialog.querySelector<HTMLElement>(focusableSelector);
+      (first ?? dialog).focus({ preventScroll: true });
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector))
+        .filter((element) => element.offsetParent !== null || element === document.activeElement);
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus({ preventScroll: true });
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      modalScrollLockCount = Math.max(0, modalScrollLockCount - 1);
+      if (modalScrollLockCount === 0) document.body.style.overflow = modalPreviousOverflow;
+      const previouslyFocused = previouslyFocusedRef.current;
+      previouslyFocusedRef.current = null;
+      if (previouslyFocused?.isConnected) previouslyFocused.focus({ preventScroll: true });
+    };
+  }, [open ]);
+
   if (!open) return null;
   const sizeClass = MODAL_SIZES[size] ?? MODAL_SIZES.lg;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#14100f]/50 p-0 backdrop-blur-sm sm:items-center sm:p-4 lg:p-6">
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
-        className={`max-h-[95vh] w-full ${sizeClass} flex flex-col overflow-hidden rounded-t-3xl border border-[#ebe6de] bg-white shadow-2xl sm:rounded-3xl ${className}`}
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        tabIndex={-1}
+        className={`max-h-[95vh] w-full ${sizeClass} flex flex-col overflow-hidden rounded-t-3xl border border-[#ebe6de] bg-white shadow-2xl outline-none sm:rounded-3xl ${className}`}
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[#f0ebe3] px-6 py-4 sm:px-8">
           <div>
-            <h2 className="font-serif text-[20px] font-semibold tracking-tight text-[#14100f]">{title}</h2>
-            {description && <p className="mt-1 text-[12.5px] text-stone-500">{description}</p>}
+            <h2 id={titleId} className="font-serif text-[20px] font-semibold tracking-tight text-[#14100f]">{title}</h2>
+            {description && <p id={descriptionId} className="mt-1 text-[12.5px] text-stone-500">{description}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close"
-            className="rounded-xl p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+            aria-label={`Close ${title}`}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#881337]"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>

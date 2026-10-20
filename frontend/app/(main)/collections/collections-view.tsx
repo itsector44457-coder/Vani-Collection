@@ -156,7 +156,7 @@ export default function CollectionsView() {
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
                 <Link
-                  href={`/products?category=${encodeURIComponent(category.slug)}`}
+                  href={`/collections/${encodeURIComponent(category.slug)}`}
                   aria-label={`Shop ${category.name}${count !== undefined ? `, ${count} ${count === 1 ? "product" : "products"}` : ""}`}
                   className="group block rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#881337]"
                 >

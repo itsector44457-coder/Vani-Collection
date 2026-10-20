@@ -19,6 +19,7 @@ import {
   type CartSnapshot,
 } from "../lib/storefront-api";
 import type { CartItem, Product } from "../lib/storefront-types";
+import { FREE_SHIPPING_THRESHOLD } from "../lib/pricing";
 import { useAuth } from "./AuthContext";
 
 export type { CartItem, Product } from "../lib/storefront-types";
@@ -27,7 +28,8 @@ export type StoreMode = "live" | "unavailable";
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product, size: string, quantity?: number, color?: string) => Promise<void>;
+  /** Resolves true only when the line was accepted, so Buy Now and success toasts never guess. */
+  addToCart: (product: Product, size: string, quantity?: number, color?: string) => Promise<boolean>;
   removeFromCart: (id: string, size: string, color?: string) => void;
   updateQuantity: (id: string, size: string, quantity: number, color?: string) => void;
   clearCart: () => void;
@@ -51,11 +53,15 @@ interface CartContextType {
   refreshCart: () => void;
   /** Lines that cannot be sent to the backend because they lack live product identifiers. */
   hasLocalOnlyItems: boolean;
+  /** Most recently removed line, kept briefly so an accidental tap can be undone. */
+  lastRemoved: CartItem | null;
+  undoRemove: () => void;
+  dismissLastRemoved: () => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-const freeShippingThreshold = 1999;
+const freeShippingThreshold = FREE_SHIPPING_THRESHOLD;
 const OBJECT_ID = /^[0-9a-f]{24}$/i;
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
@@ -71,6 +77,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastRemoved, setLastRemoved] = useState<CartItem | null>(null);
   const [nonce, setNonce] = useState(0);
 
   const applySnapshot = useCallback((next: CartSnapshot) => {
@@ -166,9 +173,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const refreshCart = useCallback(() => setNonce((value) => value + 1), []);
 
   const addToCart = useCallback(
-    async (product: Product, size: string, quantity = 1, color?: string) => {
+    async (product: Product, size: string, quantity = 1, color?: string): Promise<boolean> => {
       setIsCartOpen(true);
       setError(null);
+
+      // Never silently substitute another SKU when the requested size/colour is not sellable.
+      // The old first-variant fallback could put the wrong size in the bag while the UI said the
+      // shopper's chosen size had been added.
+      const variants = product.variants ?? [];
+      const variant = variants.find((candidate) => candidate.size === size && (!color || candidate.color === color))
+        ?? (!size && variants.length === 1 ? variants[0] : undefined);
 
       if (!configured) {
         setCart((previous) => {
@@ -178,9 +192,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             ...previous,
             {
               id: product.id,
+              productId: product.productId,
+              sku: variant?.sku,
+              slug: product.slug,
               title: product.title,
-              price: product.price,
-              originalPrice: product.originalPrice,
+              price: variant?.price ?? product.price,
+              originalPrice: variant?.mrp ?? product.originalPrice,
               size,
               color,
               image: product.image,
@@ -189,20 +206,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             },
           ];
         });
-        return;
+        return true;
       }
 
-      const variant = product.variants?.find((candidate) => candidate.size === size && (!color || candidate.color === color))
-        ?? (!color ? product.variants?.[0] : undefined);
       if (!variant) {
-        setError("This piece is not available to order online yet — please contact the atelier.");
-        return;
+        setError("Yeh size/colour abhi online order ke liye uplabdh nahi hai — koi aur option chune ya atelier se sampark kare.");
+        return false;
       }
       setIsSyncing(true);
       try {
         applySnapshot(await addCartItem(variant.sku, quantity));
+        return true;
       } catch (cause) {
         setError((cause as Error)?.message ?? "Could not add this piece to your bag");
+        return false;
       } finally {
         setIsSyncing(false);
       }
@@ -218,6 +235,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const removeFromCart = useCallback(
     (id: string, size: string, color?: string) => {
       const line = findLine(id, size, color);
+      if (line) setLastRemoved(line);
       if (!configured || !line?.lineId) {
         setCart((previous) => previous.filter((item) => !(item.id === id && item.size === size && (color === undefined || item.color === color))));
         return;
@@ -225,11 +243,39 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setIsSyncing(true);
       removeCartLine(line.lineId)
         .then(applySnapshot)
-        .catch((cause) => setError((cause as Error)?.message ?? "Could not update your bag"))
+        .catch((cause) => {
+          setLastRemoved(null);
+          setError((cause as Error)?.message ?? "Could not update your bag");
+        })
         .finally(() => setIsSyncing(false));
     },
     [applySnapshot, configured, findLine]
   );
+
+  const undoRemove = useCallback(() => {
+    if (!lastRemoved) return;
+    const item = lastRemoved;
+    setLastRemoved(null);
+    setError(null);
+    if (configured && item.sku) {
+      setIsSyncing(true);
+      addCartItem(item.sku, item.quantity)
+        .then(applySnapshot)
+        .catch((cause) => {
+          setLastRemoved(item);
+          setError((cause as Error)?.message ?? "Could not restore this item");
+        })
+        .finally(() => setIsSyncing(false));
+      return;
+    }
+    setCart((previous) => {
+      const existing = previous.find((entry) => entry.id === item.id && entry.size === item.size && entry.color === item.color);
+      if (existing) {
+        return previous.map((entry) => (entry.id === item.id && entry.size === item.size && entry.color === item.color ? { ...entry, quantity: entry.quantity + item.quantity } : entry));
+      }
+      return [...previous, item];
+    });
+  }, [applySnapshot, configured, lastRemoved]);
 
   const updateQuantity = useCallback(
     (id: string, size: string, quantity: number, color?: string) => {
@@ -254,6 +300,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const clearCart = useCallback(() => {
     setCart([]);
     setSnapshot(null);
+    setLastRemoved(null);
     if (!configured) return;
     clearServerCart().catch(() => undefined);
   }, [configured]);
@@ -312,6 +359,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     dismissError: () => setError(null),
     refreshCart,
     hasLocalOnlyItems: configured ? cart.some((item) => !item.sku) : cart.length > 0,
+    lastRemoved,
+    undoRemove,
+    dismissLastRemoved: () => setLastRemoved(null),
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

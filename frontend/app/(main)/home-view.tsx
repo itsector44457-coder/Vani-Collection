@@ -8,14 +8,16 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
+import { useAuth } from "../../context/AuthContext";
 import type { HeroSlide, Lookbook, Testimonial, PublishedReel } from "../../lib/content";
-import { DEFAULT_TESTIMONIALS } from "../../lib/content";
 import type { CategoryStory as CmsCategoryStory } from "../../lib/content";
 import { useCatalogue } from "../../lib/use-storefront";
+import type { Product } from "../../lib/storefront-types";
 import StoryReelModal from "../../components/StoryReelModal";
 import LivingProductCard from "../../components/LivingProductCard";
 import ShopFromVideo from "../../components/ShopFromVideo";
 import { api, isApiConfigured, type StoreCategory } from "../../lib/api-client";
+import { STORE_PHONE_DISPLAY, storeWhatsAppUrl } from "../../lib/site-contact";
 
 export interface HomeViewProps {
   founder?: FounderContent;
@@ -29,6 +31,8 @@ export interface HomeViewProps {
   /** True when at least one block came from the CMS. Drives the small "live content" note. */
   fromCms?: boolean;
   reels?: PublishedReel[];
+  /** Server-rendered catalogue for first paint (SSR/ISR); the client hook skips its mount fetch when present. */
+  initialProducts?: Product[];
 }
 
 /**
@@ -49,8 +53,11 @@ export default function HomeView({
   productCollection = null,
   fromCms = false,
   reels = [],
+  initialProducts,
 }: HomeViewProps = {}) {
   const { addToCart, setQuickViewProduct, toggleWishlist, isInWishlist } = useCart();
+  const { user } = useAuth();
+  const preferredSize = user?.preferences?.preferredSize;
 
   // Multi-lookbook support: preserves every published lookbook!
   const allLookbooks = (lookbooks && lookbooks.length > 0)
@@ -73,9 +80,11 @@ export default function HomeView({
   const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<StoreCategory[]>([]);
 
-  const displayTestimonials = testimonials.length > 0 ? testimonials : DEFAULT_TESTIMONIALS;
+  // Only testimonials the shop itself published in admin are ever shown. An empty list hides the
+  // section entirely (CustomerReviews returns null) — never substitute invented customers.
+  const displayTestimonials = testimonials;
 
-  const catalogue = useCatalogue();
+  const catalogue = useCatalogue({}, { initialData: initialProducts });
   const catalogueProducts = productCollection?.productIds.length
     ? productCollection.productIds
       .map((id) => catalogue.data.find((product) => product.id === id))
@@ -601,7 +610,7 @@ export default function HomeView({
                 toggleWishlist={toggleWishlist}
                 onQuickView={setQuickViewProduct}
                 onAddToCart={addToCart}
-                selectedSize={selectedSizes[product.id] || product.sizes[0]}
+                selectedSize={selectedSizes[product.id] ?? (preferredSize && product.sizes.includes(preferredSize) ? preferredSize : undefined)}
                 onSelectSize={handleSizeChange}
               />
             ))}
@@ -730,9 +739,7 @@ export default function HomeView({
                   (pin.slug && p.slug === pin.slug) ||
                   (pin.title && p.title.toLowerCase().trim() === pin.title.toLowerCase().trim()) ||
                   (pin.title && p.title.toLowerCase().includes(pin.title.toLowerCase().trim()))
-                ) || catalogueProducts[0];
-
-                const productSize = (matchedProduct && selectedSizes[matchedProduct.id]) || (matchedProduct?.sizes?.[0]) || "M";
+                );
 
                 return (
                   <div
@@ -741,11 +748,14 @@ export default function HomeView({
                     className="absolute transform -translate-x-1/2 -translate-y-1/2 z-20"
                   >
                     <button
+                      type="button"
                       onClick={() => setActivePin(activePin === pin.id ? null : pin.id)}
-                      className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#dfc28c] text-stone-900 font-bold text-xs shadow-lg hover:scale-110 transition cursor-pointer"
+                      aria-expanded={activePin === pin.id}
+                      aria-label={`${pin.title || matchedProduct?.title || "Lookbook item"} ki jaankari ${activePin === pin.id ? "band kare" : "khole"}`}
+                      className="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-full bg-[#dfc28c] text-sm font-bold text-stone-900 shadow-lg transition hover:scale-105"
                     >
-                      <span className="absolute inset-0 rounded-full bg-[#dfc28c] animate-ping opacity-60" />
-                      <span>+</span>
+                      <span aria-hidden="true" className="absolute inset-2 rounded-full bg-[#dfc28c] opacity-60 motion-safe:animate-ping" />
+                      <span aria-hidden="true" className="relative">+</span>
                     </button>
 
                     {/* Pin Tooltip Box */}
@@ -755,7 +765,7 @@ export default function HomeView({
                           initial={{ opacity: 0, y: 10, scale: 0.95 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          className="absolute left-1/2 -translate-x-1/2 top-9 sm:top-10 w-48 sm:w-56 bg-white/95 backdrop-blur-md p-3 sm:p-3.5 rounded-xl shadow-2xl border border-stone-200 text-stone-900 z-30"
+                          className="absolute left-1/2 top-12 z-30 w-60 -translate-x-1/2 rounded-xl border border-stone-200 bg-white/95 p-3 text-stone-900 shadow-2xl backdrop-blur-md sm:w-64 sm:p-3.5"
                         >
                           <div className="flex items-start gap-2.5">
                             {matchedProduct?.image && (
@@ -789,29 +799,16 @@ export default function HomeView({
                             <span className="text-xs font-bold text-[#881337]">
                               {pin.price || (matchedProduct ? `₹${matchedProduct.price.toLocaleString("en-IN")}` : "")}
                             </span>
-                            <div className="flex items-center gap-1.5">
-                              {matchedProduct && (
-                                <button
-                                  type="button"
-                                  onClick={() => setQuickViewProduct(matchedProduct)}
-                                  className="border border-stone-300 text-stone-700 px-2 py-0.5 rounded-full text-[9px] uppercase tracking-wider font-semibold hover:border-stone-900 hover:text-stone-900 transition cursor-pointer"
-                                  title="Quick View"
-                                >
-                                  View
-                                </button>
-                              )}
+                            {matchedProduct && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (matchedProduct) {
-                                    addToCart(matchedProduct, productSize, 1);
-                                  }
-                                }}
-                                className="bg-[#1c1917] text-white px-2.5 sm:px-3 py-1 rounded-full text-[9px] sm:text-[10px] uppercase tracking-wider font-semibold hover:bg-[#881337] transition shadow-xs cursor-pointer"
+                                onClick={() => setQuickViewProduct(matchedProduct)}
+                                aria-label={`${matchedProduct.title} ke liye size chune`}
+                                className="min-h-11 cursor-pointer rounded-full bg-[#1c1917] px-3.5 py-2 text-[10px] font-semibold uppercase tracking-wider text-white shadow-xs transition hover:bg-[#881337]"
                               >
-                                + Bag
+                                Size chune
                               </button>
-                            </div>
+                            )}
                           </div>
                         </motion.div>
                       )}
@@ -958,7 +955,7 @@ export default function HomeView({
                 </div>
                 <div>
                   <p className="font-semibold text-stone-900">Concierge Desk</p>
-                  <p className="text-stone-500 mt-0.5">+91 98765-43210</p>
+                  <p className="text-stone-500 mt-0.5">{STORE_PHONE_DISPLAY}</p>
                 </div>
               </div>
 
@@ -971,7 +968,7 @@ export default function HomeView({
                   <span>→</span>
                 </Link>
                 <a
-                  href="https://wa.me/919876543210?text=Hello%20Vani%20Collection%20Atelier!"
+                  href={storeWhatsAppUrl("Hello Vani Collection Atelier!")}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 border border-stone-300 hover:border-stone-500 text-stone-800 text-xs font-semibold tracking-[0.15em] uppercase px-6 py-4 rounded-full transition"

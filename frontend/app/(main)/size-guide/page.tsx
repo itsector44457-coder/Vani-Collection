@@ -3,6 +3,7 @@ import Link from "next/link";
 import ManagedContentPage from "../../../components/ManagedContentPage";
 import BreadcrumbSchema from "@/components/seo/breadcrumb-schema";
 import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
+import { storeWhatsAppUrl } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
   title: "Size Guide & Fitting Chart | Vani Collection",
@@ -47,7 +48,10 @@ export default async function SizeGuidePage() {
       {/* Content */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-xl shadow-sm border border-[#e8dfd5] p-8 md:p-12 space-y-8">
-          
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+            Yeh aam size madad hai. Har design ka cut, fit aur lambai alag ho sakta hai — product page par di gayi custom size guide aur details ko antim maane. Do size ke beech ho to order se pehle exact garment naap puche.
+          </p>
+
           {/* How to Measure */}
           <section>
             <h2 className="font-serif text-2xl text-[#881337] mb-6">How to Measure Yourself</h2>
@@ -56,19 +60,19 @@ export default async function SizeGuidePage() {
                 <h3 className="font-semibold text-stone-800 mb-4">Measurement Tips</h3>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#881337] text-white text-xs flex items-center justify-center">1</span>
+                    <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#881337] text-xs text-white">1</span>
                     <p className="text-sm text-stone-600">Use a soft measuring tape for accurate measurements</p>
                   </div>
                   <div className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#881337] text-white text-xs flex items-center justify-center">2</span>
+                    <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#881337] text-xs text-white">2</span>
                     <p className="text-sm text-stone-600">Wear well-fitted undergarments while measuring</p>
                   </div>
                   <div className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#881337] text-white text-xs flex items-center justify-center">3</span>
+                    <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#881337] text-xs text-white">3</span>
                     <p className="text-sm text-stone-600">Keep the tape snug but not tight against your body</p>
                   </div>
                   <div className="flex items-start gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#881337] text-white text-xs flex items-center justify-center">4</span>
+                    <span aria-hidden="true" className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#881337] text-xs text-white">4</span>
                     <p className="text-sm text-stone-600">Ask someone to help you for more accurate measurements</p>
                   </div>
                 </div>
@@ -104,11 +108,11 @@ export default async function SizeGuidePage() {
               <table className="w-full text-sm border border-stone-200 rounded-lg overflow-hidden">
                 <thead className="bg-[#881337] text-white">
                   <tr>
-                    <th className="p-3 text-left">Size</th>
-                    <th className="p-3 text-center">Bust (inches)</th>
-                    <th className="p-3 text-center">Waist (inches)</th>
-                    <th className="p-3 text-center">Hips (inches)</th>
-                    <th className="p-3 text-center">Length (inches)</th>
+                    <th scope="col" className="p-3 text-left">Size</th>
+                    <th scope="col" className="p-3 text-center">Bust (inches)</th>
+                    <th scope="col" className="p-3 text-center">Waist (inches)</th>
+                    <th scope="col" className="p-3 text-center">Hips (inches)</th>
+                    <th scope="col" className="p-3 text-center">Length (inches)</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white">
@@ -166,11 +170,11 @@ export default async function SizeGuidePage() {
               <table className="w-full text-sm border border-stone-200 rounded-lg overflow-hidden">
                 <thead className="bg-[#881337] text-white">
                   <tr>
-                    <th className="p-3 text-left">Size</th>
-                    <th className="p-3 text-center">Bust (inches)</th>
-                    <th className="p-3 text-center">Waist (inches)</th>
-                    <th className="p-3 text-center">Flare (inches)</th>
-                    <th className="p-3 text-center">Length (inches)</th>
+                    <th scope="col" className="p-3 text-left">Size</th>
+                    <th scope="col" className="p-3 text-center">Bust (inches)</th>
+                    <th scope="col" className="p-3 text-center">Waist (inches)</th>
+                    <th scope="col" className="p-3 text-center">Flare (inches)</th>
+                    <th scope="col" className="p-3 text-center">Length (inches)</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white">
@@ -228,11 +232,11 @@ export default async function SizeGuidePage() {
               <table className="w-full text-sm border border-stone-200 rounded-lg overflow-hidden">
                 <thead className="bg-[#881337] text-white">
                   <tr>
-                    <th className="p-3 text-left">Size</th>
-                    <th className="p-3 text-center">Waist (inches)</th>
-                    <th className="p-3 text-center">Hips (inches)</th>
-                    <th className="p-3 text-center">Length (inches)</th>
-                    <th className="p-3 text-center">Thigh (inches)</th>
+                    <th scope="col" className="p-3 text-left">Size</th>
+                    <th scope="col" className="p-3 text-center">Waist (inches)</th>
+                    <th scope="col" className="p-3 text-center">Hips (inches)</th>
+                    <th scope="col" className="p-3 text-center">Length (inches)</th>
+                    <th scope="col" className="p-3 text-center">Thigh (inches)</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white">
@@ -305,36 +309,8 @@ export default async function SizeGuidePage() {
             </div>
           </section>
 
-          {/* Alteration Services */}
-          <section>
-            <h2 className="font-serif text-2xl text-[#881337] mb-6">Alteration Services</h2>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
-              <h3 className="font-semibold text-amber-800 mb-3">Custom Alterations Available</h3>
-              <p className="text-amber-700 text-sm mb-4">
-                Need a perfect fit? Our skilled tailors can customize any garment to your exact measurements.
-              </p>
-              <div className="grid sm:grid-cols-2 gap-4 text-sm text-amber-600">
-                <div>
-                  <h4 className="font-medium mb-2">Available Alterations:</h4>
-                  <ul className="space-y-1 text-xs">
-                    <li>• Length adjustments</li>
-                    <li>• Sleeve length modifications</li>
-                    <li>• Waist adjustments</li>
-                    <li>• Neckline alterations</li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-medium mb-2">Pricing:</h4>
-                  <ul className="space-y-1 text-xs">
-                    <li>• Length: ₹200-500</li>
-                    <li>• Sleeves: ₹150-350</li>
-                    <li>• Waist: ₹300-600</li>
-                    <li>• Complex: ₹500-1200</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </section>
+          {/* No alteration service or price is promised here: availability depends on the design
+              and must be confirmed with the atelier before ordering. */}
 
           {/* Contact for Size Help */}
           <section className="border-t border-stone-200 pt-8">
@@ -342,18 +318,18 @@ export default async function SizeGuidePage() {
             <p className="text-stone-600 mb-6">Our style consultants are here to help you find the perfect fit:</p>
             <div className="flex flex-col sm:flex-row gap-4">
               <a
-                href="https://wa.me/?text=Hi, I need help with sizing"
+                href={storeWhatsAppUrl("Hi, I need help with sizing")}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#25D366] text-white rounded-full text-sm font-medium hover:bg-[#1ea952] transition"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#25D366] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#1ea952]"
               >
-                💬 WhatsApp Size Consultant
+                💬 WhatsApp par size madad
               </a>
               <a
                 href="mailto:Vanicollectionguna@gmail.com"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#881337] text-white rounded-full text-sm font-medium hover:bg-[#701a35] transition"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#881337] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#701a35]"
               >
-                📧 Email Size Guide
+                📧 Email par size madad
               </a>
             </div>
           </section>

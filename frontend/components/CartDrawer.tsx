@@ -1,9 +1,17 @@
 "use client";
 
-import { useCart } from "../context/CartContext";
-import { useAutoAnimate } from "@formkit/auto-animate/react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAutoAnimate } from "@formkit/auto-animate/react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useCart } from "../context/CartContext";
+import { readSavedPincode, savePincode, SHIPPING_FEE_FAR, SHIPPING_FEE_LABEL, shippingFeeFor } from "../lib/pricing";
+import { checkServiceability, type Serviceability } from "../lib/storefront-api";
+import { formatPrice } from "../lib/utils";
+
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export default function CartDrawer() {
   const [cartItemsRef] = useAutoAnimate<HTMLDivElement>();
@@ -16,28 +24,121 @@ export default function CartDrawer() {
     subtotal,
     freeShippingThreshold,
     cartCount,
+    isSyncing,
+    error,
+    dismissError,
+    lastRemoved,
+    undoRemove,
+    dismissLastRemoved,
+    toggleWishlist,
+    isInWishlist,
+    hasLocalOnlyItems,
   } = useCart();
-
   const router = useRouter();
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const [pincode, setPincode] = useState("");
+  const [delivery, setDelivery] = useState<Serviceability | null>(null);
+  const [pincodeError, setPincodeError] = useState<string | null>(null);
+  const [checkingPincode, setCheckingPincode] = useState(false);
+
+  const checkPincode = useCallback(async (raw: string) => {
+    const cleaned = raw.replace(/\D/g, "").slice(0, 6);
+    if (!/^[1-9]\d{5}$/.test(cleaned)) {
+      setDelivery(null);
+      setPincodeError("Sahi 6-digit pincode likhe.");
+      return;
+    }
+    setCheckingPincode(true);
+    setPincodeError(null);
+    try {
+      const result = await checkServiceability(cleaned);
+      if (!result.serviceable) throw new Error("unserviceable");
+      setDelivery(result);
+      savePincode(cleaned);
+    } catch {
+      setDelivery(null);
+      setPincodeError("Is pincode ki delivery abhi confirm nahi ho payi. Checkout par dobara check hoga.");
+    } finally {
+      setCheckingPincode(false);
+    }
+  }, []);
+
+  /* Open: remember where focus came from, move it into the drawer, trap Tab, honour Escape. */
+  useEffect(() => {
+    if (!isCartOpen) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 80);
+
+    const saved = readSavedPincode();
+    if (saved) {
+      void Promise.resolve().then(() => {
+        setPincode((current) => current || saved);
+        void checkPincode(saved);
+      });
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setIsCartOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !drawerRef.current) return;
+      const focusable = [...drawerRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((element) => element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previouslyFocused?.focus();
+    };
+  }, [checkPincode, isCartOpen, setIsCartOpen]);
 
   const amountLeftForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
   const freeShippingProgress = Math.min(100, (subtotal / freeShippingThreshold) * 100);
+  const knownZoneFee = delivery && delivery.pincode === pincode ? delivery.shippingFee : null;
+  const shipping = shippingFeeFor(subtotal, knownZoneFee);
+  const shippingKnown = amountLeftForFreeShipping === 0 || knownZoneFee !== null;
+  const savings = cart.reduce((total, item) => total + Math.max(0, item.originalPrice - item.price) * item.quantity, 0);
+  const unavailableItems = cart.filter((item) => item.inStock === false || (typeof item.available === "number" && item.available < item.quantity));
+  const checkoutBlocked = isSyncing || unavailableItems.length > 0;
+
+  const moveToWishlist = (item: (typeof cart)[number]) => {
+    const productId = item.productId || item.id;
+    if (!isInWishlist(productId)) toggleWishlist(productId);
+    removeFromCart(item.id, item.size, item.color);
+  };
 
   return (
     <AnimatePresence>
       {isCartOpen && (
         <>
-          {/* Backdrop */}
-          <motion.div
+          <motion.button
+            type="button"
+            aria-label="Close cart"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsCartOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
           />
 
-          {/* Drawer */}
           <motion.div
+            ref={drawerRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="cart-drawer-title"
@@ -45,194 +146,153 @@ export default function CartDrawer() {
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 260 }}
-            className="fixed top-0 right-0 bottom-0 w-full sm:w-[460px] bg-[#faf7f2] z-[101] shadow-2xl flex flex-col border-l border-[#e8dfd5]"
+            className="fixed bottom-0 right-0 top-0 z-[101] flex w-full flex-col border-l border-[#e8dfd5] bg-[#faf7f2] shadow-2xl sm:w-[460px]"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
           >
-            {/* Header */}
-            <div className="p-6 border-b border-[#e8dfd5] flex items-center justify-between bg-white/70">
+            <div className="flex items-center justify-between border-b border-[#e8dfd5] bg-white/70 p-5 sm:p-6">
               <div className="flex items-center gap-2">
-                <h2 id="cart-drawer-title" className="font-serif text-2xl text-[#1c1917] tracking-wide">
-                  Your Shopping Bag
-                </h2>
-                <span className="text-xs bg-[#881337] text-white px-2 py-0.5 rounded-full font-medium">
-                  {cartCount}
-                </span>
+                <h2 id="cart-drawer-title" className="font-serif text-2xl tracking-wide text-[#1c1917]">Your Shopping Bag</h2>
+                <span className="rounded-full bg-[#881337] px-2 py-0.5 text-xs font-medium text-white" aria-label={`${cartCount} items`}>{cartCount}</span>
               </div>
-              <button
-                onClick={() => setIsCartOpen(false)}
-                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-stone-200/60 text-stone-600 transition"
-                aria-label="Close cart"
-              >
-                ✕
-              </button>
+              <button ref={closeButtonRef} type="button" onClick={() => setIsCartOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-full text-stone-600 transition hover:bg-stone-200/60" aria-label="Close cart">✕</button>
             </div>
 
-            {/* Free Shipping Progress Bar */}
-            <div className="bg-[#f2ece2] p-4 border-b border-[#e8dfd5] text-xs">
-              {amountLeftForFreeShipping > 0 ? (
-                <p className="text-stone-700 mb-2">
-                  Add <span className="font-bold text-[#881337]">₹{amountLeftForFreeShipping}</span> more to unlock <span className="font-semibold text-emerald-800">FREE Express Delivery</span>!
-                </p>
-              ) : (
-                <p className="text-emerald-800 font-semibold mb-2 flex items-center gap-1.5">
-                  <span>✓</span> You have unlocked <strong>FREE Express Shipping</strong>!
-                </p>
+            <div aria-live="polite" className="empty:hidden">
+              {isSyncing && <p className="bg-sky-50 px-4 py-2 text-center text-xs font-medium text-sky-800">Bag update ho raha hai…</p>}
+              {error && (
+                <div role="alert" className="flex items-start justify-between gap-3 bg-rose-50 px-4 py-2.5 text-xs leading-relaxed text-rose-800">
+                  <span>{error}</span>
+                  <button type="button" onClick={dismissError} aria-label="Cart error band kare" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full font-bold hover:bg-rose-100">✕</button>
+                </div>
               )}
-              <div className="w-full h-1.5 bg-stone-300 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-[#b8935a] to-[#881337] transition-all duration-500 rounded-full"
-                  style={{ width: `${freeShippingProgress}%` }}
-                />
-              </div>
+              {lastRemoved && (
+                <div className="flex flex-wrap items-center gap-2 bg-[#1c1917] px-4 py-2.5 text-xs text-white">
+                  <span className="min-w-0 flex-1 truncate">“{lastRemoved.title}” bag se hata diya.</span>
+                  <button type="button" onClick={undoRemove} className="min-h-11 rounded-full bg-white px-4 font-bold text-[#881337]">Undo</button>
+                  <button type="button" onClick={dismissLastRemoved} aria-label="Removed item sandesh band kare" className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10">✕</button>
+                </div>
+              )}
             </div>
 
-            {/* Cart Items List */}
-            <div ref={cartItemsRef} className="flex-1 overflow-y-auto p-6 space-y-5 divide-y divide-stone-200">
+            {cart.length > 0 && (
+              <div className="border-b border-[#e8dfd5] bg-[#f2ece2] p-4 text-xs">
+                {amountLeftForFreeShipping > 0 ? (
+                  <p className="mb-2 text-stone-700">Aur <strong className="text-[#881337]">{formatPrice(amountLeftForFreeShipping)}</strong> jodne par <strong className="text-emerald-800">FREE delivery</strong> mil jayegi.</p>
+                ) : (
+                  <p className="mb-2 font-semibold text-emerald-800">✓ Badhai ho — is order ki delivery FREE hai.</p>
+                )}
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-stone-300" role="progressbar" aria-label="Free shipping progress" aria-valuemin={0} aria-valuemax={freeShippingThreshold} aria-valuenow={Math.min(subtotal, freeShippingThreshold)}>
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#b8935a] to-[#881337] transition-all duration-500" style={{ width: `${freeShippingProgress}%` }} />
+                </div>
+              </div>
+            )}
+
+            <div ref={cartItemsRef} className="flex-1 divide-y divide-stone-200 overflow-y-auto p-5 sm:p-6">
               {cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-8">
-                  <div className="w-20 h-20 rounded-full bg-stone-100 flex items-center justify-center text-3xl mb-4 text-stone-400">
-                    🛍️
+                <div className="flex h-full flex-col items-center justify-center p-6 text-center">
+                  <div aria-hidden="true" className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-stone-100 text-3xl text-stone-400">🛍️</div>
+                  <h3 className="mb-2 font-serif text-xl text-stone-800">Your bag is empty</h3>
+                  <p className="mb-6 max-w-xs text-sm leading-relaxed text-stone-500">Mul cotton sets, Anarkalis aur festive pieces — apni pasand se shuruaat kare.</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button type="button" onClick={() => { setIsCartOpen(false); router.push("/products"); }} className="min-h-11 rounded-full bg-[#881337] px-5 text-xs font-bold uppercase tracking-widest text-white transition hover:bg-[#6b0f2b]">Shop bestsellers</button>
+                    <button type="button" onClick={() => { setIsCartOpen(false); router.push("/collections"); }} className="min-h-11 rounded-full border border-stone-300 bg-white px-5 text-xs font-bold uppercase tracking-widest text-stone-700 transition hover:border-[#881337] hover:text-[#881337]">Collections</button>
                   </div>
-                  <h3 className="font-serif text-xl text-stone-800 mb-2">Your Bag is Empty</h3>
-                  <p className="text-xs text-stone-500 max-w-xs mb-6">
-                    Explore our pure mul cotton handcrafted suits and festive edits crafted by Guna master artisans.
-                  </p>
-                  <button
-                    onClick={() => setIsCartOpen(false)}
-                    className="bg-[#1c1917] text-white px-6 py-3 rounded-full text-xs uppercase tracking-widest hover:bg-[#881337] transition"
-                  >
-                    Start Exploring
-                  </button>
                 </div>
               ) : (
-                cart.map((item) => (
-                  <div key={`${item.id}-${item.size}`} className="pt-4 first:pt-0 flex gap-4">
-                    <div className="w-20 h-24 relative rounded-md overflow-hidden bg-stone-100 shrink-0 border border-stone-200">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.image}
-                        alt={item.title}
-                        className="w-full h-full object-cover object-top"
-                      />
-                    </div>
-                    <div className="flex-1 flex flex-col justify-between">
-                      <div>
-                        <div className="flex justify-between items-start">
-                          <h4 className="font-serif text-sm font-semibold text-stone-900 line-clamp-2 pr-2">
-                            {item.title}
-                          </h4>
-                          <button
-                            onClick={() => removeFromCart(item.id, item.size, item.color)}
-                            className="text-stone-400 hover:text-rose-700 text-xs transition"
-                            title="Remove"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-3 text-[11px] text-stone-500 mt-1">
-                          <span className="bg-stone-200/80 px-2 py-0.5 rounded text-stone-800 font-medium">
-                            Size: {item.size}
-                          </span>
-                          {item.color && <span>{item.color}</span>}
-                        </div>
+                cart.map((item) => {
+                  const unavailable = item.inStock === false || (typeof item.available === "number" && item.available < item.quantity);
+                  const productHref = item.slug ? `/product/${item.slug}` : null;
+                  const title = <span className="line-clamp-2">{item.title}</span>;
+                  return (
+                    <article key={`${item.lineId || item.sku || item.id}-${item.size}-${item.color || ""}`} className="flex gap-4 py-4 first:pt-0">
+                      <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-md border border-stone-200 bg-stone-100">
+                        {item.image && <Image src={item.image} alt="" fill unoptimized sizes="80px" className="object-cover object-top" />}
+                        {productHref && <Link href={productHref} onClick={() => setIsCartOpen(false)} aria-label={`${item.title} ka product page khole`} className="absolute inset-0" />}
                       </div>
-
-                      <div className="flex items-center justify-between mt-3">
-                        {/* Quantity selector */}
-                        <div className="flex items-center border border-stone-300 rounded bg-white overflow-hidden text-xs">
-                          <button
-                            onClick={() => updateQuantity(item.id, item.size, item.quantity - 1, item.color)}
-                            className="px-2.5 py-1 text-stone-600 hover:bg-stone-100 transition"
-                          >
-                            -
-                          </button>
-                          <span className="px-3 py-1 font-semibold text-stone-800">
-                            {item.quantity}
-                          </span>
-                          <button
-                            onClick={() => updateQuantity(item.id, item.size, item.quantity + 1, item.color)}
-                            className="px-2.5 py-1 text-stone-600 hover:bg-stone-100 transition"
-                          >
-                            +
-                          </button>
-                        </div>
-
-                        {/* Price */}
-                        <div className="text-right">
-                          <span className="font-bold text-stone-900 text-sm">
-                            ₹{item.price * item.quantity}
-                          </span>
-                          {item.originalPrice > item.price && (
-                            <span className="block text-[10px] text-stone-400 line-through">
-                              ₹{item.originalPrice * item.quantity}
-                            </span>
+                      <div className="flex min-w-0 flex-1 flex-col justify-between">
+                        <div>
+                          <div className="flex items-start justify-between gap-2">
+                            <h3 className="font-serif text-sm font-semibold text-stone-900">
+                              {productHref ? <Link href={productHref} onClick={() => setIsCartOpen(false)} className="hover:text-[#881337]">{title}</Link> : title}
+                            </h3>
+                            <button type="button" disabled={isSyncing} onClick={() => removeFromCart(item.id, item.size, item.color)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-stone-400 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50" aria-label={`Remove ${item.title} from bag`}>✕</button>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-stone-500">
+                            {item.size && <span className="rounded bg-stone-200/80 px-2 py-0.5 font-medium text-stone-800">Size: {item.size}</span>}
+                            {item.color && <span>{item.color}</span>}
+                            {typeof item.available === "number" && item.available > 0 && item.available <= 3 && !unavailable && <span className="font-semibold text-amber-700">Sirf {item.available} bache hain</span>}
+                          </div>
+                          {unavailable && (
+                            <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-2.5 py-2 text-[11.5px] leading-relaxed text-rose-800">
+                              {typeof item.available === "number" && item.available > 0 ? `Is size me ab sirf ${item.available} uplabdh hai — quantity ghata de.` : "Yeh size abhi khatm ho gaya hai — kripya hata de ya doosra size chune."}
+                            </p>
                           )}
                         </div>
+
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center overflow-hidden rounded-full border border-stone-300 bg-white" aria-label={`${item.title} quantity`}>
+                            <button type="button" disabled={isSyncing} onClick={() => updateQuantity(item.id, item.size, item.quantity - 1, item.color)} className="flex h-11 w-11 items-center justify-center text-base text-stone-600 transition hover:bg-stone-100 disabled:opacity-50" aria-label={`Decrease quantity of ${item.title}`}>−</button>
+                            <span className="min-w-8 text-center text-sm font-bold text-stone-800" aria-live="polite">{item.quantity}</span>
+                            <button type="button" disabled={isSyncing || (typeof item.available === "number" && item.quantity >= item.available)} onClick={() => updateQuantity(item.id, item.size, item.quantity + 1, item.color)} className="flex h-11 w-11 items-center justify-center text-base text-stone-600 transition hover:bg-stone-100 disabled:opacity-50" aria-label={`Increase quantity of ${item.title}`}>+</button>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-bold text-stone-900">{formatPrice(item.price * item.quantity)}</span>
+                            {item.originalPrice > item.price && <span className="block text-[11px] text-stone-400 line-through">{formatPrice(item.originalPrice * item.quantity)}</span>}
+                          </div>
+                        </div>
+                        <button type="button" disabled={isSyncing} onClick={() => moveToWishlist(item)} className="mt-2 min-h-9 w-fit text-left text-[11.5px] font-semibold text-[#881337] hover:underline disabled:opacity-50">♡ Baad ke liye save kare (wishlist)</button>
                       </div>
-                    </div>
-                  </div>
-                ))
+                    </article>
+                  );
+                })
               )}
             </div>
 
-            {/* Footer / Checkout */}
             {cart.length > 0 && (
-              <div className="p-4 sm:p-6 pb-24 sm:pb-6 bg-white border-t border-[#e8dfd5] space-y-3 sm:space-y-4 shadow-inner">
-                {/* Subtotals */}
-                <div className="space-y-1.5 text-xs text-stone-600">
-                  <div className="flex justify-between">
-                    <span>Subtotal</span>
-                    <span className="font-semibold text-stone-900">₹{subtotal}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Shipping</span>
-                    <span>
-                      {amountLeftForFreeShipping === 0 ? (
-                        <span className="text-emerald-700 font-semibold">FREE</span>
-                      ) : (
-                        "₹99"
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm font-bold text-stone-900 pt-2 border-t border-stone-200">
-                    <span>Estimated Total</span>
-                    <span className="text-[#881337] text-base">
-                      ₹{amountLeftForFreeShipping === 0 ? subtotal : subtotal + 99}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-stone-400 text-center">
-                    Coupon codes can be applied at checkout.
-                  </p>
-                </div>
-
-                {/* Checkout button */}
-                <button
-                  onClick={() => { setIsCartOpen(false); router.push("/checkout"); }}
-                  className="w-full bg-[#881337] hover:bg-[#6b0f2b] text-white py-3.5 rounded-full text-xs uppercase tracking-[0.2em] font-semibold transition shadow-md flex items-center justify-center gap-2 group cursor-pointer"
+              <div className="space-y-3 border-t border-[#e8dfd5] bg-white p-4 shadow-inner sm:p-6 sm:pb-6">
+                <form
+                  onSubmit={(event) => { event.preventDefault(); void checkPincode(pincode); }}
+                  className="rounded-2xl bg-[#faf7f2] p-3"
                 >
-                  <span>Proceed to Checkout</span>
-                  <span className="group-hover:translate-x-1 transition-transform">→</span>
-                </button>
-
-                {/* Secure Payment & Gateway Mini-Strip */}
-                <div className="pt-2 border-t border-stone-100 flex flex-col items-center gap-1.5 text-center">
-                  <div className="flex items-center gap-1.5 text-[10.5px] font-medium text-stone-500">
-                    <svg className="w-3 h-3 text-emerald-600 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                      <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3H6a2.25 2.25 0 00-2.25 2.25v8.5A2.25 2.25 0 006 22.75h12a2.25 2.25 0 002.25-2.25v-8.5A2.25 2.25 0 0018 9.75h-.75v-3A5.25 5.25 0 0012 1.5zm-3.25 5.25a3.25 3.25 0 016.5 0v3h-6.5v-3zM12 13a1.5 1.5 0 00-1 2.618V18a1 1 0 102 0v-2.382A1.5 1.5 0 0012 13z" clipRule="evenodd" />
-                    </svg>
-                    <span>100% Secure &amp; Encrypted Checkout</span>
+                  <label htmlFor="cart-pincode" className="text-xs font-bold text-stone-700">Delivery pincode check kare</label>
+                  <div className="mt-2 flex gap-2">
+                    <input id="cart-pincode" value={pincode} onChange={(event) => { setPincode(event.target.value.replace(/\D/g, "").slice(0, 6)); setPincodeError(null); }} inputMode="numeric" autoComplete="postal-code" placeholder="473001" className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3 text-sm tracking-widest outline-none focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15" />
+                    <button type="submit" disabled={checkingPincode || pincode.length !== 6} className="min-h-11 shrink-0 rounded-xl bg-[#1c1917] px-4 text-xs font-bold text-white disabled:opacity-50">{checkingPincode ? "Check…" : "Check"}</button>
                   </div>
-                  <div className="flex items-center gap-1.5 opacity-80">
-                    {/* Mini UPI */}
-                    <span className="px-1.5 py-0.5 rounded bg-stone-100 text-[9px] font-black text-stone-700 border border-stone-200">UPI</span>
-                    {/* Mini GPay */}
-                    <span className="px-1.5 py-0.5 rounded bg-stone-100 text-[9px] font-black text-stone-700 border border-stone-200">GPay</span>
-                    {/* Mini PhonePe */}
-                    <span className="px-1.5 py-0.5 rounded bg-stone-100 text-[9px] font-black text-[#5f259f] border border-stone-200">PhonePe</span>
-                    {/* Mini Cards */}
-                    <span className="px-1.5 py-0.5 rounded bg-stone-100 text-[9px] font-black text-blue-900 border border-stone-200">Cards</span>
-                    {/* Mini COD */}
-                    <span className="px-1.5 py-0.5 rounded bg-amber-50 text-[9px] font-black text-amber-800 border border-amber-200">COD</span>
+                  <div aria-live="polite">
+                    {pincodeError && <p className="mt-2 text-[11.5px] leading-relaxed text-rose-700">{pincodeError}</p>}
+                    {delivery && delivery.pincode === pincode && (
+                      <p className="mt-2 text-[11.5px] leading-relaxed text-emerald-800">✓ {delivery.pincode} par delivery uplabdh hai · lagbhag {delivery.etaDays} din · {delivery.cod ? "COD uplabdh" : "Sirf online payment"} · shipping {amountLeftForFreeShipping === 0 ? "FREE" : formatPrice(delivery.shippingFee)}</p>
+                    )}
+                  </div>
+                </form>
+
+                <dl className="space-y-1.5 text-xs text-stone-600">
+                  <div className="flex justify-between"><dt>Subtotal</dt><dd className="font-semibold text-stone-900">{formatPrice(subtotal)}</dd></div>
+                  {savings > 0 && <div className="flex justify-between text-emerald-700"><dt>Aapki bachat (MRP se)</dt><dd className="font-semibold">−{formatPrice(savings)}</dd></div>}
+                  <div className="flex justify-between">
+                    <dt>Shipping</dt>
+                    <dd>{amountLeftForFreeShipping === 0 ? <span className="font-semibold text-emerald-700">FREE</span> : shippingKnown ? formatPrice(shipping) : `${SHIPPING_FEE_LABEL} (pincode par)`}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-stone-200 pt-2 text-sm font-bold text-stone-900">
+                    <dt>Estimated total</dt>
+                    <dd className="text-base text-[#881337]">{shippingKnown ? formatPrice(subtotal + shipping) : `${formatPrice(subtotal + 79)}–${formatPrice(subtotal + SHIPPING_FEE_FAR)}`}</dd>
+                  </div>
+                  <p className="text-center text-[11px] leading-relaxed text-stone-400">Tax included hai. Coupon checkout par lagega; final shipping pincode se confirm hogi.</p>
+                </dl>
+
+                {unavailableItems.length > 0 && <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-[11.5px] leading-relaxed text-rose-800">Kuch items ab uplabdh nahi hain — checkout se pehle unhe hataye ya quantity ghata de.</p>}
+                {hasLocalOnlyItems && <p className="rounded-xl bg-amber-50 px-3 py-2 text-[11.5px] leading-relaxed text-amber-800">Kuch items abhi online order ke liye ready nahi hain; checkout par final jaanch hogi.</p>}
+
+                <button type="button" disabled={checkoutBlocked} onClick={() => { setIsCartOpen(false); router.push("/checkout"); }} className="group flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#881337] py-3.5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-md transition hover:bg-[#6b0f2b] disabled:cursor-not-allowed disabled:opacity-50">
+                  <span>{isSyncing ? "Bag update ho raha hai…" : "Proceed to checkout"}</span><span aria-hidden="true" className="transition-transform group-hover:translate-x-1">→</span>
+                </button>
+                <button type="button" onClick={() => setIsCartOpen(false)} className="min-h-10 w-full text-center text-xs font-semibold text-stone-600 underline-offset-2 hover:text-[#881337] hover:underline">Shopping jaari rakhe</button>
+
+                <div className="flex flex-col items-center gap-1.5 border-t border-stone-100 pt-2 text-center">
+                  <p className="text-[10.5px] font-medium text-stone-500">🔒 100% Secure &amp; Encrypted Checkout</p>
+                  <div className="flex items-center gap-1.5 opacity-80" aria-label="Accepted payments: UPI, GPay, PhonePe, cards and Cash on Delivery">
+                    {["UPI", "GPay", "PhonePe", "Cards", "COD"].map((label) => <span key={label} className="rounded border border-stone-200 bg-stone-100 px-1.5 py-0.5 text-[9px] font-black text-stone-700">{label}</span>)}
                   </div>
                 </div>
               </div>

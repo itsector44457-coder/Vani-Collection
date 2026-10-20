@@ -98,10 +98,10 @@ const ACCOUNT: NavItem[] = [
 ];
 
 const FALLBACK_CATEGORIES = [
-  { name: "Sarees", href: "/products?category=festive" },
-  { name: "Anarkalis", href: "/products?category=anarkalis" },
-  { name: "Co-ord Sets", href: "/products?category=coord-sets" },
-  { name: "Mul Cotton", href: "/products?category=mul-cotton" },
+  { name: "Sarees", href: "/collections/sarees" },
+  { name: "Anarkalis", href: "/collections/anarkalis" },
+  { name: "Co-ord Sets", href: "/collections/coord-sets" },
+  { name: "Mul Cotton", href: "/collections/mul-cotton" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -256,7 +256,7 @@ export default function ReelsSidebar() {
         <ul className="space-y-px">
           {(categories.length ? categories.map((category) => ({
             name: category.name,
-            href: `/products?category=${encodeURIComponent(category.slug)}`,
+            href: `/collections/${encodeURIComponent(category.slug)}`,
           })) : FALLBACK_CATEGORIES).slice(0, 8).map((c) => (
             <li key={c.href}>
               <Link

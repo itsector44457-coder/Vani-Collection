@@ -65,7 +65,7 @@ export default function CustomerReviews({ reviews }: { reviews: Testimonial[] })
                     </div>
                     <p id={`review-${review.id}`} className={`mt-2 text-[11px] leading-[1.7] text-stone-500 ${isExpanded ? "" : "line-clamp-2 min-h-[38px]"}`}>{review.comment}</p>
                     {isExpanded && <p className="mt-2 text-[10px] text-stone-400">{[review.product, review.city, review.date].filter(Boolean).join(" · ")}</p>}
-                    <button type="button" aria-expanded={isExpanded} aria-controls={`review-${review.id}`} onClick={() => setExpanded((current) => isExpanded ? current.filter((id) => id !== review.id) : [...current, review.id])} className="mt-4 min-h-9 border-b border-[#8b293f] px-1 text-[9px] font-medium uppercase tracking-wide text-[#8b293f] transition hover:text-black">
+                    <button type="button" aria-expanded={isExpanded} aria-controls={`review-${review.id}`} onClick={() => setExpanded((current) => isExpanded ? current.filter((id) => id !== review.id) : [...current, review.id])} className="mt-3 min-h-11 border-b border-[#8b293f] px-2 text-[10px] font-medium uppercase tracking-wide text-[#8b293f] transition hover:text-black">
                       {isExpanded ? "Read less" : "Read more"}
                     </button>
                   </div>
@@ -74,7 +74,7 @@ export default function CustomerReviews({ reviews }: { reviews: Testimonial[] })
             })}
           </div>
           {!showAll && (["left", "right"] as const).map((direction) => (
-            <button key={direction} type="button" disabled={!edges[direction]} aria-label={direction === "left" ? "Previous customer review" : "Next customer review"} onClick={() => { const element = track.current; if (element) element.scrollBy({ left: (direction === "left" ? -1 : 1) * (element.firstElementChild?.getBoundingClientRect().width || element.clientWidth) + (direction === "left" ? -20 : 20), behavior: "smooth" }); }} className={`absolute top-[43%] flex h-9 w-9 items-center justify-center rounded-full border border-[#efdcd4] bg-white text-[#8b293f] shadow-sm transition hover:bg-[#f8eee8] disabled:hidden ${direction === "left" ? "-left-3 sm:-left-4" : "-right-3 sm:-right-4"}`}>
+            <button key={direction} type="button" disabled={!edges[direction]} aria-label={direction === "left" ? "Previous customer review" : "Next customer review"} onClick={() => { const element = track.current; if (element) element.scrollBy({ left: (direction === "left" ? -1 : 1) * (element.firstElementChild?.getBoundingClientRect().width || element.clientWidth) + (direction === "left" ? -20 : 20), behavior: "smooth" }); }} className={`absolute top-[43%] flex h-11 w-11 items-center justify-center rounded-full border border-[#efdcd4] bg-white text-[#8b293f] shadow-sm transition hover:bg-[#f8eee8] disabled:hidden ${direction === "left" ? "-left-3 sm:-left-4" : "-right-3 sm:-right-4"}`}>
               <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={direction === "left" ? "m14 6-6 6 6 6" : "m10 6 6 6-6 6"} /></svg>
             </button>
           ))}

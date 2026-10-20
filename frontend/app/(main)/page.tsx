@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import FaqSchema from "../../components/seo/faq-schema";
-import { fetchHomepageContent, fetchPublishedReels, DEFAULT_TESTIMONIALS } from "../../lib/content";
+import { fetchHomepageContent, fetchPublishedReels } from "../../lib/content";
+import { fetchServerProducts } from "../../lib/server-catalogue";
 import { absoluteUrl } from "../../lib/seo";
 import HomeView from "./home-view";
 
-/** Published CMS changes are read on the next homepage request; do not cache the page output. */
-export const revalidate = 0;
+/**
+ * ISR: the homepage is regenerated at most every five minutes. CMS edits and price/stock changes
+ * appear within that window; in return shoppers and crawlers get a cached page whose product grid
+ * is already rendered in the HTML (see `fetchServerProducts` below) instead of a per-request build.
+ */
+export const revalidate = 300;
 
 /**
  * The homepage is the one route whose canonical is unambiguous, so it is declared here rather than
@@ -18,14 +23,16 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [content, reels] = await Promise.all([
+  const [content, reels, initialCatalogue] = await Promise.all([
     fetchHomepageContent({
       banners: [],
-      testimonials: DEFAULT_TESTIMONIALS,
       lookbook: { title: "", subtitle: "", image: "", pins: [] },
       stories: [],
     }),
     fetchPublishedReels(),
+    // Server-rendered first paint for the shop-the-look grid; `null` (catalogue unreachable) keeps
+    // the previous client-fetch behaviour inside HomeView.
+    fetchServerProducts({ limit: 60 }),
   ]);
 
   return (
@@ -44,6 +51,7 @@ export default async function HomePage() {
         productCollection={content.productCollection}
         fromCms={content.fromCms}
         reels={reels}
+        initialProducts={initialCatalogue?.products}
       />
     </>
   );

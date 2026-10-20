@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { isApiConfigured } from "../../lib/api-client";
 
 function LoginContent() {
   const router = useRouter();

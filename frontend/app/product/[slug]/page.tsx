@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { notFound, permanentRedirect } from "next/navigation";
 import ProductView from "./product-view";
 import ProductSchema from "@/components/seo/product-schema";
+import { fetchServerProduct } from "@/lib/server-catalogue";
 import {
   absoluteUrl,
   categoryLabel,
@@ -14,6 +16,15 @@ import {
 interface ProductPageProps {
   params: Promise<{ slug: string }>;
 }
+
+/**
+ * Resolve product pages on the server for every request. The catalogue fetch itself still uses a
+ * five-minute Data Cache window, but keeping this segment out of the static/ISR fallback shell is
+ * what allows a definite catalogue 404 to be returned as a real HTTP 404 instead of a streamed
+ * soft-404 under an already-sent 200 status. Admin-created products also become reachable without
+ * waiting for a rebuild.
+ */
+export const dynamic = "force-dynamic";
 
 /** A readable fallback title derived from the URL — used only when the catalogue is unreachable. */
 const labelFromSlug = (slug: string): string =>
@@ -37,6 +48,13 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const canonical = absoluteUrl(`/product/${slug}`);
 
   if (!product) {
+    // `fetchSeoProduct` collapses a real catalogue 404 and an API outage into the same `null`.
+    // Resolve that distinction during metadata generation, before the streamed body can lock in a
+    // 200 header: only a definite API 404 becomes HTTP 404, while an unavailable catalogue keeps
+    // the honest slug-derived fallback below and lets the client recover.
+    const existence = await fetchServerProduct(slug);
+    if (existence.status === "not_found") notFound();
+
     const fallbackTitle = `${labelFromSlug(slug)} | ${SITE_NAME}`;
     const fallbackDescription = `${labelFromSlug(slug)} from ${SITE_NAME} — ${SITE_TAGLINE.toLowerCase()}, handcrafted in Guna.`;
     return {
@@ -102,10 +120,20 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
 
+  // Resolve the product on the server: a definite API 404 becomes a real HTTP 404 (not a soft-404
+  // rendered by client JS), a renamed product permanently redirects from its old slug, and a found
+  // product is handed to the client view as initial data so the buy panel is in the first HTML.
+  const result = await fetchServerProduct(slug);
+  if (result.status === "not_found") notFound();
+  const initialProduct = result.status === "found" ? result.product : null;
+  if (initialProduct?.slug && initialProduct.slug !== slug) {
+    permanentRedirect(`/product/${initialProduct.slug}`);
+  }
+
   return (
     <>
       <ProductSchema slug={slug} />
-      <ProductView slug={slug} />
+      <ProductView slug={slug} initialProduct={initialProduct} />
     </>
   );
 }

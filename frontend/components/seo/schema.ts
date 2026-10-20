@@ -7,6 +7,7 @@
  */
 
 import { compact, type JsonLdValue } from "./json-ld";
+import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE_FAR, SHIPPING_FEE_NEAR } from "@/lib/pricing";
 import {
   absoluteUrl,
   categoryLabel,
@@ -172,7 +173,7 @@ export function productBreadcrumbSchema(product: SeoProduct): BreadcrumbEntry[] 
   return [
     { name: "Home", path: "/" },
     { name: "Our Collection", path: "/products" },
-    { name: categoryLabel(product.category), path: `/products?category=${encodeURIComponent(product.category)}` },
+    { name: categoryLabel(product.category), path: `/collections/${encodeURIComponent(product.category)}` },
     { name: product.name, path: `/product/${product.slug}` },
   ];
 }
@@ -251,13 +252,25 @@ export function productSchema({ product, reviewSummary = null, reviews = [] }: P
 
   const seller = { "@type": "Organization" as const, name: SITE_NAME };
 
-  const shippingDetails = {
+  /*
+   * Shipping is free only at the shared discounted-subtotal threshold. Below it, the real fee is
+   * the pincode-zone range (₹79 near / ₹99 far), so the schema publishes that range instead of
+   * falsely promising ₹0 shipping on every product.
+   */
+  const shippingDetailsFor = (price: number) => ({
     "@type": "OfferShippingDetails",
-    shippingRate: {
-      "@type": "MonetaryAmount",
-      value: "0.00",
-      currency: "INR",
-    },
+    shippingRate: price >= FREE_SHIPPING_THRESHOLD
+      ? {
+          "@type": "MonetaryAmount",
+          value: "0.00",
+          currency: "INR",
+        }
+      : {
+          "@type": "MonetaryAmount",
+          minValue: SHIPPING_FEE_NEAR.toFixed(2),
+          maxValue: SHIPPING_FEE_FAR.toFixed(2),
+          currency: "INR",
+        },
     shippingDestination: {
       "@type": "DefinedRegion",
       addressCountry: "IN",
@@ -266,18 +279,18 @@ export function productSchema({ product, reviewSummary = null, reviews = [] }: P
       "@type": "ShippingDeliveryTime",
       handlingTime: {
         "@type": "QuantitativeValue",
-        minValue: 1,
-        maxValue: 2,
+        minValue: 2,
+        maxValue: 3,
         unitCode: "d",
       },
       transitTime: {
         "@type": "QuantitativeValue",
         minValue: 3,
-        maxValue: 7,
+        maxValue: 6,
         unitCode: "d",
       },
     },
-  };
+  });
 
   const hasMerchantReturnPolicy = {
     "@type": "MerchantReturnPolicy",
@@ -298,7 +311,7 @@ export function productSchema({ product, reviewSummary = null, reviews = [] }: P
         availability: availability ?? undefined,
         itemCondition: "https://schema.org/NewCondition",
         seller,
-        shippingDetails,
+        shippingDetails: shippingDetailsFor(lowPrice),
         hasMerchantReturnPolicy,
       })
     : compact({
@@ -308,7 +321,7 @@ export function productSchema({ product, reviewSummary = null, reviews = [] }: P
         offerCount: pool.length,
         priceCurrency: "INR",
         availability: availability ?? undefined,
-        shippingDetails,
+        shippingDetails: shippingDetailsFor(lowPrice),
         hasMerchantReturnPolicy,
         offers: pool.slice(0, 20).map((variant) =>
           compact({
@@ -322,7 +335,7 @@ export function productSchema({ product, reviewSummary = null, reviews = [] }: P
             availability: availabilityFromInventory(product.inventory, [variant]) ?? undefined,
             itemCondition: "https://schema.org/NewCondition",
             seller,
-            shippingDetails,
+            shippingDetails: shippingDetailsFor(variant.price),
             hasMerchantReturnPolicy,
           })
         ),
@@ -381,8 +394,19 @@ export function faqSchema(entries: FaqEntry[]): JsonLdValue | null {
 
 /* --------------------------------------------------------------- WebPage types */
 
-/** CollectionPage for `/products` and its category filters. */
-export function collectionPageSchema(title: string, description: string, path: string, productNames: string[] = []): JsonLdValue {
+/**
+ * CollectionPage for `/products`, category landings and the journal index.
+ *
+ * When product URLs are known they are emitted both as `hasPart` Product nodes (with `url`) and as
+ * a `mainEntity` ItemList — a list of names alone tells a crawler nothing it can follow.
+ */
+export function collectionPageSchema(
+  title: string,
+  description: string,
+  path: string,
+  productNames: string[] = [],
+  productItems: { name: string; slug: string }[] = []
+): JsonLdValue {
   const url = absoluteUrl(path);
   return compact({
     "@type": "CollectionPage",
@@ -397,7 +421,23 @@ export function collectionPageSchema(title: string, description: string, path: s
       { name: "Home", path: "/" },
       { name: title, path },
     ]) ?? undefined,
-    hasPart: productNames.slice(0, 30).map((name) => compact({ "@type": "Product", name })),
+    hasPart: productItems.length
+      ? productItems.slice(0, 30).map((item) => compact({ "@type": "Product", name: item.name, url: absoluteUrl(`/product/${item.slug}`) }))
+      : productNames.slice(0, 30).map((name) => compact({ "@type": "Product", name })),
+    mainEntity: productItems.length
+      ? compact({
+          "@type": "ItemList",
+          numberOfItems: productItems.length,
+          itemListElement: productItems.slice(0, 30).map((item, index) =>
+            compact({
+              "@type": "ListItem",
+              position: index + 1,
+              name: item.name,
+              item: absoluteUrl(`/product/${item.slug}`),
+            })
+          ),
+        })
+      : undefined,
   });
 }
 
@@ -414,5 +454,42 @@ export function itemPageSchema(product: SeoProduct, title: string, description: 
     isPartOf: { "@id": `${SITE_URL}/#website` },
     about: { "@id": `${url}#product` },
     breadcrumb: breadcrumbSchema(productBreadcrumbSchema(product)) ?? undefined,
+  });
+}
+
+/* --------------------------------------------------------------- Journal article */
+
+export interface JournalArticleSchemaInput {
+  title: string;
+  description: string;
+  slug: string;
+  image?: string;
+  author: string;
+  category?: string;
+  tags?: string[];
+  datePublished?: string;
+  dateModified?: string;
+}
+
+/** BlogPosting for a `/journal/<slug>` article — dates and images are only claimed when real. */
+export function articleSchema(input: JournalArticleSchemaInput): JsonLdValue {
+  const url = absoluteUrl(`/journal/${input.slug}`);
+  const published = input.datePublished ? new Date(input.datePublished) : undefined;
+  const modified = input.dateModified ? new Date(input.dateModified) : undefined;
+  return compact({
+    "@type": "BlogPosting",
+    "@id": `${url}#article`,
+    url,
+    headline: input.title,
+    description: input.description,
+    image: input.image ? [absoluteUrl(input.image)] : undefined,
+    author: compact({ "@type": "Person", name: input.author }),
+    publisher: { "@id": `${SITE_URL}/#organization` },
+    mainEntityOfPage: compact({ "@type": "WebPage", "@id": url }),
+    articleSection: input.category || undefined,
+    keywords: input.tags?.length ? input.tags.join(", ") : undefined,
+    datePublished: published && !Number.isNaN(published.getTime()) ? published.toISOString() : undefined,
+    dateModified: modified && !Number.isNaN(modified.getTime()) ? modified.toISOString() : undefined,
+    inLanguage: SITE_LOCALE,
   });
 }

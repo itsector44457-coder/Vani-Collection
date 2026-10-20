@@ -14,6 +14,15 @@ const categoryInput = z.object({
   name: z.string().trim().min(2).max(80),
   slug: z.string().trim().toLowerCase().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   description: z.string().trim().max(500).optional(),
+  guideContent: z.string().trim().max(12000).optional(),
+  seo: z.object({
+    title: z.string().trim().max(120).optional(),
+    description: z.string().trim().max(320).optional(),
+  }).optional(),
+  faqs: z.array(z.object({
+    question: z.string().trim().min(3).max(300),
+    answer: z.string().trim().min(3).max(2000),
+  })).max(10).optional(),
   bannerImage: z.string().trim().max(2000).refine((value) => {
     if (!value || /^\/(?!\/)/.test(value)) return true;
     try { return ['http:', 'https:'].includes(new URL(value).protocol); } catch { return false; }

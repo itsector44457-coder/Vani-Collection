@@ -13,6 +13,7 @@ import {
 } from "@/lib/admin-ui";
 import MediaUploadField from "@/components/admin/MediaUploadField";
 import { api, ApiError } from "@/lib/api-client";
+import { STORE_PHONE_DISPLAY, STORE_WHATSAPP_NUMBER } from "@/lib/site-contact";
 
 /* ─── Types ─── */
 interface AtelierBlocks {
@@ -78,8 +79,8 @@ export default function AdminAboutPage() {
     heroSubtitle: "Vani Collection was founded with a singular, unyielding devotion: to rescue India's most treasured handloom textiles from machine replication and restore pure, breathable luxury to the modern woman's wardrobe.",
     location: "Station Road, Guna, Madhya Pradesh",
     hours: "Mon \u2013 Sat \u00b7 10:30 AM \u2013 7:30 PM",
-    phone: "+91 98765-43210",
-    waPhone: "919876543210",
+    phone: STORE_PHONE_DISPLAY,
+    waPhone: STORE_WHATSAPP_NUMBER,
     storyPara1: "In an era dominated by synthetic polyesters and cold, hurried mass-production factories, Vani Collection took the road less traveled \u2014 back to the sun-baked artisan colonies of Bagru, Sanganer, and Patan.",
     storyPara2: "We started with just three wooden looms and five fifth-generation master block carvers who feared their ancestral craft would disappear forever.",
     statBadgeNumber: "1,200+",
@@ -162,7 +163,7 @@ export default function AdminAboutPage() {
       await Promise.all(
         sustain.map((s) =>
           api.upsertContent(s.key, {
-            kind: "testimonial",
+            kind: "section",
             title: s.title, body: s.desc,
             blocks: { icon: s.icon },
             status: "published",
@@ -281,7 +282,7 @@ export default function AdminAboutPage() {
               <Field label="Phone (display)">
                 <TextInput id="phone" value={atelier.phone} onChange={(e) => setAtelier({ ...atelier, phone: e.target.value })} disabled={busy} />
               </Field>
-              <Field label="WhatsApp Number" hint="Numbers only, e.g. 919876543210">
+              <Field label="WhatsApp Number" hint={`Country code ke saath sirf numbers, e.g. ${STORE_WHATSAPP_NUMBER}`}>
                 <TextInput id="waPhone" value={atelier.waPhone} onChange={(e) => setAtelier({ ...atelier, waPhone: e.target.value })} disabled={busy} />
               </Field>
             </Card>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import ManagedContentPage from "../../../components/ManagedContentPage";
 import BreadcrumbSchema from "@/components/seo/breadcrumb-schema";
 import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
+import { STORE_PHONE_DISPLAY } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
   title: "Privacy Policy | Vani Collection",
@@ -296,7 +297,7 @@ export default async function PrivacyPage() {
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Privacy Officer</h4>
                 <p className="text-sm text-stone-600 mb-1">📧 Vanicollectionguna@gmail.com</p>
-                <p className="text-sm text-stone-600">📱 +91 98765-43210</p>
+                <p className="text-sm text-stone-600">📱 {STORE_PHONE_DISPLAY}</p>
               </div>
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Mailing Address</h4>

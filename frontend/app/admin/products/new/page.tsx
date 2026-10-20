@@ -7,6 +7,7 @@ import { Card } from "@/lib/admin-ui";
 import { api, apiFetch, ApiError, isApiConfigured, type StoreCategory } from "@/lib/api-client";
 import MediaUploadField from "@/components/admin/MediaUploadField";
 import ColorSelect from "@/components/admin/ColorSelect";
+import ProductSeoPanel from "@/components/admin/ProductSeoPanel";
 
 interface VariantDraft {
   size: string;
@@ -77,6 +78,8 @@ export default function NewProductPage() {
   const [shortDescription, setShortDescription] = useState("");
   const [description, setDescription] = useState("");
   const [sizeGuide, setSizeGuide] = useState("");
+  const [seoTitle, setSeoTitle] = useState("");
+  const [seoDescription, setSeoDescription] = useState("");
   const [imageUrls, setImageUrls] = useState("");
   const [hoverImageUrl, setHoverImageUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
@@ -184,7 +187,7 @@ export default function NewProductPage() {
         mrp: mrp + variant.priceDelta,
         price: price + variant.priceDelta,
         color: color.name,
-        images: color.images.map((url, position) => ({ url, alt: `${name} ${color.name}`, position })),
+        images: color.images.map((url, position) => ({ url, alt: `${name} in ${color.name} — photo ${position + 1}`, position })),
         weightGrams: 700,
         stock: variant.stock,
       };
@@ -222,10 +225,11 @@ export default function NewProductPage() {
             .split(/[\n,]/)
             .map((url) => url.trim())
             .filter(Boolean)
-            .map((url, position) => ({ url, alt: name, position })),
+            .map((url, position) => ({ url, alt: `${name} — photo ${position + 1}`, position })),
           hoverImage: parsedImageUrls.includes(hoverImageUrl) ? hoverImageUrl : "",
           videos: videoUrl.trim() ? [{ url: videoUrl.trim(), kind: "loom" }] : [],
           variants: variantPayload,
+          seo: { title: seoTitle.trim() || undefined, description: seoDescription.trim() || undefined },
           status,
           featured,
           tags: [category, "handcrafted"],
@@ -539,6 +543,22 @@ export default function NewProductPage() {
             </div>
           </div>
         </Card>
+
+        <ProductSeoPanel
+          idPrefix="new"
+          productName={name}
+          slug={effectiveSlug}
+          shortDescription={shortDescription}
+          description={description}
+          fabric={fabric}
+          categorySelected={categories.some((item) => item.slug === category)}
+          imageCount={hoverImageChoices.length + colors.reduce((sum, color) => sum + color.images.length, 0)}
+          hasSellablePrice={price > 0 && sizes.length > 0}
+          seoTitle={seoTitle}
+          seoDescription={seoDescription}
+          onSeoTitleChange={setSeoTitle}
+          onSeoDescriptionChange={setSeoDescription}
+        />
 
         <Card title="Publishing">
           <div className="flex flex-wrap items-center gap-5">

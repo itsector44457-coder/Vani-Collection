@@ -6,6 +6,7 @@ const Product = require('../../models/Product');
 const Inventory = require('../../models/Inventory');
 const ReturnRequest = require('../../models/ReturnRequest');
 const User = require('../../models/User');
+const NewsletterSubscriber = require('../../models/NewsletterSubscriber');
 const { z } = require('zod');
 const { validate } = require('../middleware/validate');
 const { requireRoles } = require('../middleware/auth');
@@ -14,8 +15,9 @@ const { AppError, asyncHandler } = require('../lib/errors');
 const { PINCODE_RE, serviceability } = require('../services/shipping');
 const { FREE_SHIPPING_THRESHOLD, shippingFeeFor } = require('../services/pricing');
 const { queueEmail, sendRaw, orderEmailData, orderRecipient } = require('../services/email');
+const { candidateFilter, rankProducts } = require('../services/catalogue-search');
 
-module.exports = ({ config, auth }) => {
+module.exports = ({ config, auth, optionalAuth }) => {
   const router = express.Router();
 
   router.get('/shipping/serviceability', asyncHandler(async (req, res) => {
@@ -32,23 +34,111 @@ module.exports = ({ config, auth }) => {
     res.json({ data: { ...rate, fee, freeAbove: FREE_SHIPPING_THRESHOLD, total: req.body.subtotal + fee } });
   }));
 
-  router.post('/payments/razorpay/verify', auth, validate(z.object({ orderId: z.string(), razorpay_order_id: z.string(), razorpay_payment_id: z.string(), razorpay_signature: z.string() })), asyncHandler(async (req, res) => {
+  /**
+   * Razorpay signature check, usable by guests too (guest checkout). The signature alone is not
+   * enough: the supplied provider order MUST be the one minted for this internal order — otherwise
+   * a cheap payment from one order could "pay" for an expensive one — and an account order can only
+   * be confirmed by its owner. Nothing is mutated on a failed signature; the signed webhook remains
+   * the authority for failed/pending payments, and the reply stays thin (no address/PII echo).
+   */
+  router.post('/payments/razorpay/verify', optionalAuth, validate(z.object({ orderId: z.string(), razorpay_order_id: z.string(), razorpay_payment_id: z.string(), razorpay_signature: z.string() })), asyncHandler(async (req, res) => {
     if (!config.RAZORPAY_KEY_SECRET) throw new AppError(503, 'PAYMENT_NOT_CONFIGURED', 'Online payment is not configured');
-    const order = await Order.findById(req.body.orderId); if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
-    const expected = crypto.createHmac('sha256', config.RAZORPAY_KEY_SECRET).update(`${req.body.razorpay_order_id}|${req.body.razorpay_payment_id}`).digest('hex');
-    if (expected !== req.body.razorpay_signature) { order.payment.status = 'failed'; await order.save(); throw new AppError(400, 'PAYMENT_VERIFICATION_FAILED', 'Payment signature could not be verified'); }
-    order.payment.status = 'paid'; order.payment.providerPaymentId = req.body.razorpay_payment_id; order.payment.paidAt = new Date(); order.status = 'confirmed';
-    order.statusHistory.push({ status: 'confirmed', actor: 'customer', note: 'Payment captured' });
-    await order.save();
-    res.json({ data: order });
+    const order = await Order.findById(req.body.orderId).catch(() => null);
+    if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+    if (order.customerId && String(order.customerId) !== String(req.user?.id || '')) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+    if (order.payment?.method !== 'razorpay' || !order.payment.providerOrderId || order.payment.providerOrderId !== req.body.razorpay_order_id) {
+      throw new AppError(400, 'PAYMENT_VERIFICATION_FAILED', 'Payment does not match this order');
+    }
+    if (order.status !== 'cancelled' && order.payment.status === 'paid' && order.payment.providerPaymentId === req.body.razorpay_payment_id) {
+      return res.json({ data: { _id: order.id, orderNumber: order.orderNumber, status: order.status, payment: { status: order.payment.status } } });
+    }
+    const expected = crypto.createHmac('sha256', config.RAZORPAY_KEY_SECRET).update(`${req.body.razorpay_order_id}|${req.body.razorpay_payment_id}`).digest();
+    const supplied = Buffer.from(String(req.body.razorpay_signature), 'hex');
+    if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
+      throw new AppError(400, 'PAYMENT_VERIFICATION_FAILED', 'Payment signature could not be verified');
+    }
+    const paidAt = new Date();
+    const confirmed = await Order.findOneAndUpdate(
+      {
+        _id: order._id,
+        status: 'pending_payment',
+        'payment.providerOrderId': req.body.razorpay_order_id,
+        'payment.status': { $ne: 'paid' },
+      },
+      {
+        $set: {
+          'payment.status': 'paid',
+          'payment.providerPaymentId': req.body.razorpay_payment_id,
+          'payment.paidAt': paidAt,
+          status: 'confirmed',
+        },
+        $push: { statusHistory: { status: 'confirmed', actor: 'customer', note: 'Payment captured' } },
+      },
+      { returnDocument: 'after' },
+    );
+    if (confirmed) {
+      return res.json({ data: { _id: confirmed.id, orderNumber: confirmed.orderNumber, status: confirmed.status, payment: { status: confirmed.payment.status } } });
+    }
+
+    const latest = await Order.findById(order._id);
+    if (latest?.status === 'cancelled') {
+      // Money was captured after the reservation had already been released. Record the capture so
+      // it appears in the finance refund queue, but never resurrect an order whose stock is gone.
+      await Order.updateOne(
+        { _id: order._id, status: 'cancelled', 'payment.providerOrderId': req.body.razorpay_order_id },
+        {
+          $set: {
+            'payment.status': 'paid',
+            'payment.providerPaymentId': req.body.razorpay_payment_id,
+            'payment.paidAt': paidAt,
+          },
+          $push: { statusHistory: { status: 'cancelled', actor: 'customer', note: 'Payment captured after cancellation; refund required' } },
+        },
+      );
+      throw new AppError(409, 'PAYMENT_CAPTURED_AFTER_CANCELLATION', 'Payment mil gaya hai, lekin is order ki reservation pehle khatm ho chuki thi. Hamari team refund ke liye sampark karegi.');
+    }
+    if (latest?.payment?.status === 'paid' && latest.payment.providerPaymentId === req.body.razorpay_payment_id) {
+      return res.json({ data: { _id: latest.id, orderNumber: latest.orderNumber, status: latest.status, payment: { status: latest.payment.status } } });
+    }
+    throw new AppError(409, 'PAYMENT_NOT_PENDING', 'This order is not waiting for an online payment.');
   }));
 
+  /**
+   * Instant search. Retrieval is deliberately broad (synonyms, every searchable field) and the
+   * ranking is done in memory, with a fuzzy fallback pass over a lightweight catalogue slice so
+   * small typos ("anarkli", "plazo") still find the right shelf. Inventory rides along so result
+   * cards can speak about sizes honestly instead of guessing.
+   */
   router.get('/search', asyncHandler(async (req, res) => {
-    const q = String(req.query.q || '').trim(); if (q.length < 2) return res.json({ data: [] });
-    const filter = { status: 'active' }, safe = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    filter.$or = [{ name: new RegExp(safe, 'i') }, { fabric: new RegExp(safe, 'i') }, { category: new RegExp(safe, 'i') }, { tags: new RegExp(safe, 'i') }];
-    const data = await Product.find(filter).select('name slug category images variants.mrp variants.price badges fabric').limit(10);
-    res.json({ data });
+    const q = String(req.query.q || '').trim();
+    const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 10));
+    if (q.length < 2) return res.json({ data: [], meta: { total: 0, query: q } });
+
+    const select = 'name slug category subcategory images hoverImage variants badges tags fabric craft description shortDescription featured createdAt';
+    const filter = candidateFilter(q);
+    const candidates = filter
+      ? await Product.find({ status: 'active', ...filter }).select(select).sort({ featured: -1, createdAt: -1 }).limit(100).lean()
+      : [];
+    let ranked = rankProducts(candidates, q);
+
+    if (ranked.length < limit) {
+      const seen = new Set(candidates.map((product) => String(product._id)));
+      const fallback = await Product.find({ status: 'active', _id: { $nin: [...seen] } }).select(select).sort({ featured: -1, createdAt: -1 }).limit(500).lean();
+      ranked = [...ranked, ...rankProducts(fallback, q)];
+    }
+
+    const page = ranked.slice(0, limit).map((entry) => entry.product);
+    const skus = [...new Set(page.flatMap((product) => (product.variants || []).map((variant) => variant.sku).filter(Boolean)))];
+    const stock = skus.length ? await Inventory.find({ sku: { $in: skus } }).select('sku onHand reserved').lean() : [];
+    const availableBySku = new Map(stock.map((row) => [row.sku, Math.max(0, row.onHand - row.reserved)]));
+    const data = page.map((product) => {
+      const inventory = {};
+      for (const variant of product.variants || []) {
+        if (availableBySku.has(variant.sku)) inventory[variant.sku] = availableBySku.get(variant.sku);
+      }
+      return { ...product, inventory };
+    });
+    res.json({ data, meta: { total: ranked.length, query: q } });
   }));
 
   // Orders money is owed on: the payment was captured and the order then went away
@@ -126,6 +216,88 @@ module.exports = ({ config, auth }) => {
     });
 
     res.json({ data: order, refund: { id: refund.id, amount: refund.amount, status: refund.status } });
+  }));
+
+  const newsletterUnsubscribeToken = (subscriberId) => crypto
+    .createHmac('sha256', config.JWT_REFRESH_SECRET)
+    .update(`newsletter-unsubscribe:${subscriberId}`)
+    .digest('hex');
+
+  /**
+   * The footer letter is stored, not simulated. Re-submitting the same address is idempotent and
+   * deliberately returns the same public result whether or not that address also has an account.
+   */
+  router.post('/newsletter/subscribe', validate(z.object({
+    email: z.string().trim().email('Enter a valid email address').max(254),
+    source: z.string().trim().min(1).max(40).regex(/^[a-z0-9_-]+$/i).optional(),
+  })), asyncHandler(async (req, res) => {
+    const email = req.body.email.toLowerCase();
+    const source = req.body.source || 'footer';
+    let subscriber = await NewsletterSubscriber.findOne({ email });
+    const alreadySubscribed = subscriber?.status === 'subscribed';
+
+    if (!alreadySubscribed) {
+      try {
+        if (!subscriber) {
+          subscriber = await NewsletterSubscriber.create({
+            email,
+            source,
+            status: 'subscribed',
+            subscribedAt: new Date(),
+          });
+        } else {
+          subscriber.status = 'subscribed';
+          subscriber.source = source;
+          subscriber.subscribedAt = new Date();
+          subscriber.unsubscribedAt = undefined;
+          await subscriber.save();
+        }
+      } catch (cause) {
+        if (cause?.code !== 11000) throw cause;
+        subscriber = await NewsletterSubscriber.findOne({ email });
+      }
+      await User.updateOne({ email }, { $set: { 'preferences.newsletter': true } });
+    }
+
+    res.status(alreadySubscribed ? 200 : 201).json({
+      data: { subscribed: true, alreadySubscribed },
+    });
+  }));
+
+  router.post('/newsletter/unsubscribe', validate(z.object({
+    subscriberId: z.string().regex(/^[0-9a-f]{24}$/i),
+    token: z.string().regex(/^[0-9a-f]{64}$/i),
+  })), asyncHandler(async (req, res) => {
+    const subscriber = await NewsletterSubscriber.findById(req.body.subscriberId).catch(() => null);
+    const expected = subscriber ? Buffer.from(newsletterUnsubscribeToken(subscriber.id), 'hex') : null;
+    const supplied = Buffer.from(req.body.token, 'hex');
+    if (!subscriber || !expected || supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
+      throw new AppError(404, 'NEWSLETTER_SUBSCRIPTION_NOT_FOUND', 'Subscription not found');
+    }
+    if (subscriber.status !== 'unsubscribed') {
+      subscriber.status = 'unsubscribed';
+      subscriber.unsubscribedAt = new Date();
+      await subscriber.save();
+      await User.updateOne({ email: subscriber.email }, { $set: { 'preferences.newsletter': false } });
+    }
+    res.json({ data: { subscribed: false } });
+  }));
+
+  router.get('/newsletter/subscribers', auth, requireRoles('admin', 'super_admin'), asyncHandler(async (req, res) => {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+    const filter = {};
+    if (['subscribed', 'unsubscribed'].includes(req.query.status)) filter.status = req.query.status;
+    const [data, total] = await Promise.all([
+      NewsletterSubscriber.find(filter)
+        .select('email status source subscribedAt unsubscribedAt createdAt updatedAt')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      NewsletterSubscriber.countDocuments(filter),
+    ]);
+    res.json({ data, meta: { page, limit, total, pages: Math.ceil(total / limit) } });
   }));
 
   // Contact Us Inquiry submission

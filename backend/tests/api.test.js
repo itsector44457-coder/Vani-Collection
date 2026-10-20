@@ -867,3 +867,191 @@ maybeTest('GST invoices are owner/staff scoped and packing slips are staff-only 
   const customerSlip = await api('/api/admin/orders/not-an-order/packing-slip.pdf', { token: ownerToken });
   assert.equal(customerSlip.status, 403, 'a customer cannot use the warehouse packing-slip endpoint');
 });
+
+maybeTest('guest COD checkout, public tracking and Hinglish search work without an account', async () => {
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const sku = `VC-GUEST-${suffix}`;
+  const product = await Product.create({
+    name: 'Lal Bandhej Kurti',
+    slug: `lal-bandhej-kurti-${suffix}`,
+    category: 'festive',
+    fabric: 'Mul Cotton',
+    craft: 'Bandhej',
+    gstRate: 5,
+    status: 'active',
+    tags: ['red', 'festive'],
+    images: [{ url: 'https://example.com/guest-kurti.jpg', alt: 'Red Bandhej kurti' }],
+    variants: [{ sku, size: 'M', color: 'Red', mrp: 1999, price: 1500 }],
+    previousSlugs: [`Purani Lal Bandhej Kurti-${suffix}`],
+  });
+  await Inventory.create({ sku, onHand: 3, reserved: 0 });
+
+  const exists = await api(`/api/products/exists/Purani Lal Bandhej Kurti-${suffix}`);
+  assert.equal(exists.status, 200, JSON.stringify(exists.body));
+  assert.deepEqual(exists.body.data, { slug: product.slug }, 'the proxy probe resolves an old slug without leaking product details');
+  assert.equal((await api(`/api/products/exists/missing-product-${suffix}`)).status, 404);
+
+  const search = await api('/api/search?q=lal%20kurti');
+  assert.equal(search.status, 200, JSON.stringify(search.body));
+  assert.ok(search.body.meta.total >= 1);
+  const hit = search.body.data.find((candidate) => candidate.slug === product.slug);
+  assert.ok(hit, 'Hinglish colour synonym finds the canonical product slug');
+  assert.equal(hit.inventory[sku], 3);
+
+  const address = {
+    fullName: 'Guest Shopper',
+    phone: '9988776655',
+    email: `guest-${suffix}@example.com`,
+    line1: '12 Freeganj Road',
+    city: 'Ujjain',
+    state: 'Madhya Pradesh',
+    pincode: '456010',
+  };
+  const placed = await api('/api/orders', {
+    method: 'POST',
+    body: { items: [{ productId: product.id, sku, quantity: 1 }], shippingAddress: address, paymentMethod: 'cod' },
+  });
+  assert.equal(placed.status, 201, JSON.stringify(placed.body));
+  assert.equal(placed.body.data.customerId, undefined);
+  assert.equal(placed.body.data.guestEmail, address.email);
+  assert.equal(placed.body.data.amounts.subtotal, 1500);
+  assert.equal(placed.body.data.amounts.shipping, 79, 'near-zone pincode fee matches the checker');
+  assert.equal(placed.body.data.amounts.total, 1579);
+  assert.equal((await Inventory.findOne({ sku })).reserved, 1);
+
+  const tracked = await api('/api/orders/track-public', {
+    method: 'POST',
+    body: { identifier: placed.body.data.orderNumber, phone: address.phone },
+  });
+  assert.equal(tracked.status, 200, JSON.stringify(tracked.body));
+  assert.equal(tracked.body.data.orderNumber, placed.body.data.orderNumber);
+  assert.equal(tracked.body.data.shippingAddress, undefined, 'public tracking must not echo the address');
+
+  const wrongPhone = await api('/api/orders/track-public', {
+    method: 'POST',
+    body: { identifier: placed.body.data.orderNumber, phone: '9123456789' },
+  });
+  assert.equal(wrongPhone.status, 404);
+});
+
+maybeTest('pending online payments expire once and Razorpay verification is state-safe', async () => {
+  const { expirePendingPayments } = require('../src/services/order-expiry');
+  const Coupon = require('../models/Coupon');
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const sku = `VC-PAY-${suffix}`;
+  const couponCode = `PAY${String(suffix).replace(/\D/g, '').slice(-8)}`;
+  const productId = new mongoose.Types.ObjectId();
+  await Inventory.create({ sku, onHand: 5, reserved: 3 });
+  await Coupon.create({ code: couponCode, type: 'percentage', value: 10, usedCount: 1 });
+  const address = {
+    fullName: 'Payment Tester', phone: '9876543210', email: `pay-${suffix}@example.com`,
+    line1: '12 Freeganj Road', city: 'Ujjain', state: 'Madhya Pradesh', pincode: '456010', country: 'IN',
+  };
+  const makeOrder = async ({ providerOrderId, status = 'pending_payment', paymentStatus = 'pending', ageMs = 0, withCoupon = false }) => {
+    const [order] = await Order.create([{
+      items: [{ productId, sku, name: 'Payment Test Kurti', size: 'M', color: 'Red', quantity: 2, unitPrice: 1000, mrp: 1200, gstRate: 5, taxAmount: 95.24, lineTotal: 2000 }],
+      shippingAddress: address,
+      guestEmail: address.email,
+      couponCode: withCoupon ? couponCode : undefined,
+      amounts: { subtotal: 2000, discount: withCoupon ? 200 : 0, shipping: 0, tax: 95.24, total: withCoupon ? 1800 : 2000, currency: 'INR' },
+      payment: { method: 'razorpay', status: paymentStatus, providerOrderId },
+      status,
+    }]);
+    if (ageMs) await Order.collection.updateOne({ _id: order._id }, { $set: { createdAt: new Date(Date.now() - ageMs) } });
+    return Order.findById(order._id);
+  };
+
+  const stale = await makeOrder({ providerOrderId: `order_stale_${suffix}`, ageMs: 31 * 60 * 1000, withCoupon: true });
+  const silentLog = { info() {}, warn() {}, error() {} };
+  const firstSweep = await expirePendingPayments({ ttlMs: 30 * 60 * 1000, notify: false, log: silentLog });
+  assert.equal(firstSweep.expiredCount, 1);
+  const expired = await Order.findById(stale.id).lean();
+  assert.equal(expired.status, 'cancelled');
+  assert.equal(expired.payment.status, 'expired');
+  assert.equal((await Inventory.findOne({ sku })).reserved, 1, 'only the expired order quantity returns to stock');
+  assert.equal((await Coupon.findOne({ code: couponCode })).usedCount, 0, 'the unused coupon slot is restored');
+  assert.equal((await expirePendingPayments({ ttlMs: 30 * 60 * 1000, notify: false, log: silentLog })).expiredCount, 0);
+  assert.equal((await Inventory.findOne({ sku })).reserved, 1, 'a repeat sweep must not release stock twice');
+
+  const previousSecret = config.RAZORPAY_KEY_SECRET;
+  config.RAZORPAY_KEY_SECRET = 'test-razorpay-secret-that-is-long-enough';
+  try {
+    const fresh = await makeOrder({ providerOrderId: `order_fresh_${suffix}` });
+    const signatureFor = (providerOrderId, paymentId) => crypto
+      .createHmac('sha256', config.RAZORPAY_KEY_SECRET)
+      .update(`${providerOrderId}|${paymentId}`)
+      .digest('hex');
+    const verified = await api('/api/payments/razorpay/verify', {
+      method: 'POST',
+      body: {
+        orderId: fresh.id,
+        razorpay_order_id: `order_fresh_${suffix}`,
+        razorpay_payment_id: `pay_fresh_${suffix}`,
+        razorpay_signature: signatureFor(`order_fresh_${suffix}`, `pay_fresh_${suffix}`),
+      },
+    });
+    assert.equal(verified.status, 200, JSON.stringify(verified.body));
+    assert.equal(verified.body.data.status, 'confirmed');
+
+    const cancelledCapture = await api('/api/payments/razorpay/verify', {
+      method: 'POST',
+      body: {
+        orderId: stale.id,
+        razorpay_order_id: `order_stale_${suffix}`,
+        razorpay_payment_id: `pay_stale_${suffix}`,
+        razorpay_signature: signatureFor(`order_stale_${suffix}`, `pay_stale_${suffix}`),
+      },
+    });
+    assert.equal(cancelledCapture.status, 409);
+    assert.equal(cancelledCapture.body.error.code, 'PAYMENT_CAPTURED_AFTER_CANCELLATION');
+    const cancelled = await Order.findById(stale.id).lean();
+    assert.equal(cancelled.status, 'cancelled', 'a late capture must not resurrect released stock');
+    assert.equal(cancelled.payment.status, 'paid', 'the late capture is recorded for refund reconciliation');
+  } finally {
+    if (previousSecret === undefined) delete config.RAZORPAY_KEY_SECRET;
+    else config.RAZORPAY_KEY_SECRET = previousSecret;
+  }
+});
+
+maybeTest('newsletter subscriptions are persisted, idempotent and token-protected on unsubscribe', async () => {
+  const NewsletterSubscriber = require('../models/NewsletterSubscriber');
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+  const email = `newsletter-${suffix}@example.com`;
+  const user = await User.create({
+    email,
+    firstName: 'Newsletter',
+    passwordHash: await User.hashPassword('StrongPass123'),
+    preferences: { newsletter: false },
+  });
+
+  const created = await api('/api/newsletter/subscribe', {
+    method: 'POST',
+    body: { email: email.toUpperCase(), source: 'footer' },
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  assert.equal(created.body.data.email, email);
+  assert.equal(created.body.data.alreadySubscribed, false);
+  assert.equal(created.body.data.unsubscribeToken, undefined, 'a bearer unsubscribe secret is never returned');
+  assert.equal((await User.findById(user.id)).preferences.newsletter, true);
+
+  const repeated = await api('/api/newsletter/subscribe', { method: 'POST', body: { email, source: 'footer' } });
+  assert.equal(repeated.status, 200);
+  assert.equal(repeated.body.data.alreadySubscribed, true);
+  assert.equal(await NewsletterSubscriber.countDocuments({ email }), 1);
+
+  const subscriber = await NewsletterSubscriber.findOne({ email });
+  const forged = await api('/api/newsletter/unsubscribe', {
+    method: 'POST',
+    body: { subscriberId: subscriber.id, token: '0'.repeat(64) },
+  });
+  assert.equal(forged.status, 404);
+  const token = crypto.createHmac('sha256', config.JWT_REFRESH_SECRET).update(subscriber.id).digest('hex');
+  const unsubscribed = await api('/api/newsletter/unsubscribe', {
+    method: 'POST',
+    body: { subscriberId: subscriber.id, token },
+  });
+  assert.equal(unsubscribed.status, 200, JSON.stringify(unsubscribed.body));
+  assert.equal((await NewsletterSubscriber.findById(subscriber.id)).status, 'unsubscribed');
+  assert.equal((await User.findById(user.id)).preferences.newsletter, false);
+  assert.equal((await api('/api/newsletter/subscribers')).status, 401, 'subscriber list is not public');
+});

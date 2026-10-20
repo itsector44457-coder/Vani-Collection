@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Badge, Card, PageHeading, Alert, FilterTabs, Modal, Field, TextInput, Textarea, Select, ButtonPrimary, ButtonGhost } from "@/lib/admin-ui";
@@ -336,9 +337,12 @@ export default function ReelsView() {
                       <div className="flex items-center gap-3">
                         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-[#faf7f2] to-[#f0ebe3] ring-1 ring-[#ebe6de]">
                           {reel.thumbnailUrl || productImg ? (
-                            <img
+                            <Image
                               src={reel.thumbnailUrl || productImg || ""}
                               alt={reel.title}
+                              width={48}
+                              height={48}
+                              unoptimized
                               className="h-full w-full object-cover"
                             />
                           ) : (
@@ -361,9 +365,12 @@ export default function ReelsView() {
                     <td className="py-3.5 pr-4">
                       <div className="flex items-center gap-2">
                         {productImg && (
-                          <img
+                          <Image
                             src={productImg}
                             alt=""
+                            width={24}
+                            height={24}
+                            unoptimized
                             className="h-6 w-6 rounded object-cover ring-1 ring-[#ebe6de]"
                           />
                         )}

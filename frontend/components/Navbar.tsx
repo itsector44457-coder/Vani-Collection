@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLenis } from "./SmoothScroll";
 import { useCart } from "../context/CartContext";
 import SearchOverlay from "./SearchOverlay";
 import { api, isApiConfigured, type NavigationMenu, type NavigationSettings, type StoreCategory } from "../lib/api-client";
+import { storeWhatsAppUrl } from "../lib/site-contact";
+import { useModalDialog } from "../lib/use-modal-dialog";
 
 // Utility function to convert display names to URL category parameters
 const getCategoryParam = (displayName: string): string => {
@@ -165,6 +168,7 @@ const FALLBACK_NAV_SETTINGS: NavigationSettings = {
   links: [
     { label: "Stories", href: "/#stories", isActive: true },
     { label: "Reels", href: "/reels", isActive: true },
+    { label: "Journal", href: "/journal", isActive: true },
     { label: "Living Looks", href: "/#products", isActive: true },
     { label: "Contact", href: "/contact", isActive: true },
   ],
@@ -188,6 +192,10 @@ export default function Navbar() {
   const [storeCategories, setStoreCategories] = useState<StoreCategory[]>([]);
   const [dropdownMenus, setDropdownMenus] = useState<NavigationMenu[]>(FALLBACK_DROPDOWN_MENUS);
   const [settings, setSettings] = useState<NavigationSettings>(FALLBACK_NAV_SETTINGS);
+  const pathname = usePathname();
+  const isProductPage = pathname?.startsWith("/product/") ?? false;
+  const closeMobileDrawer = useCallback(() => setMobileDrawerOpen(false), []);
+  const mobileDrawerRef = useModalDialog<HTMLDivElement>(mobileDrawerOpen, closeMobileDrawer);
 
   const { cartCount, setIsCartOpen, wishlist } = useCart();
   const lenis = useLenis();
@@ -222,7 +230,7 @@ export default function Navbar() {
   const collectionColumns = Array.from(
     categories.reduce((groups, category) => {
       const items = groups.get(category.navigationGroup) || [];
-      items.push({ label: category.name, href: `/products?category=${encodeURIComponent(category.slug)}` });
+      items.push({ label: category.name, href: `/collections/${encodeURIComponent(category.slug)}` });
       groups.set(category.navigationGroup, items);
       return groups;
     }, new Map<string, { label: string; href: string }[]>()),
@@ -232,7 +240,7 @@ export default function Navbar() {
     title: column.title,
     items: column.items.map((item) => ({
       label: item.label,
-      href: item.categorySlug ? `/products?category=${encodeURIComponent(item.categorySlug)}` : item.href || "/products",
+      href: item.categorySlug ? `/collections/${encodeURIComponent(item.categorySlug)}` : item.href || "/products",
     })),
   }));
   const mobileCollectionGroups = storeCategories.length
@@ -241,7 +249,7 @@ export default function Navbar() {
         title: item.label,
         items: item.columns.flatMap((column) => column.links.map((label) => ({
           label,
-          href: `/products?category=${getCategoryParam(label)}`,
+          href: `/collections/${getCategoryParam(label)}`,
         }))),
       }));
   const mobileDropdownGroups = dropdownMenus
@@ -250,7 +258,7 @@ export default function Navbar() {
       title: `${menu.label}: ${column.title}`,
       items: column.items.map((item) => ({
         label: item.label,
-        href: item.categorySlug ? `/products?category=${encodeURIComponent(item.categorySlug)}` : item.href || "/products",
+        href: item.categorySlug ? `/collections/${encodeURIComponent(item.categorySlug)}` : item.href || "/products",
       })),
     })));
 
@@ -322,8 +330,11 @@ export default function Navbar() {
             {/* ============ Left: Mobile Drawer Trigger (UNIQUE) ============ */}
             <div className="flex items-center gap-2 lg:hidden">
               <button
+                type="button"
                 onClick={() => setMobileDrawerOpen(true)}
-                aria-label="Open mobile menu"
+                aria-label="Mobile menu khole"
+                aria-expanded={mobileDrawerOpen}
+                aria-controls="mobile-navigation-drawer"
                 className="group relative w-11 h-11 -ml-1 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95"
               >
                 {/* Rotating conic accent ring (brand gradient) */}
@@ -356,10 +367,11 @@ export default function Navbar() {
               </button>
 
               <button
+                type="button"
                 onClick={() => setSearchOpen(true)}
-                className="w-9 h-9 rounded-full flex items-center justify-center transition"
+                className="flex h-11 w-11 items-center justify-center rounded-full transition"
                 style={{ color: settings.colors.headerText }}
-                aria-label="Search"
+                aria-label="Search khole"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
                   <circle cx="11" cy="11" r="7" />
@@ -406,6 +418,13 @@ export default function Navbar() {
                   <span className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100" style={{ backgroundColor: settings.colors.accent }} />
                 </Link>
               ))}
+
+              {!settings.links.some((link) => link.href === "/journal" || link.label.toLowerCase() === "journal") && (
+                <Link href="/journal" className="group relative px-3 py-2 text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors whitespace-nowrap" style={{ color: settings.colors.headerText }}>
+                  <span>Journal</span>
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100" style={{ backgroundColor: settings.colors.accent }} />
+                </Link>
+              )}
 
               {!settings.links.some((link) => link.href === "/about" || link.label.toLowerCase().includes("story") || link.label.toLowerCase().includes("about")) && (
                 <Link
@@ -542,12 +561,18 @@ export default function Navbar() {
 
             {/* Left Drawer */}
             <motion.div
+              ref={mobileDrawerRef}
+              id="mobile-navigation-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="mobile-navigation-title"
+              tabIndex={-1}
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 280 }}
-              className="fixed top-0 left-0 bottom-0 w-[88vw] max-w-[360px] z-[96] shadow-2xl flex flex-col lg:hidden"
-              style={{ background: settings.colors.mobileDrawerBg, height: "100vh" }}
+              className="fixed bottom-0 left-0 top-0 z-[96] flex h-[100dvh] w-[88vw] max-w-[360px] flex-col shadow-2xl focus:outline-none lg:hidden"
+              style={{ background: settings.colors.mobileDrawerBg }}
             >
               {/* ── Luxury Branded Header ── */}
               <div
@@ -563,15 +588,17 @@ export default function Navbar() {
                 />
                 <div className="relative z-10">
                   <span className="text-[8px] font-bold uppercase tracking-[0.4em] block mb-1" style={{ color: settings.colors.announcementText }}>{settings.brandTagline || "Store navigation"}</span>
-                  <h2 className="font-serif text-2xl text-white font-light leading-none">{settings.brandName}</h2>
+                  <h2 id="mobile-navigation-title" className="font-serif text-2xl font-light leading-none text-white">{settings.brandName}</h2>
                   {settings.logoUrl && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={settings.logoUrl} alt={settings.brandName} className="mt-2 max-h-9 max-w-36 object-contain" />
                   )}
                 </div>
                 <button
-                  onClick={() => setMobileDrawerOpen(false)}
-                  className="relative z-10 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 border border-white/30 flex items-center justify-center text-white transition"
+                  type="button"
+                  onClick={closeMobileDrawer}
+                  aria-label="Mobile menu band kare"
+                  className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white transition hover:bg-white/20"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M18 6L6 18M6 6l12 12" />
@@ -581,19 +608,20 @@ export default function Navbar() {
 
               {/* Quick Search inside Drawer */}
               <div className="px-4 pt-4 pb-3 border-b border-stone-200/80 bg-white/50 shrink-0">
-                <div
+                <button
+                  type="button"
                   onClick={() => {
                     setMobileDrawerOpen(false);
                     setSearchOpen(true);
                   }}
-                  className="flex items-center gap-3 bg-white border border-stone-300 rounded-xl px-4 py-2.5 text-sm text-stone-400 cursor-pointer hover:border-stone-400 transition"
+                  className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-left text-sm text-stone-500 transition hover:border-stone-400"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="11" cy="11" r="7" />
                     <path d="M21 21l-4.35-4.35" />
                   </svg>
                   <span>Search products...</span>
-                </div>
+                </button>
               </div>
 
               {/* Quick Links for Features */}
@@ -601,7 +629,7 @@ export default function Navbar() {
                 <Link
                   href="/reels"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-gradient-to-br from-[#881337] to-[#701a35] text-white font-semibold text-xs shadow-md"
+                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-br from-[#881337] to-[#701a35] p-2.5 text-xs font-semibold text-white shadow-md"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="white" stroke="none">
                     <rect x="2" y="2" width="20" height="20" rx="4" />
@@ -612,7 +640,7 @@ export default function Navbar() {
                 <Link
                   href="/#stories"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-white border border-stone-200 text-stone-800 font-semibold text-xs hover:bg-stone-50 transition"
+                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white p-2.5 text-xs font-semibold text-stone-800 transition hover:bg-stone-50"
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
                   <span>Stories</span>
@@ -620,7 +648,7 @@ export default function Navbar() {
                 <Link
                   href="/contact"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="flex items-center justify-center gap-1.5 p-2.5 rounded-xl bg-[#dfc28c]/15 border border-[#dfc28c]/40 text-[#7a5c2b] font-semibold text-xs hover:bg-[#dfc28c]/25 transition"
+                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[#dfc28c]/40 bg-[#dfc28c]/15 p-2.5 text-xs font-semibold text-[#7a5c2b] transition hover:bg-[#dfc28c]/25"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
                   <span>Contact</span>
@@ -636,7 +664,7 @@ export default function Navbar() {
                   <Link
                     href="/collections"
                     onClick={() => setMobileDrawerOpen(false)}
-                    className="text-[10px] font-semibold text-[#881337] hover:underline"
+                    className="inline-flex min-h-11 items-center text-[11px] font-semibold text-[#881337] hover:underline"
                   >
                     Browse all collections →
                   </Link>
@@ -649,18 +677,22 @@ export default function Navbar() {
                       className="border border-stone-200 rounded-xl overflow-hidden bg-white shadow-sm"
                     >
                       <button
+                        type="button"
                         onClick={() => setExpandedMobileCategory(isExpanded ? null : group.title)}
-                        className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+                        aria-expanded={isExpanded}
+                        aria-controls={`mobile-nav-group-${group.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                        className="flex min-h-12 w-full items-center justify-between px-4 py-3.5 text-left"
                       >
                         <span className="flex items-center gap-2.5">
                           <span className="font-serif text-base font-semibold text-gray-900">{group.title}</span>
                         </span>
-                        <svg 
-                          width="16" 
-                          height="16" 
-                          viewBox="0 0 24 24" 
-                          fill="none" 
-                          stroke="currentColor" 
+                        <svg
+                          aria-hidden="true"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
                           strokeWidth="2.5"
                           className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
                         >
@@ -671,10 +703,11 @@ export default function Navbar() {
                       <AnimatePresence>
                         {isExpanded && (
                           <motion.div
+                            id={`mobile-nav-group-${group.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="bg-stone-50 border-t border-stone-200 px-4 py-4 space-y-4"
+                            className="space-y-4 border-t border-stone-200 bg-stone-50 px-4 py-4"
                           >
                             <div className="grid grid-cols-1 gap-2 pl-1">
                               {group.items.slice(0, 20).map((link) => (
@@ -682,7 +715,7 @@ export default function Navbar() {
                                   key={`${group.title}-${link.label}`}
                                   href={link.href}
                                   onClick={() => setMobileDrawerOpen(false)}
-                                  className="flex items-center gap-2 text-sm text-stone-600 hover:text-[#881337] py-1 transition group"
+                                  className="group flex min-h-11 items-center gap-2 px-1 py-2 text-sm text-stone-600 transition hover:text-[#881337]"
                                 >
                                   <span className="w-1 h-1 rounded-full bg-stone-300 group-hover:bg-[#881337] transition" />
                                   <span>{link.label}</span>
@@ -699,10 +732,15 @@ export default function Navbar() {
                 {/* Additional Quick Links */}
                 <div className="pt-4 border-t border-stone-200 space-y-2 text-xs text-stone-700">
                   {settings.links.filter((link) => link.isActive).map((link) => (
-                    <Link key={`mobile-${link.label}-${link.href}`} href={link.href} onClick={() => setMobileDrawerOpen(false)} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-stone-100" style={{ color: settings.colors.headerText }}>
+                    <Link key={`mobile-${link.label}-${link.href}`} href={link.href} onClick={() => setMobileDrawerOpen(false)} className="flex min-h-11 items-center justify-between rounded-lg px-3 py-2.5 hover:bg-stone-100" style={{ color: settings.colors.headerText }}>
                       <span>{link.label}</span><span>→</span>
                     </Link>
                   ))}
+                  {!settings.links.some((link) => link.href === "/journal") && (
+                    <Link href="/journal" onClick={() => setMobileDrawerOpen(false)} className="flex min-h-11 items-center justify-between rounded-lg px-3 py-2.5 hover:bg-stone-100" style={{ color: settings.colors.headerText }}>
+                      <span>Journal</span><span>→</span>
+                    </Link>
+                  )}
                   <Link
                     href="/#lookbook"
                     onClick={(e) => {
@@ -727,7 +765,7 @@ export default function Navbar() {
                   <Link
                     href="/about"
                     onClick={() => setMobileDrawerOpen(false)}
-                    className="flex items-center justify-between p-2.5 rounded-lg hover:bg-stone-100 font-medium text-stone-800"
+                    className="flex min-h-11 items-center justify-between rounded-lg px-3 py-2.5 font-medium text-stone-800 hover:bg-stone-100"
                   >
                     <span className="flex items-center gap-2">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 14.5L5 19m5.5-5.5L19 2M9.5 14.5c1 1 2.5 2 5 .5M5 19c1 1 2.5 1.5 4.5.5"/><circle cx="17" cy="5" r="2"/></svg>
@@ -738,7 +776,7 @@ export default function Navbar() {
                   <Link
                     href="/contact"
                     onClick={() => setMobileDrawerOpen(false)}
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-[#dfc28c]/15 text-[#7a5c2b] border border-[#dfc28c]/40 font-semibold text-xs"
+                    className="flex min-h-11 items-center justify-between rounded-lg border border-[#dfc28c]/40 bg-[#dfc28c]/15 px-3 py-2.5 text-xs font-semibold text-[#7a5c2b]"
                   >
                     <span className="flex items-center gap-2">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
@@ -747,7 +785,7 @@ export default function Navbar() {
                     <span>→</span>
                   </Link>
                   <a
-                    href="https://wa.me/?text=Hello%20Vani%20Collection%20Atelier!"
+                    href={storeWhatsAppUrl("Hello Vani Collection Atelier!")}
                     target="_blank"
                     rel="noreferrer"
                     className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 text-emerald-800 font-medium border border-emerald-200 text-xs"
@@ -771,29 +809,32 @@ export default function Navbar() {
       {/* ================= SEARCH OVERLAY ================= */}
       <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
 
-      {/* ================= MOBILE BOTTOM STICKY BAR (Native App feel) ================= */}
-      <div
-        className="lg:hidden fixed bottom-0 inset-x-0 bg-[#faf7f2]/98 backdrop-blur-md border-t border-[#e8dfd5] z-40 shadow-lg"
+      {/* PDP renders its own contextual buy bar, so the global app bar is removed there rather
+          than leaving focusable navigation hidden underneath another fixed layer. */}
+      {!isProductPage && (
+      <nav
+        aria-label="Mobile primary navigation"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e8dfd5] bg-[#faf7f2]/98 shadow-lg backdrop-blur-md lg:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: settings.colors.mobileBottomBg, borderColor: settings.colors.announcementBorder }}
       >
         <div className="flex items-center justify-around px-2 py-1.5">
           {/* Home */}
           <Link
             href="/"
-            className="flex flex-col items-center py-1 px-3 rounded-xl transition-colors"
+            className="flex min-h-11 min-w-11 flex-col items-center justify-center rounded-xl px-3 py-1.5 transition-colors"
             style={{ color: settings.colors.headerText }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
               <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
               <path d="M9 22V12h6v10" />
             </svg>
-            <span className="text-[9px] font-medium mt-0.5">Home</span>
+            <span className="mt-0.5 text-[10px] font-medium">Home</span>
           </Link>
 
           {/* Shop */}
           <Link
             href="/collections"
-            className="flex flex-col items-center py-1 px-3 rounded-xl transition-colors"
+            className="flex min-h-11 min-w-11 flex-col items-center justify-center rounded-xl px-3 py-1.5 transition-colors"
             style={{ color: settings.colors.headerText }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -802,13 +843,13 @@ export default function Navbar() {
               <rect x="14" y="14" width="7" height="7" rx="1" />
               <rect x="3" y="14" width="7" height="7" rx="1" />
             </svg>
-            <span className="text-[9px] font-medium mt-0.5">Shop</span>
+            <span className="mt-0.5 text-[10px] font-medium">Shop</span>
           </Link>
 
           {/* Reels — PROMINENT CENTER BUTTON */}
           <Link
             href="/reels"
-            className="flex flex-col items-center -mt-5"
+            className="flex min-h-11 min-w-11 flex-col items-center justify-center -mt-5"
           >
             <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-2" style={{ background: `linear-gradient(135deg, ${settings.colors.accent}, ${settings.colors.announcementBg})`, borderColor: settings.colors.announcementText }}>
               {/* Play / Reels icon */}
@@ -817,13 +858,13 @@ export default function Navbar() {
                 <path d="M8 9.5l8 4.5-8 4.5V9.5z" fill="white" stroke="none" />
               </svg>
             </div>
-            <span className="text-[9px] font-bold mt-1 tracking-wide" style={{ color: settings.colors.accent }}>Reels</span>
+            <span className="mt-1 text-[10px] font-bold tracking-wide" style={{ color: settings.colors.accent }}>Reels</span>
           </Link>
 
           {/* Wishlist → Account */}
           <Link
             href="/account"
-            className="flex flex-col items-center py-1 px-3 rounded-xl transition-colors relative"
+            className="relative flex min-h-11 min-w-11 flex-col items-center justify-center rounded-xl px-3 py-1.5 transition-colors"
             style={{ color: settings.colors.headerText }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -834,13 +875,13 @@ export default function Navbar() {
                 {wishlist.length}
               </span>
             )}
-            <span className="text-[9px] font-medium mt-0.5">Wishlist</span>
+            <span className="mt-0.5 text-[10px] font-medium">Wishlist</span>
           </Link>
 
           {/* Bag */}
           <button
             onClick={() => setIsCartOpen(true)}
-            className="flex flex-col items-center py-1 px-3 rounded-xl transition-colors relative"
+            className="relative flex min-h-11 min-w-11 flex-col items-center justify-center rounded-xl px-3 py-1.5 transition-colors"
           >
             <div className="relative" style={{ color: cartCount > 0 ? settings.colors.accent : settings.colors.headerText }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -854,10 +895,11 @@ export default function Navbar() {
                 </span>
               )}
             </div>
-            <span className="text-[9px] font-medium mt-0.5" style={{ color: cartCount > 0 ? settings.colors.accent : settings.colors.headerText }}>Bag</span>
+            <span className="mt-0.5 text-[10px] font-medium" style={{ color: cartCount > 0 ? settings.colors.accent : settings.colors.headerText }}>Bag</span>
           </button>
         </div>
-      </div>
+      </nav>
+      )}
     </>
   );
 }
@@ -877,9 +919,10 @@ function IconBtn({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 transition-colors rounded-full hover:bg-stone-200/50 hover:text-[var(--nav-accent)]"
+      className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-stone-200/50 hover:text-[var(--nav-accent)]"
       style={{ color: textColor, "--nav-accent": accent } as React.CSSProperties}
     >
       {children}

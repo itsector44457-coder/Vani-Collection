@@ -16,6 +16,8 @@ const schema = z.object({
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  /** Minutes an unpaid Razorpay order may hold reserved stock before the worker releases it. */
+  PENDING_PAYMENT_TTL_MINUTES: z.coerce.number().int().min(5).max(1440).default(30),
   SHIPROCKET_EMAIL: z.string().optional(),
   SHIPROCKET_PASSWORD: z.string().optional(),
   SHIPROCKET_PICKUP_LOCATION: z.string().default('Primary'),

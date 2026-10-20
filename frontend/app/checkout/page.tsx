@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
@@ -8,9 +8,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { isApiConfigured } from "../../lib/api-client";
-import { checkServiceability, loadRazorpay, placeOrder, validateCoupon, verifyRazorpayPayment } from "../../lib/storefront-api";
+import { checkServiceability, loadRazorpay, placeOrder, saveLastOrderSnapshot, validateCoupon, verifyRazorpayPayment, type RazorpayHandoff, type Serviceability } from "../../lib/storefront-api";
 import GiftOptionsCard from "../../components/GiftOptionsCard";
-import type { GiftOptions } from "../../lib/storefront-types";
+import type { GiftOptions, StoreOrder } from "../../lib/storefront-types";
+import { readSavedPincode, savePincode, SHIPPING_FEE_FAR, SHIPPING_FEE_LABEL, SHIPPING_FEE_NEAR, shippingFeeFor } from "../../lib/pricing";
+import { formatPrice } from "../../lib/utils";
 
 /* ─── Types ─── */
 interface Address {
@@ -38,18 +40,25 @@ const EMPTY_ADDRESS: Address = {
 };
 
 const INDIAN_STATES = [
+  "Andaman and Nicobar Islands",
   "Andhra Pradesh",
   "Arunachal Pradesh",
   "Assam",
   "Bihar",
+  "Chandigarh",
   "Chhattisgarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
   "Goa",
   "Gujarat",
   "Haryana",
   "Himachal Pradesh",
+  "Jammu & Kashmir",
   "Jharkhand",
   "Karnataka",
   "Kerala",
+  "Ladakh",
+  "Lakshadweep",
   "Madhya Pradesh",
   "Maharashtra",
   "Manipur",
@@ -57,6 +66,7 @@ const INDIAN_STATES = [
   "Mizoram",
   "Nagaland",
   "Odisha",
+  "Puducherry",
   "Punjab",
   "Rajasthan",
   "Sikkim",
@@ -66,43 +76,80 @@ const INDIAN_STATES = [
   "Uttar Pradesh",
   "Uttarakhand",
   "West Bengal",
-  "Delhi",
-  "Jammu & Kashmir",
 ];
 
-const PAYMENT_METHODS = [
+/**
+ * Conservative pincode → state autofill from postal circles. Only fills a blank state and only
+ * where the prefix is unambiguous; border circles (16x, 19x, 79x…) stay manual rather than wrong.
+ */
+function stateForPincode(pincode: string): string {
+  const three = pincode.slice(0, 3);
+  const two = pincode.slice(0, 2);
+  if (three === "403") return "Goa";
+  if (three === "605") return "Puducherry";
+  if (three === "682") return "Lakshadweep";
+  if (three === "737") return "Sikkim";
+  if (three === "744") return "Andaman and Nicobar Islands";
+  if (["246", "247", "248", "249"].includes(three)) return "Uttarakhand";
+  const byTwo: Record<string, string> = {
+    "11": "Delhi", "12": "Haryana", "13": "Haryana", "14": "Punjab", "15": "Punjab", "17": "Himachal Pradesh",
+    "20": "Uttar Pradesh", "21": "Uttar Pradesh", "22": "Uttar Pradesh", "23": "Uttar Pradesh", "25": "Uttar Pradesh", "26": "Uttar Pradesh", "27": "Uttar Pradesh", "28": "Uttar Pradesh",
+    "30": "Rajasthan", "31": "Rajasthan", "32": "Rajasthan", "33": "Rajasthan", "34": "Rajasthan",
+    "36": "Gujarat", "37": "Gujarat", "38": "Gujarat", "39": "Gujarat",
+    "40": "Maharashtra", "41": "Maharashtra", "42": "Maharashtra", "43": "Maharashtra", "44": "Maharashtra",
+    "45": "Madhya Pradesh", "46": "Madhya Pradesh", "47": "Madhya Pradesh", "48": "Madhya Pradesh", "49": "Chhattisgarh",
+    "50": "Telangana", "51": "Andhra Pradesh", "52": "Andhra Pradesh", "53": "Andhra Pradesh",
+    "56": "Karnataka", "57": "Karnataka", "58": "Karnataka", "59": "Karnataka",
+    "60": "Tamil Nadu", "61": "Tamil Nadu", "62": "Tamil Nadu", "63": "Tamil Nadu", "64": "Tamil Nadu", "65": "Tamil Nadu", "66": "Tamil Nadu",
+    "67": "Kerala", "68": "Kerala", "69": "Kerala",
+    "70": "West Bengal", "71": "West Bengal", "72": "West Bengal", "73": "West Bengal", "74": "West Bengal",
+    "75": "Odisha", "76": "Odisha", "77": "Odisha", "78": "Assam",
+    "80": "Bihar", "81": "Bihar", "82": "Bihar", "83": "Jharkhand", "84": "Bihar", "85": "Bihar",
+  };
+  return byTwo[two] ?? "";
+}
+
+type PaymentMethodId = "online" | "cod";
+
+const PAYMENT_METHODS: { id: PaymentMethodId; label: string; desc: string }[] = [
   {
-    id: "upi",
-    label: "UPI / GPay / PhonePe",
-    desc: "Instant & zero-fee payment via GPay, PhonePe, Paytm, or BHIM",
-  },
-  {
-    id: "card",
-    label: "Credit / Debit Card",
-    desc: "Visa, Mastercard, RuPay & all major Indian bank cards",
-  },
-  {
-    id: "netbanking",
-    label: "Net Banking",
-    desc: "All 50+ major Indian banks supported",
+    id: "online",
+    label: "Online Payment — UPI / Card / Net Banking",
+    desc: "Razorpay ki secure window me GPay, PhonePe, card ya bank chune. Card/UPI details hamare paas save nahi hoti.",
   },
   {
     id: "cod",
     label: "Cash on Delivery",
-    desc: "Pay in cash or UPI when your parcel arrives in Guna packaging",
-  },
-  {
-    id: "emi",
-    label: "EMI (No Cost)",
-    desc: "Flexible installments on select credit cards",
+    desc: "Parcel milne par cash ya UPI se bhugtan kare (chune hue pincodes par).",
   },
 ];
+
+const CHECKOUT_DRAFT_KEY = "vani_checkout_draft";
+const GIFT_PACKAGING_FEE = 149;
+
+interface PendingPayment {
+  order: StoreOrder;
+  payment: RazorpayHandoff;
+  fingerprint: string;
+}
+
+const formatPaymentExpiry = (value?: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+};
 
 const STEPS = ["Cart Review", "Delivery Address", "Payment", "Confirmation"];
 
 /* ─── Step Indicator ─── */
 function StepIndicator({ current }: { current: number }) {
   return (
+    <>
+    <p className="mb-3 text-center text-xs font-bold uppercase tracking-widest text-[#881337] sm:hidden" aria-live="polite">
+      Step {current + 1} of {STEPS.length}: {STEPS[current]}
+    </p>
     <div
       className="flex items-center justify-center gap-0 mb-8"
       role="list"
@@ -159,6 +206,7 @@ function StepIndicator({ current }: { current: number }) {
         </div>
       ))}
     </div>
+    </>
   );
 }
 
@@ -167,14 +215,17 @@ function OrderSummary({
   compact = false,
   discount = 0,
   giftFee = 0,
+  shipping = null,
 }: {
   compact?: boolean;
   discount?: number;
   giftFee?: number;
+  /** Exact fee once the pincode is checked; null shows the honest ₹79–₹99 range. */
+  shipping?: number | null;
 }) {
   const { cart, subtotal } = useCart();
-  const shipping = subtotal >= 1999 ? 0 : 99;
-  const total = subtotal + shipping - discount + giftFee;
+  const total = shipping === null ? null : subtotal + shipping - discount + giftFee;
+  const estimatedRange = `${formatPrice(subtotal - discount + giftFee + SHIPPING_FEE_NEAR)}–${formatPrice(subtotal - discount + giftFee + SHIPPING_FEE_FAR)}`;
   const savings = cart.reduce(
     (s, i) => s + (i.originalPrice - i.price) * i.quantity,
     0,
@@ -194,7 +245,7 @@ function OrderSummary({
       <div className="p-5 space-y-3">
         {/* Items */}
         {cart.map((item) => (
-          <div key={`${item.id}-${item.size}`} className="flex gap-3">
+          <div key={`${item.lineId || item.sku || item.id}-${item.size}-${item.color || ""}`} className="flex gap-3">
             <Image
               src={item.image}
               alt={item.title}
@@ -229,7 +280,7 @@ function OrderSummary({
             <span
               className={shipping === 0 ? "text-emerald-600 font-medium" : ""}
             >
-              {shipping === 0 ? "FREE" : `₹${shipping}`}
+              {shipping === null ? `${SHIPPING_FEE_LABEL} (pincode par)` : shipping === 0 ? "FREE" : formatPrice(shipping)}
             </span>
           </div>
           {discount > 0 && (
@@ -251,9 +302,10 @@ function OrderSummary({
             </div>
           )}
           <div className="flex justify-between font-bold text-gray-900 text-base border-t border-gray-200 pt-2">
-            <span>Total</span>
-            <span>₹{total.toLocaleString()}</span>
+            <span>{total === null ? "Estimated total" : "Total"}</span>
+            <span>{total === null ? estimatedRange : formatPrice(total)}</span>
           </div>
+          <p className="text-[11px] leading-relaxed text-gray-500">Tax included hai. Final shipping pincode jaanch ke baad pakki hogi — payment se pehle dikhegi.</p>
         </div>
 
         {/* Trust badges */}
@@ -269,7 +321,7 @@ function OrderSummary({
               <circle cx="12" cy="12" r="9" />
               <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
             </svg>
-            No Return &amp; Exchange
+            7-day Return & Exchange
           </span>
           <span className="text-[11px] text-gray-700 flex items-center gap-1.5 font-medium">
             <svg className="w-3.5 h-3.5 text-[#881337] shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -278,7 +330,7 @@ function OrderSummary({
               <circle cx="5.5" cy="18.5" r="2.5" />
               <circle cx="18.5" cy="18.5" r="2.5" />
             </svg>
-            Free Shipping &gt;₹1,999
+            Free shipping ₹1,999+ par
           </span>
           <span className="text-[11px] text-gray-700 flex items-center gap-1.5 font-medium">
             <svg className="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -286,7 +338,7 @@ function OrderSummary({
               <circle cx="12" cy="12" r="2" />
               <path d="M6 12h.01M18 12h.01" />
             </svg>
-            Pan India COD
+            COD chune pincodes par
           </span>
         </div>
       </div>
@@ -298,23 +350,46 @@ function OrderSummary({
    MAIN PAGE
 ══════════════════════════════════════════════ */
 export default function CheckoutPage() {
-  const { cart, subtotal, clearCart, hasLocalOnlyItems } = useCart();
-  const { user, isAuthenticated } = useAuth();
+  const {
+    cart,
+    subtotal,
+    clearCart,
+    hasLocalOnlyItems,
+    updateQuantity,
+    removeFromCart,
+    isSyncing,
+    error: cartError,
+    dismissError,
+    lastRemoved,
+    undoRemove,
+    dismissLastRemoved,
+  } = useCart();
+  const { user, isAuthenticated, addAddress } = useAuth();
   const router = useRouter();
   const live = isApiConfigured();
 
   const [step, setStep] = useState(0);
   const [address, setAddress] = useState<Address>(EMPTY_ADDRESS);
   const [addressErrors, setAddressErrors] = useState<Partial<Address>>({});
-  const [paymentMethod, setPaymentMethod] = useState("upi");
-  const [upiId, setUpiId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>("online");
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
+  const [appliedPromoCode, setAppliedPromoCode] = useState("");
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [promoError, setPromoError] = useState("");
+  const [promoChecking, setPromoChecking] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   const [placing, setPlacing] = useState(false);
-  const [serviceability, setServiceability] = useState<{ etaDays: number; cod: boolean; shippingFee: number } | null>(null);
+  const [serviceability, setServiceability] = useState<Serviceability | null>(null);
+  const [pincodeStatus, setPincodeStatus] = useState<"idle" | "checking" | "ok" | "error">("idle");
+  const [pendingPayment, setPendingPayment] = useState<PendingPayment | null>(null);
+  const [paymentUncertain, setPaymentUncertain] = useState(false);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState("");
+  const [saveToAccount, setSaveToAccount] = useState(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const lookupRequestRef = useRef(0);
+  const lastLookupPinRef = useRef("");
+  const firstStepRenderRef = useRef(true);
   const [giftOptions, setGiftOptions] = useState<GiftOptions>({
     isGift: false,
     packaging: true,
@@ -323,19 +398,63 @@ export default function CheckoutPage() {
     message: "",
     hidePriceTag: true,
   });
-  const [cardDetails, setCardDetails] = useState({
-    number: "",
-    expiry: "",
-    cvv: "",
-    name: "",
-  });
 
-  /* Prefill from the signed-in customer's default address. */
+  /*
+   * Restore this tab's checkout draft after an accidental refresh. SessionStorage (not
+   * localStorage) on purpose: it contains a delivery address and a pending-payment handoff, and
+   * neither should outlive the browser session on a shared/family phone.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      try {
+        const draft = JSON.parse(window.sessionStorage.getItem(CHECKOUT_DRAFT_KEY) || "null") as {
+          address?: Partial<Address>;
+          giftOptions?: GiftOptions;
+          paymentMethod?: PaymentMethodId;
+          promoCode?: string;
+          pendingPayment?: PendingPayment | null;
+        } | null;
+        if (draft?.address) setAddress((previous) => ({ ...previous, ...draft.address }));
+        if (draft?.giftOptions) setGiftOptions(draft.giftOptions);
+        if (draft?.paymentMethod === "online" || draft?.paymentMethod === "cod") setPaymentMethod(draft.paymentMethod);
+        if (typeof draft?.promoCode === "string") setPromoCode(draft.promoCode);
+        if (draft?.pendingPayment?.order?._id && draft.pendingPayment.payment?.id) setPendingPayment(draft.pendingPayment);
+        const savedPin = readSavedPincode();
+        if (savedPin) setAddress((previous) => (previous.pincode ? previous : { ...previous, pincode: savedPin }));
+      } catch {
+        /* a corrupt draft should never block checkout */
+      }
+      setDraftReady(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    try {
+      window.sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify({ address, giftOptions, paymentMethod, promoCode, pendingPayment }));
+    } catch {
+      /* storage is a convenience, never a checkout dependency */
+    }
+  }, [address, draftReady, giftOptions, paymentMethod, pendingPayment, promoCode]);
+
+  const clearCheckoutDraft = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  /* Prefill from the signed-in customer's default address (blank fields only — a draft wins). */
   useEffect(() => {
     if (!isAuthenticated || !user) return;
     const preferred = user.addresses?.find((item) => item.isDefault) ?? user.addresses?.[0];
     const fill = async () => {
       await Promise.resolve();
+      setSelectedSavedAddressId((current) => current || preferred?.id || "");
       setAddress((previous) => ({
         ...previous,
         fullName: previous.fullName || preferred?.fullName || `${user.firstName} ${user.lastName}`.trim(),
@@ -352,10 +471,74 @@ export default function CheckoutPage() {
     void fill();
   }, [isAuthenticated, user]);
 
-  const giftFee = giftOptions.isGift && giftOptions.packaging ? 149 : 0;
-  const shipping = subtotal - promoDiscount >= 1999 ? 0 : serviceability ? serviceability.shippingFee : 99;
-  const discount = promoDiscount;
-  const total = subtotal + shipping - discount + giftFee;
+  /* Step changes: go to the top and put keyboard/screen-reader focus on the new heading. */
+  useEffect(() => {
+    if (firstStepRenderRef.current) {
+      firstStepRenderRef.current = false;
+      return;
+    }
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+    const timer = window.setTimeout(() => document.querySelector<HTMLElement>("[data-checkout-step-heading]")?.focus({ preventScroll: true }), 80);
+    return () => window.clearTimeout(timer);
+  }, [step]);
+
+  const giftFee = giftOptions.isGift && giftOptions.packaging ? GIFT_PACKAGING_FEE : 0;
+  const discount = promoApplied ? promoDiscount : 0;
+  const deliveryForAddress = serviceability && serviceability.pincode === address.pincode ? serviceability : null;
+  const shipping = shippingFeeFor(subtotal - discount, deliveryForAddress?.shippingFee);
+  const total = subtotal + (shipping ?? SHIPPING_FEE_FAR) - discount + giftFee;
+  const unavailableItems = cart.filter((item) => item.inStock === false || (typeof item.available === "number" && item.available < item.quantity));
+  const checkoutFingerprint = JSON.stringify({
+    items: cart.map((item) => ({ sku: item.sku, quantity: item.quantity })),
+    address,
+    coupon: promoApplied ? appliedPromoCode : "",
+    giftOptions,
+    paymentMethod,
+  });
+
+  const handlePincodeLookup = useCallback(async (pin: string): Promise<boolean> => {
+    if (!/^[1-9]\d{5}$/.test(pin)) {
+      setServiceability(null);
+      setPincodeStatus("idle");
+      return false;
+    }
+    lastLookupPinRef.current = pin;
+    if (!live) {
+      setServiceability(null);
+      setPincodeStatus("error");
+      setAddressErrors((previous) => ({ ...previous, pincode: "Delivery jaanch abhi uplabdh nahi hai." }));
+      return false;
+    }
+    const request = ++lookupRequestRef.current;
+    setPincodeStatus("checking");
+    try {
+      const result = await checkServiceability(pin);
+      if (lookupRequestRef.current !== request) return false;
+      if (!result.serviceable) throw new Error("unserviceable");
+      setServiceability(result);
+      setPincodeStatus("ok");
+      savePincode(pin);
+      setAddressErrors((previous) => ({ ...previous, pincode: undefined }));
+      setAddress((previous) => (previous.pincode === pin && !previous.state ? { ...previous, state: stateForPincode(pin) } : previous));
+      if (!result.cod) setPaymentMethod((current) => (current === "cod" ? "online" : current));
+      return true;
+    } catch {
+      if (lookupRequestRef.current !== request) return false;
+      setServiceability(null);
+      setPincodeStatus("error");
+      setAddressErrors((previous) => ({ ...previous, pincode: "Is pincode par delivery abhi confirm nahi ho payi — pincode dobara jaanche." }));
+      return false;
+    }
+  }, [live]);
+
+  /* Check delivery automatically once a full pincode exists (typed, saved, drafted or account-filled). */
+  useEffect(() => {
+    const pin = address.pincode;
+    if (!live || pin.length !== 6 || deliveryForAddress || lastLookupPinRef.current === pin) return;
+    const timer = window.setTimeout(() => void handlePincodeLookup(pin), 350);
+    return () => window.clearTimeout(timer);
+  }, [address.pincode, deliveryForAddress, handlePincodeLookup, live]);
 
   /* Empty cart redirect */
   if (cart.length === 0 && step < 3) {
@@ -366,9 +549,15 @@ export default function CheckoutPage() {
           <h2 className="text-2xl font-serif text-gray-900 mb-3">
             Your cart is empty
           </h2>
-          <p className="text-gray-500 mb-6">
-            Add some beautiful pieces before checking out
-          </p>
+          {pendingPayment ? (
+            <p className="mx-auto mb-6 max-w-md text-sm leading-relaxed text-gray-600">
+              Order <strong>#{pendingPayment.order.orderNumber}</strong> par payment pending hai. {formatPaymentExpiry(pendingPayment.payment.expiresAt) ? <>Payment <strong>{formatPaymentExpiry(pendingPayment.payment.expiresAt)}</strong> tak pura kare; iske baad reservation khatm ho jayegi. </> : null}Kripya email jaanche ya{" "}
+              <Link href={`/track-order?order=${encodeURIComponent(pendingPayment.order.orderNumber)}`} className="font-bold text-[#881337] underline underline-offset-2">Track Order</Link>{" "}
+              par sthiti dekhe — dobara order na kare.
+            </p>
+          ) : (
+            <p className="text-gray-500 mb-6">Add some beautiful pieces before checking out</p>
+          )}
           <Link
             href="/products"
             className="inline-block bg-[#881337] text-white px-8 py-3 rounded-xl font-semibold hover:bg-[#701a35] transition"
@@ -381,277 +570,370 @@ export default function CheckoutPage() {
   }
 
   /* ── Address Validation ── */
-  const validateAddress = (): boolean => {
+  const validateAddress = (includeDelivery = true): boolean => {
     const errors: Partial<Address> = {};
-    if (!address.fullName.trim()) errors.fullName = "Required";
-    if (!/^[6-9]\d{9}$/.test(address.phone))
-      errors.phone = "Enter valid 10-digit mobile number";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email))
-      errors.email = "Enter valid email";
-    if (!/^\d{6}$/.test(address.pincode))
-      errors.pincode = "Enter valid 6-digit pincode";
-    if (!address.address.trim()) errors.address = "Required";
-    if (!address.city.trim()) errors.city = "Required";
-    if (!address.state) errors.state = "Required";
+    if (address.fullName.trim().length < 3) errors.fullName = "Poora naam likhe";
+    if (!/^[6-9]\d{9}$/.test(address.phone)) errors.phone = "Sahi 10-digit mobile number likhe";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email.trim())) errors.email = "Sahi email likhe — order updates isi par aayenge";
+    if (!/^[1-9]\d{5}$/.test(address.pincode)) errors.pincode = "Sahi 6-digit pincode likhe";
+    else if (includeDelivery && live && !deliveryForAddress) errors.pincode = "Delivery jaanch adhuri hai — thoda ruke ya pincode dobara likhe";
+    if (address.address.trim().length < 8) errors.address = "Ghar/flat no. aur area sahit poora address likhe";
+    if (address.city.trim().length < 2) errors.city = "Sheher ka naam likhe";
+    if (!address.state) errors.state = "Rajya chune";
     setAddressErrors(errors);
-    const firstError = Object.keys(errors)[0] as keyof Address | undefined;
+    const firstError = (Object.keys(errors) as (keyof Address)[]).find((key) => errors[key]);
     if (firstError) {
-      requestAnimationFrame(() =>
-        document.getElementById(`checkout-${firstError}`)?.focus(),
-      );
+      requestAnimationFrame(() => document.getElementById(`checkout-${firstError}`)?.focus());
     }
     return !firstError;
   };
 
-  const handlePincodeLookup = async (pin: string) => {
-    if (pin.length !== 6) return;
-    if (live) {
-      try {
-        const result = await checkServiceability(pin);
-        setServiceability({ etaDays: result.etaDays, cod: result.cod, shippingFee: result.shippingFee });
-        setAddressErrors((previous) => ({ ...previous, pincode: undefined }));
-        if (!result.cod && paymentMethod === "cod") setPaymentMethod("upi");
-      } catch {
-        setServiceability(null);
-        setAddressErrors((previous) => ({ ...previous, pincode: "We do not deliver to this pincode yet" }));
+  const continueToPayment = async () => {
+    if (!validateAddress(false)) return;
+    if (live && !deliveryForAddress) {
+      lastLookupPinRef.current = "";
+      const checked = await handlePincodeLookup(address.pincode);
+      if (!checked) {
+        requestAnimationFrame(() => document.getElementById("checkout-pincode")?.focus());
+        return;
       }
-      return;
     }
-    setServiceability(null);
-    setAddressErrors((previous) => ({
-      ...previous,
-      pincode: "Delivery lookup is unavailable until the storefront API is connected.",
-    }));
+    if (validateAddress()) setStep(2);
+  };
+
+  const clearPromo = (message = "") => {
+    setPromoApplied(false);
+    setAppliedPromoCode("");
+    setPromoDiscount(0);
+    setPromoError(message);
+  };
+
+  const invalidatePromoForCartChange = () => {
+    if (promoApplied) clearPromo("Bag badalne par coupon hata diya gaya hai — chahe to dobara lagaye.");
   };
 
   const handleApplyPromo = async () => {
     const code = promoCode.trim().toUpperCase();
-    if (!code) return;
-    if (live) {
-      try {
-        const result = await validateCoupon(code, subtotal);
-        setPromoDiscount(result.discount);
-        setPromoApplied(true);
-        setPromoError("");
-      } catch (cause) {
-        setPromoApplied(false);
-        setPromoDiscount(0);
-        setPromoError((cause as Error)?.message || "That code is not valid");
-      }
+    if (!code || promoChecking) return;
+    if (!live) {
+      clearPromo("Promo codes abhi uplabdh nahi hai.");
       return;
     }
-    setPromoError("Promo codes are unavailable until the storefront API is connected.");
-    setPromoApplied(false);
-    setPromoDiscount(0);
+    setPromoChecking(true);
+    setPromoError("");
+    try {
+      const result = await validateCoupon(code, subtotal);
+      setPromoDiscount(result.discount);
+      setAppliedPromoCode(result.code || code);
+      setPromoApplied(true);
+      setPromoError("");
+    } catch (cause) {
+      clearPromo((cause as Error)?.message || "Yeh coupon code nahi laga.");
+    } finally {
+      setPromoChecking(false);
+    }
+  };
+
+  const persistAddressIfRequested = async () => {
+    if (!saveToAccount || !isAuthenticated || !user) return;
+    const alreadySaved = (user.addresses ?? []).some(
+      (saved) => saved.pincode === address.pincode && saved.phone === address.phone && [saved.address, saved.line2].filter(Boolean).join(", ").trim().toLowerCase() === address.address.trim().toLowerCase(),
+    );
+    if (alreadySaved) return;
+    try {
+      await addAddress({
+        type: address.addressType,
+        fullName: address.fullName.trim(),
+        phone: address.phone,
+        address: address.address.trim(),
+        city: address.city.trim(),
+        state: address.state,
+        pincode: address.pincode,
+        landmark: address.landmark.trim() || undefined,
+        isDefault: !(user.addresses?.length),
+      });
+    } catch {
+      /* saving the address must never fail an order that already succeeded */
+    }
+  };
+
+  const finishSuccessfulOrder = async (order: StoreOrder) => {
+    saveLastOrderSnapshot(order);
+    await persistAddressIfRequested();
+    setPendingPayment(null);
+    setDraftReady(false);
+    clearCheckoutDraft();
+    clearCart();
+    router.push(`/order-confirmation?orderId=${order._id}`);
+  };
+
+  const openRazorpay = async (pending: PendingPayment) => {
+    const ready = await loadRazorpay();
+    if (!ready || !window.Razorpay) {
+      setPlacing(false);
+      setPaymentError(`Payment window nahi khul paya. Order #${pending.order.orderNumber} par payment pending hai — neeche button se dobara koshish kare; naya order nahi banega.`);
+      return;
+    }
+    const checkout = new window.Razorpay({
+      key: pending.payment.keyId,
+      amount: pending.payment.amount,
+      currency: pending.payment.currency,
+      name: "Vani Collection",
+      description: `Order ${pending.order.orderNumber}`,
+      order_id: pending.payment.id,
+      prefill: { name: address.fullName, email: address.email, contact: address.phone },
+      notes: { orderNumber: pending.order.orderNumber },
+      theme: { color: "#881337" },
+      handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+        setPlacing(true);
+        try {
+          const verified = await verifyRazorpayPayment({ orderId: pending.order._id, ...response });
+          const paidOrder: StoreOrder = {
+            ...pending.order,
+            status: verified.status,
+            payment: { ...pending.order.payment, status: verified.payment.status, providerPaymentId: response.razorpay_payment_id, paidAt: new Date().toISOString() },
+          };
+          setPaymentUncertain(false);
+          await finishSuccessfulOrder(paidOrder);
+        } catch {
+          setPaymentUncertain(true);
+          setPaymentError(`Payment ho sakta hai, lekin hame abhi pushti nahi mili. Kripya dobara payment NA kare — kuch minute me email ya Track Order par sthiti jaanche. Order #${pending.order.orderNumber}.`);
+        } finally {
+          setPlacing(false);
+        }
+      },
+      modal: {
+        ondismiss: () => {
+          setPlacing(false);
+          setPaymentError(`Payment adhura reh gaya. Order #${pending.order.orderNumber} par payment pending hai — neeche button se isi order ka payment dobara khulega; naya order nahi banega.`);
+        },
+      },
+    });
+    checkout.open();
   };
 
   const handlePlaceOrder = async () => {
+    if (placing) return;
     setPaymentError("");
     if (!live) {
-      setPaymentError("Checkout is unavailable because the storefront API is not configured.");
+      setPaymentError("Checkout abhi uplabdh nahi hai.");
+      return;
+    }
+    if (paymentUncertain && pendingPayment) {
+      setPaymentError(`Pehle payment ki pushti ka intezaar kare — dobara payment na kare. Order #${pendingPayment.order.orderNumber} ko email ya Track Order par jaanche.`);
+      return;
+    }
+    if (!validateAddress()) {
+      setStep(1);
+      return;
+    }
+    if (shipping === null) {
+      setStep(1);
+      lastLookupPinRef.current = "";
+      void handlePincodeLookup(address.pincode);
+      return;
+    }
+    if (unavailableItems.length > 0) {
+      setPaymentError("Kuch items ab uplabdh nahi hain — pehle bag review me unhe hataye ya quantity ghata de.");
+      setStep(0);
+      return;
+    }
+    if (hasLocalOnlyItems || cart.some((item) => !item.sku || !item.productId)) {
+      setPaymentError("Bag ke kuch items live catalogue se jude nahi hain. Kripya unhe hata kar product page se dobara jode.");
+      setStep(0);
+      return;
+    }
+    if (paymentMethod === "cod" && deliveryForAddress && !deliveryForAddress.cod) {
+      setPaymentError("Is pincode par Cash on Delivery uplabdh nahi hai — kripya online payment chune.");
       return;
     }
 
-    /* ── Real order through the backend ── */
-    if (live) {
-      if (!isAuthenticated) {
-        setPaymentError("Please sign in to place your order — your bag is saved.");
-        router.push("/login?redirect=/checkout");
-        return;
-      }
-      if (hasLocalOnlyItems || cart.some((item) => !item.sku || !item.productId)) {
-        setPaymentError("Some pieces in your bag are not linked to live products. Please remove them and add them again from the catalogue.");
+    /* Retry safety: a dismissed/failed gateway window reopens for THE SAME order. */
+    if (pendingPayment) {
+      if (pendingPayment.fingerprint !== checkoutFingerprint) {
+        setPaymentError(`Order #${pendingPayment.order.orderNumber} par payment pending hai. Details badalne par do order ban sakte hain, isliye pehle usi order ka payment pura kare${isAuthenticated ? ", ya Account > Orders se use cancel kare" : " — madad ke liye order number ke saath hamse sampark kare"}.`);
         return;
       }
       setPlacing(true);
-      try {
-        const { order, payment } = await placeOrder({
-          items: cart.map((item) => ({ productId: item.productId as string, sku: item.sku as string, quantity: item.quantity })),
-          shippingAddress: {
-            fullName: address.fullName,
-            phone: address.phone,
-            email: address.email,
-            line1: address.address,
-            landmark: address.landmark || undefined,
-            city: address.city,
-            state: address.state,
-            pincode: address.pincode,
-          },
-          couponCode: promoApplied ? promoCode.trim().toUpperCase() : undefined,
-          paymentMethod: paymentMethod === "cod" ? "cod" : "razorpay",
-          giftOptions: giftOptions.isGift ? { ...giftOptions, fee: giftFee } : undefined,
-        });
-
-        if (paymentMethod === "cod") {
-          clearCart();
-          router.push(`/order-confirmation?orderId=${order._id}`);
-          return;
-        }
-
-        if (!payment) {
-          setPaymentError("Online payment is not available right now. Please choose Cash on Delivery.");
-          return;
-        }
-        const ready = await loadRazorpay();
-        if (!ready || !window.Razorpay) {
-          setPaymentError("Could not load the payment window. Check your connection or choose Cash on Delivery.");
-          return;
-        }
-        const checkout = new window.Razorpay({
-          key: payment.keyId,
-          amount: payment.amount,
-          currency: payment.currency,
-          name: "Vani Collection",
-          description: `Order ${order.orderNumber}`,
-          order_id: payment.id,
-          prefill: { name: address.fullName, email: address.email, contact: address.phone },
-          notes: { orderNumber: order.orderNumber },
-          theme: { color: "#881337" },
-          handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-            try {
-              await verifyRazorpayPayment({ orderId: order._id, ...response });
-              clearCart();
-              router.push(`/order-confirmation?orderId=${order._id}`);
-            } catch {
-              setPaymentError("Payment went through but we could not confirm it. Our team will contact you shortly.");
-            }
-          },
-          modal: {
-            ondismiss: () => setPaymentError("Payment cancelled — your order is saved with payment pending."),
-          },
-        });
-        checkout.open();
-      } catch (cause) {
-        setPaymentError((cause as Error)?.message || "We could not place your order. Please try again.");
-      } finally {
-        setPlacing(false);
-      }
+      await openRazorpay(pendingPayment);
       return;
     }
 
+    setPlacing(true);
+    let paymentWindowOpened = false;
+    try {
+      const { order, payment } = await placeOrder({
+        items: cart.map((item) => ({ productId: item.productId as string, sku: item.sku as string, quantity: item.quantity })),
+        shippingAddress: {
+          fullName: address.fullName.trim(),
+          phone: address.phone,
+          email: address.email.trim().toLowerCase(),
+          line1: address.address.trim(),
+          landmark: address.landmark.trim() || undefined,
+          city: address.city.trim(),
+          state: address.state,
+          pincode: address.pincode,
+        },
+        couponCode: promoApplied ? appliedPromoCode : undefined,
+        paymentMethod: paymentMethod === "cod" ? "cod" : "razorpay",
+        giftOptions: giftOptions.isGift ? { ...giftOptions, fee: giftFee } : undefined,
+      });
+      saveLastOrderSnapshot(order);
+
+      if (paymentMethod === "cod") {
+        await finishSuccessfulOrder(order);
+        return;
+      }
+      if (!payment) {
+        setPaymentError(`Order #${order.orderNumber} ban gaya hai, lekin online payment abhi uplabdh nahi hai. Hamari team sampark karegi — kripya dobara order na kare.`);
+        return;
+      }
+      const pending = { order, payment, fingerprint: checkoutFingerprint };
+      setPendingPayment(pending);
+      paymentWindowOpened = true;
+      await openRazorpay(pending);
+    } catch (cause) {
+      setPaymentError((cause as Error)?.message || "Order place nahi ho paya. Kripya dobara koshish kare.");
+    } finally {
+      if (!paymentWindowOpened) setPlacing(false);
+    }
   };
 
   /* ─── STEP 0: Cart Review ─── */
   const renderCartReview = () => (
     <div className="space-y-4">
-      <h2 className="text-xl font-serif text-gray-900 mb-6">Review Your Bag</h2>
-      {cart.map((item) => (
-        <div
-          key={`${item.id}-${item.size}`}
-          className="bg-white rounded-2xl p-4 flex gap-4 border border-gray-100 shadow-sm"
-        >
-          <Image
-            src={item.image}
-            alt={item.title}
-            width={80}
-            height={96}
-            unoptimized
-            sizes="80px"
-            className="h-24 w-20 flex-shrink-0 rounded-xl object-cover"
-          />
-          <div className="flex-1 min-w-0">
-            <h4 className="font-medium text-gray-900 text-sm leading-snug line-clamp-2">
-              {item.title}
-            </h4>
-            <div className="flex gap-3 mt-1.5">
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                Size: {item.size}
-              </span>
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                Qty: {item.quantity}
-              </span>
-            </div>
-            <div className="flex items-center justify-between mt-3">
-              <div>
-                <span className="font-bold text-[#881337]">
-                  ₹{(item.price * item.quantity).toLocaleString()}
-                </span>
-                {item.originalPrice > item.price && (
-                  <span className="text-xs text-gray-400 line-through ml-2">
-                    ₹{(item.originalPrice * item.quantity).toLocaleString()}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
+      <h2 data-checkout-step-heading tabIndex={-1} className="mb-6 text-xl font-serif text-gray-900 outline-none">Review Your Bag</h2>
 
-      {/* Promo Code */}
-      <div className="bg-white rounded-2xl p-4 border border-gray-100">
-        <h4 className="text-sm font-semibold text-gray-900 mb-3">Promo Code</h4>
-        <div className="flex gap-2">
-          <label htmlFor="promo-code" className="sr-only">
-            Promo code
-          </label>
-          <input
-            id="promo-code"
-            type="text"
-            autoComplete="off"
-            placeholder="Enter coupon code"
-            value={promoCode}
-            onChange={(e) => {
-              setPromoCode(e.target.value.toUpperCase());
-              setPromoError("");
-              setPromoApplied(false);
-            }}
-            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#881337]/20 focus:border-[#881337]"
-          />
-          <button
-            onClick={handleApplyPromo}
-            className="px-4 py-2 bg-[#881337] text-white text-sm font-semibold rounded-xl hover:bg-[#701a35] transition"
-          >
-            Apply
-          </button>
-        </div>
-        {promoApplied && (
-          <p className="text-emerald-600 text-xs mt-2 font-medium">
-            ✓ Coupon applied.
+      <div aria-live="polite" className="space-y-3 empty:hidden">
+        {cartError && (
+          <div role="alert" className="flex items-start justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            <span>{cartError}</span>
+            <button type="button" onClick={dismissError} aria-label="Dismiss cart error" className="shrink-0 font-bold">✕</button>
+          </div>
+        )}
+        {lastRemoved && (
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-stone-900 px-4 py-3 text-sm text-white">
+            <span className="min-w-0 flex-1">“{lastRemoved.title}” bag se hata diya.</span>
+            <button type="button" onClick={undoRemove} className="min-h-10 rounded-full bg-white px-4 font-bold text-[#881337]">Undo</button>
+            <button type="button" onClick={dismissLastRemoved} aria-label="Dismiss removed item message" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-white/10">✕</button>
+          </div>
+        )}
+        {hasLocalOnlyItems && live && (
+          <p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
+            Bag ke kuch items live catalogue se jude nahi hain, isliye unka online order nahi ho sakta. Kripya unhe hata kar product page se dobara jode.
           </p>
         )}
-        {promoError && (
-          <p className="text-red-500 text-xs mt-2">{promoError}</p>
+        {unavailableItems.length > 0 && (
+          <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-relaxed text-rose-800">
+            Kuch items ab uplabdh nahi hain. Checkout aage badhane se pehle unhe hataye ya quantity ghata de.
+          </p>
         )}
+      </div>
+
+      {cart.map((item) => {
+        const unavailable = item.inStock === false || (typeof item.available === "number" && item.available < item.quantity);
+        const productHref = item.slug ? `/product/${item.slug}` : null;
+        return (
+          <article key={`${item.lineId || item.sku || item.id}-${item.size}-${item.color || ""}`} className="flex gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <div className="relative h-24 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
+              {item.image && <Image src={item.image} alt="" width={80} height={96} unoptimized sizes="80px" className="h-full w-full object-cover object-top" />}
+              {productHref && <Link href={productHref} aria-label={`${item.title} ka product page khole`} className="absolute inset-0" />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="line-clamp-2 text-sm font-medium leading-snug text-gray-900">
+                {productHref ? <Link href={productHref} className="hover:text-[#881337]">{item.title}</Link> : item.title}
+              </h3>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {item.size && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Size: {item.size}</span>}
+                {item.color && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{item.color}</span>}
+                {typeof item.available === "number" && item.available > 0 && item.available <= 3 && !unavailable && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">Sirf {item.available} bache hain</span>}
+              </div>
+              {unavailable && (
+                <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-2.5 py-2 text-xs leading-relaxed text-rose-800">
+                  {typeof item.available === "number" && item.available > 0 ? `Ab sirf ${item.available} uplabdh hai — quantity ghata de.` : "Yeh size abhi khatm ho gaya hai — kripya hata de."}
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center overflow-hidden rounded-full border border-gray-300" aria-label={`${item.title} quantity`}>
+                  <button type="button" disabled={isSyncing} onClick={() => { invalidatePromoForCartChange(); updateQuantity(item.id, item.size, item.quantity - 1, item.color); }} className="flex h-11 w-11 items-center justify-center text-base text-gray-700 transition hover:bg-gray-100 disabled:opacity-50" aria-label={`Decrease quantity of ${item.title}`}>−</button>
+                  <span className="min-w-8 text-center text-sm font-bold" aria-live="polite">{item.quantity}</span>
+                  <button type="button" disabled={isSyncing || (typeof item.available === "number" && item.quantity >= item.available)} onClick={() => { invalidatePromoForCartChange(); updateQuantity(item.id, item.size, item.quantity + 1, item.color); }} className="flex h-11 w-11 items-center justify-center text-base text-gray-700 transition hover:bg-gray-100 disabled:opacity-50" aria-label={`Increase quantity of ${item.title}`}>+</button>
+                </div>
+                <div className="text-right">
+                  <span className="font-bold text-[#881337]">{formatPrice(item.price * item.quantity)}</span>
+                  {item.originalPrice > item.price && <span className="ml-2 text-xs text-gray-400 line-through">{formatPrice(item.originalPrice * item.quantity)}</span>}
+                </div>
+              </div>
+              <button type="button" disabled={isSyncing} onClick={() => { invalidatePromoForCartChange(); removeFromCart(item.id, item.size, item.color); }} className="mt-1 min-h-10 text-xs font-semibold text-rose-700 hover:underline disabled:opacity-50">
+                Bag se hataiye
+              </button>
+            </div>
+          </article>
+        );
+      })}
+
+      {/* Promo Code */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-4">
+        <h3 className="mb-3 text-sm font-semibold text-gray-900">Promo Code</h3>
+        {promoApplied ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-emerald-50 px-3.5 py-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
+            <span>✓ <strong>{appliedPromoCode}</strong> lag gaya — aapko {formatPrice(discount)} ki bachat hui.</span>
+            <button type="button" onClick={() => { clearPromo(); setPromoCode(""); }} className="min-h-10 rounded-full bg-white px-3.5 text-xs font-bold text-emerald-800 ring-1 ring-emerald-300">Remove</button>
+          </div>
+        ) : (
+          <form onSubmit={(event) => { event.preventDefault(); void handleApplyPromo(); }} className="flex gap-2">
+            <label htmlFor="promo-code" className="sr-only">Promo code</label>
+            <input
+              id="promo-code"
+              type="text"
+              autoComplete="off"
+              autoCapitalize="characters"
+              placeholder="Coupon code likhe"
+              value={promoCode}
+              aria-invalid={Boolean(promoError)}
+              aria-describedby={promoError ? "promo-error" : undefined}
+              onChange={(event) => { setPromoCode(event.target.value.toUpperCase()); setPromoError(""); }}
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm uppercase focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20"
+            />
+            <button type="submit" disabled={promoChecking || !promoCode.trim()} className="min-h-11 shrink-0 rounded-xl bg-[#881337] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#701a35] disabled:opacity-50">
+              {promoChecking ? "Jaanch…" : "Apply"}
+            </button>
+          </form>
+        )}
+        <div aria-live="polite">
+          {promoError && <p id="promo-error" role="alert" className="mt-2 text-xs leading-relaxed text-red-600">{promoError}</p>}
+        </div>
       </div>
 
       {/* Price summary inline */}
-      <div className="bg-white rounded-2xl p-4 border border-gray-100 space-y-2 text-sm">
-        <div className="flex justify-between text-gray-600">
-          <span>Subtotal</span>
-          <span>₹{subtotal.toLocaleString()}</span>
-        </div>
+      <div className="space-y-2 rounded-2xl border border-gray-100 bg-white p-4 text-sm">
+        <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
         <div className="flex justify-between text-gray-600">
           <span>Shipping</span>
-          <span
-            className={shipping === 0 ? "text-emerald-600 font-medium" : ""}
-          >
-            {shipping === 0 ? "FREE" : `₹${shipping}`}
-          </span>
+          <span className={shipping === 0 ? "font-medium text-emerald-600" : ""}>{shipping === null ? `${SHIPPING_FEE_LABEL} (pincode par)` : shipping === 0 ? "FREE" : formatPrice(shipping)}</span>
         </div>
-        {promoApplied && (
-          <div className="flex justify-between text-emerald-600 font-medium">
-            <span>Promo ({promoCode.trim().toUpperCase()})</span>
-            <span>−₹{discount.toLocaleString()}</span>
-          </div>
+        {promoApplied && discount > 0 && (
+          <div className="flex justify-between font-medium text-emerald-700"><span>Promo ({appliedPromoCode})</span><span>−{formatPrice(discount)}</span></div>
         )}
         {giftFee > 0 && (
-          <div className="flex justify-between text-amber-900 font-medium">
-            <span>🎁 Royal Gift Box</span>
-            <span>+₹{giftFee.toLocaleString()}</span>
-          </div>
+          <div className="flex justify-between font-medium text-amber-900"><span>🎁 Royal Gift Box</span><span>+{formatPrice(giftFee)}</span></div>
         )}
-        <div className="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-100">
-          <span>Total Payable</span>
-          <span>₹{total.toLocaleString()}</span>
+        <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold text-gray-900">
+          <span>{shipping === null ? "Estimated total" : "Total Payable"}</span>
+          <span>{shipping === null ? `${formatPrice(subtotal - discount + giftFee + SHIPPING_FEE_NEAR)}–${formatPrice(subtotal - discount + giftFee + SHIPPING_FEE_FAR)}` : formatPrice(total)}</span>
         </div>
+        <p className="text-[11px] leading-relaxed text-gray-400">Tax included hai. Shipping pincode se pakki hogi — payment se pehle final kul rakam dikhegi.</p>
       </div>
 
       <button
+        type="button"
         onClick={() => setStep(1)}
-        className="w-full bg-[#881337] text-white py-4 rounded-xl font-bold text-base hover:bg-[#701a35] transition"
+        disabled={isSyncing || unavailableItems.length > 0 || (live && hasLocalOnlyItems)}
+        className="min-h-12 w-full rounded-xl bg-[#881337] py-4 text-base font-bold text-white transition hover:bg-[#701a35] disabled:cursor-not-allowed disabled:opacity-50"
       >
-        Proceed to Delivery →
+        {isSyncing ? "Bag update ho raha hai…" : "Proceed to Delivery →"}
       </button>
+      <Link href="/products" className="block min-h-10 text-center text-sm font-semibold text-stone-600 underline-offset-2 hover:text-[#881337] hover:underline">Shopping jaari rakhe</Link>
     </div>
   );
 
@@ -707,11 +989,29 @@ export default function CheckoutPage() {
                       : "off"
           }
           placeholder={placeholder}
+          inputMode={name === "phone" ? "tel" : name === "pincode" ? "numeric" : name === "email" ? "email" : undefined}
+          maxLength={name === "phone" ? 10 : name === "pincode" ? 6 : undefined}
+          autoCapitalize={name === "fullName" || name === "city" ? "words" : name === "email" ? "none" : undefined}
+          spellCheck={name === "email" || name === "phone" || name === "pincode" ? false : undefined}
           value={address[name] as string}
           onChange={(e) => {
-            setAddress((prev) => ({ ...prev, [name]: e.target.value }));
-            if (name === "pincode") handlePincodeLookup(e.target.value);
-            setAddressErrors((prev) => ({ ...prev, [name]: "" }));
+            let next = e.target.value;
+            if (name === "phone") {
+              const digits = next.replace(/\D/g, "");
+              next = digits.length > 10 ? digits.slice(-10) : digits.slice(0, 10);
+            } else if (name === "pincode") {
+              next = next.replace(/\D/g, "").slice(0, 6);
+              if (next.length < 6) {
+                lastLookupPinRef.current = "";
+                setServiceability(null);
+                setPincodeStatus("idle");
+              }
+            } else if (name === "email") {
+              next = next.replace(/\s/g, "");
+            }
+            setSelectedSavedAddressId("");
+            setAddress((prev) => ({ ...prev, [name]: next }));
+            setAddressErrors((prev) => ({ ...prev, [name]: undefined }));
           }}
           className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#881337]/20 focus:border-[#881337] transition ${
             addressErrors[name] ? "border-red-400" : "border-gray-200"
@@ -731,13 +1031,64 @@ export default function CheckoutPage() {
 
     return (
       <div className="space-y-6">
-        <h2 className="text-xl font-serif text-gray-900">Delivery Address</h2>
+        <h2 data-checkout-step-heading tabIndex={-1} className="text-xl font-serif text-gray-900 outline-none">Delivery Address</h2>
+
+        {!isAuthenticated ? (
+          <p className="rounded-2xl border border-[#881337]/15 bg-[#881337]/5 px-4 py-3 text-[13px] leading-relaxed text-stone-700">
+            <strong className="font-semibold">Guest checkout:</strong> account zaroori nahi hai. Order updates is mobile/email par milenge, aur parcel bina login kiye track ho jayega.
+          </p>
+        ) : user?.addresses?.length ? (
+          <section aria-label="Saved addresses" className="space-y-3">
+            <h3 className="text-sm font-semibold text-gray-900">Saved addresses</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {user.addresses.map((saved) => {
+                const selected = selectedSavedAddressId === saved.id;
+                return (
+                  <button
+                    key={saved.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => {
+                      setSelectedSavedAddressId(saved.id);
+                      setSaveToAccount(false);
+                      if (saved.pincode !== address.pincode) lastLookupPinRef.current = "";
+                      setAddress((previous) => ({
+                        ...previous,
+                        fullName: saved.fullName,
+                        phone: saved.phone,
+                        email: previous.email || user.email,
+                        pincode: saved.pincode,
+                        address: [saved.address, saved.line2].filter(Boolean).join(", "),
+                        city: saved.city,
+                        state: saved.state,
+                        landmark: saved.landmark || "",
+                        addressType: saved.type,
+                      }));
+                      setAddressErrors({});
+                    }}
+                    className={`rounded-2xl border-2 p-3.5 text-left transition ${selected ? "border-[#881337] bg-[#881337]/5" : "border-gray-200 bg-white hover:border-gray-300"}`}
+                  >
+                    <span className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#881337]">
+                      {saved.type}
+                      {saved.isDefault && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Default</span>}
+                      {selected && <span className="rounded-full bg-[#881337] px-2 py-0.5 text-[10px] font-bold text-white">Chuna gaya</span>}
+                    </span>
+                    <span className="mt-1.5 block text-sm font-semibold text-gray-900">{saved.fullName}</span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-gray-600">{[saved.address, saved.line2].filter(Boolean).join(", ")}, {saved.city}, {saved.state} – {saved.pincode}</span>
+                    <span className="mt-0.5 block text-xs text-gray-500">{saved.phone}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-gray-500">Chune hue address ko neeche form me badla bhi ja sakta hai.</p>
+          </section>
+        ) : null}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {renderField({
             label: "Full Name",
             name: "fullName",
-            placeholder: "As per ID",
+            placeholder: "Parcel par likha jaane wala naam",
           })}
           {renderField({
             label: "Mobile Number",
@@ -762,7 +1113,7 @@ export default function CheckoutPage() {
           {renderField({
             label: "City",
             name: "city",
-            placeholder: "Auto-filled from pincode",
+            placeholder: "Sheher ka naam",
             half: true,
           })}
           <div className="col-span-1 sm:col-span-2">
@@ -858,17 +1209,27 @@ export default function CheckoutPage() {
           })}
         </div>
 
-        {/* Address Type */}
+        <div aria-live="polite">
+          {pincodeStatus === "checking" && <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-800 ring-1 ring-sky-100">Delivery jaanch ho rahi hai…</p>}
+          {deliveryForAddress && (
+            <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm leading-relaxed text-emerald-900 ring-1 ring-emerald-200">
+              ✓ {deliveryForAddress.pincode} par delivery uplabdh hai · lagbhag {deliveryForAddress.etaDays} din me pahunch · shipping {shipping === 0 ? "FREE" : shipping === null ? formatPrice(deliveryForAddress.shippingFee) : formatPrice(shipping)} · {deliveryForAddress.cod ? "Cash on Delivery uplabdh" : "Is pincode par sirf online payment"}
+            </p>
+          )}
+        </div>
+
+        {/* Address Type — only meaningful when the address can be saved to an account */}
+        {isAuthenticated && (
         <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-2">
-            Save address as
-          </label>
-          <div className="flex gap-3">
+          <p id="address-type-label" className="block text-xs font-semibold text-gray-700 mb-2">Address type</p>
+          <div className="flex flex-wrap gap-3" role="group" aria-labelledby="address-type-label">
             {(["home", "work", "other"] as const).map((type) => (
               <button
                 key={type}
+                type="button"
+                aria-pressed={address.addressType === type}
                 onClick={() => setAddress((p) => ({ ...p, addressType: type }))}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold capitalize border transition flex items-center gap-2 ${
+                className={`min-h-11 px-4 py-2 rounded-xl text-xs font-semibold capitalize border transition flex items-center gap-2 ${
                   address.addressType === type
                     ? "bg-[#881337] text-white border-[#881337]"
                     : "bg-white text-gray-700 border-gray-200 hover:border-gray-300"
@@ -894,7 +1255,12 @@ export default function CheckoutPage() {
               </button>
             ))}
           </div>
+          <label className="mt-4 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl bg-stone-50 px-3.5 py-2.5 text-sm text-stone-700 ring-1 ring-stone-200">
+            <input type="checkbox" checked={saveToAccount} onChange={(event) => setSaveToAccount(event.target.checked)} className="h-5 w-5 shrink-0 accent-[#881337]" />
+            <span>Order safal hone par is address ko mere account me save kare</span>
+          </label>
         </div>
+        )}
 
         {/* Bespoke Royal Gift Packaging & Handwritten Note */}
         <div className="pt-2">
@@ -903,18 +1269,19 @@ export default function CheckoutPage() {
 
         <div className="flex gap-3">
           <button
+            type="button"
             onClick={() => setStep(0)}
-            className="flex-1 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition"
+            className="min-h-12 flex-1 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition"
           >
             ← Back
           </button>
           <button
-            onClick={() => {
-              if (validateAddress()) setStep(2);
-            }}
-            className="flex-2 flex-grow py-3 bg-[#881337] text-white rounded-xl font-semibold hover:bg-[#701a35] transition"
+            type="button"
+            onClick={() => void continueToPayment()}
+            disabled={pincodeStatus === "checking"}
+            className="min-h-12 flex-grow py-3 bg-[#881337] text-white rounded-xl font-semibold hover:bg-[#701a35] transition disabled:cursor-wait disabled:opacity-60"
           >
-            Continue to Payment →
+            {pincodeStatus === "checking" ? "Delivery jaanch ho rahi hai…" : "Continue to Payment →"}
           </button>
         </div>
       </div>
@@ -924,7 +1291,22 @@ export default function CheckoutPage() {
   /* ─── STEP 2: Payment ─── */
   const renderPaymentStep = () => (
     <div className="space-y-6">
-      <h2 className="text-xl font-serif text-gray-900">Payment Method</h2>
+      <h2 data-checkout-step-heading tabIndex={-1} className="text-xl font-serif text-gray-900 outline-none">Payment Method</h2>
+
+      {pendingPayment && paymentUncertain ? (
+        <div role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
+          <p><strong>Payment ki pushti baaki hai.</strong> Order #{pendingPayment.order.orderNumber} ke liye dobara payment na kare — kuch minute me email aayega.</p>
+          <Link href={`/track-order?order=${encodeURIComponent(pendingPayment.order.orderNumber)}`} className="mt-2 inline-block min-h-10 font-bold text-[#881337] underline underline-offset-2">Order ki sthiti jaanche →</Link>
+        </div>
+      ) : pendingPayment && pendingPayment.fingerprint === checkoutFingerprint ? (
+        <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-relaxed text-sky-950">
+          Order <strong>#{pendingPayment.order.orderNumber}</strong> par payment pending hai. Neeche ka button <strong>isi order</strong> ka payment dobara kholega — naya order nahi banega aur stock dobara reserve nahi hoga.{formatPaymentExpiry(pendingPayment.payment.expiresAt) ? <> Payment <strong>{formatPaymentExpiry(pendingPayment.payment.expiresAt)}</strong> tak pura kare; iske baad stock reservation khatm ho jayegi.</> : null}
+        </p>
+      ) : pendingPayment ? (
+        <p role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
+          Order <strong>#{pendingPayment.order.orderNumber}</strong> par payment pending hai, lekin bag/address badal gaya hai. Do order rokne ke liye pehle pending order ka payment pura kare{isAuthenticated ? " ya use Account > Orders se cancel kare" : " — badlav ke liye order number ke saath hamse sampark kare"}.{formatPaymentExpiry(pendingPayment.payment.expiresAt) ? <> Payment ki aakhiri samay-seema <strong>{formatPaymentExpiry(pendingPayment.payment.expiresAt)}</strong> hai.</> : null}
+        </p>
+      ) : null}
 
       {/* Delivery address recap */}
       <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-sm">
@@ -938,8 +1320,9 @@ export default function CheckoutPage() {
             <p className="text-gray-600 text-xs">{address.phone}</p>
           </div>
           <button
+            type="button"
             onClick={() => setStep(1)}
-            className="text-xs text-[#881337] font-medium hover:underline"
+            className="min-h-10 shrink-0 text-xs text-[#881337] font-medium hover:underline"
           >
             Change
           </button>
@@ -973,8 +1356,9 @@ export default function CheckoutPage() {
               )}
             </div>
             <button
+              type="button"
               onClick={() => setStep(1)}
-              className="text-xs text-[#881337] font-semibold hover:underline shrink-0 ml-3"
+              className="min-h-10 text-xs text-[#881337] font-semibold hover:underline shrink-0 ml-3"
             >
               Edit Gift
             </button>
@@ -982,263 +1366,89 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* Payment Options */}
-      <div className="space-y-3">
-        {PAYMENT_METHODS.map((method) => (
-          <label
-            key={method.id}
-            className={`flex min-h-20 items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition ${
-              paymentMethod === method.id
-                ? "border-[#881337] bg-[#881337]/5"
-                : "border-gray-200 hover:border-gray-300 bg-white"
-            }`}
-          >
-            <input
-              type="radio"
-              name="payment-method"
-              value={method.id}
-              checked={paymentMethod === method.id}
-              onChange={() => {
-                setPaymentMethod(method.id);
-                setPaymentError("");
-              }}
-              className="sr-only"
-            />
-            {/* Real Payment Logo Badges */}
-            <div className="w-14 h-11 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-center shrink-0 p-1">
-              {method.id === "upi" && (
-                <div className="flex flex-col items-center justify-center gap-0.5">
-                  <svg className="h-3.5 w-auto" viewBox="0 0 70 24" fill="none">
-                    <path d="M7.5 4L13 14H2L7.5 4Z" fill="#097939" />
-                    <path d="M11 9.5L16.5 19.5H5.5L11 9.5Z" fill="#ED752E" />
-                    <text x="21" y="17" fontFamily="sans-serif" fontSize="13" fontWeight="800" fill="#2E2E2E">UPI</text>
-                  </svg>
-                  <span className="text-[9px] font-bold text-[#5f259f] tracking-tight">GPay · PhonePe</span>
-                </div>
-              )}
-              {method.id === "card" && (
-                <div className="flex flex-col items-center justify-center">
-                  <div className="flex items-center gap-1">
-                    <svg className="h-3 w-auto" viewBox="0 0 52 18" fill="none">
-                      <path d="M20.5 1.5l-4.2 14.8h-3.4L8.7 5.2c-.3-.9-.6-1.2-1.3-1.6C5.9 2.8 4 2.2 2.2 1.8l.2-.7h6.8c1 0 1.8.6 2 1.8l1.7 8.9 4.1-10.3h3.5zm15.4 10c0-3.9-5.4-4.1-5.4-5.9 0-.6.6-1.2 1.8-1.4.6-.1 2.2-.2 4 .7l.7-3.3c-1-.4-2.3-.7-3.9-.7-4.1 0-7 2.2-7 5.3 0 2.3 2 3.6 3.6 4.4 1.6.8 2.2 1.3 2.2 2 0 1.1-1.3 1.6-2.6 1.6-1.7 0-2.7-.3-4.1-.9l-.7 3.4c1 .5 2.8.8 4.7.8 4.4 0 7.3-2.2 7.3-5.2zM45.5 16.3h3.2L45.9 1.5h-2.9c-.8 0-1.4.4-1.7 1.1l-6 13.7h3.6l.7-2h4.4l.6 2zm-3.8-4.7l1.8-4.9 1 4.9h-2.8zM27.2 1.5l-2.7 14.8h-3.4L23.8 1.5h3.4z" fill="#1A1F71"/>
-                    </svg>
-                    <svg className="h-3 w-auto" viewBox="0 0 34 22" fill="none">
-                      <circle cx="11" cy="11" r="9" fill="#EB001B"/>
-                      <circle cx="23" cy="11" r="9" fill="#F79E1B"/>
-                    </svg>
-                  </div>
-                  <span className="text-[8px] font-bold text-stone-500 uppercase mt-0.5">Cards</span>
-                </div>
-              )}
-              {method.id === "netbanking" && (
-                <div className="flex flex-col items-center justify-center text-stone-800">
-                  <svg className="w-5 h-5 text-stone-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3" />
-                  </svg>
-                  <span className="text-[8px] font-bold text-stone-600 tracking-tight">Bank</span>
-                </div>
-              )}
-              {method.id === "cod" && (
-                <div className="flex flex-col items-center justify-center text-amber-700">
-                  <svg className="w-5 h-5 text-amber-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="6" width="20" height="12" rx="2" />
-                    <circle cx="12" cy="12" r="2" />
-                    <path d="M6 12h.01M18 12h.01" />
-                  </svg>
-                  <span className="text-[8px] font-bold text-amber-800 uppercase">COD</span>
-                </div>
-              )}
-              {method.id === "emi" && (
-                <div className="flex flex-col items-center justify-center text-stone-700">
-                  <svg className="w-5 h-5 text-[#881337]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  <span className="text-[8px] font-bold text-[#881337]">0% EMI</span>
-                </div>
-              )}
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-gray-900 text-sm">
-                {method.label}
-              </p>
-              <p className="text-xs text-gray-500">{method.desc}</p>
-            </div>
-            <div
-              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                paymentMethod === method.id
-                  ? "border-[#881337]"
-                  : "border-gray-300"
+      {/* Payment Options — two real choices; the instrument is picked inside Razorpay. */}
+      <fieldset className="space-y-3">
+        <legend className="sr-only">Payment method chune</legend>
+        {PAYMENT_METHODS.map((method) => {
+          const codUnavailable = method.id === "cod" && (!deliveryForAddress || !deliveryForAddress.cod);
+          const selected = paymentMethod === method.id;
+          return (
+            <label
+              key={method.id}
+              aria-disabled={codUnavailable || undefined}
+              className={`flex min-h-20 items-center gap-4 rounded-2xl border-2 p-4 transition has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-[#881337]/25 ${
+                codUnavailable
+                  ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-60"
+                  : selected
+                    ? "cursor-pointer border-[#881337] bg-[#881337]/5"
+                    : "cursor-pointer border-gray-200 bg-white hover:border-gray-300"
               }`}
             >
-              {paymentMethod === method.id && (
-                <div className="w-2.5 h-2.5 rounded-full bg-[#881337]" />
-              )}
-            </div>
-          </label>
-        ))}
-      </div>
+              <input
+                type="radio"
+                name="payment-method"
+                value={method.id}
+                checked={selected}
+                disabled={codUnavailable}
+                onChange={() => {
+                  setPaymentMethod(method.id);
+                  setPaymentError("");
+                }}
+                className="h-5 w-5 shrink-0 accent-[#881337]"
+              />
+              <div className="flex h-11 w-14 shrink-0 items-center justify-center rounded-xl border border-stone-200 bg-stone-50 p-1 text-center" aria-hidden="true">
+                {method.id === "online" ? (
+                  <span className="text-[10px] font-black leading-tight text-stone-800">UPI<br /><span className="font-bold text-stone-500">Card · Bank</span></span>
+                ) : (
+                  <span className="text-[10px] font-black uppercase leading-tight text-amber-800">Cash on<br />Delivery</span>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-gray-900">{method.label}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
+                  {codUnavailable
+                    ? deliveryForAddress
+                      ? "Is pincode par COD uplabdh nahi hai — kripya online payment chune."
+                      : "COD ki uplabdhata pincode jaanch ke baad pata chalegi."
+                    : method.desc}
+                </p>
+                {method.id === "online" && shipping !== null && <p className="mt-1 text-xs font-semibold text-stone-700">Kul {formatPrice(total)} ka surakshit online bhugtan</p>}
+                {method.id === "cod" && !codUnavailable && shipping !== null && <p className="mt-1 text-xs font-semibold text-emerald-700">Delivery par kul {formatPrice(total)} dena hai</p>}
+              </div>
+            </label>
+          );
+        })}
+      </fieldset>
 
-      {/* Live mode: the gateway collects the instrument details, so no card data touches our form. */}
-      {live && paymentMethod !== "cod" && (
+      {deliveryForAddress && (
+        <p className="rounded-2xl bg-sky-50 px-4 py-3 text-[13px] leading-relaxed text-sky-950 ring-1 ring-sky-100">
+          🚚 {address.pincode} par delivery · dispatch 2–3 working days me, pahunch lagbhag {deliveryForAddress.etaDays} din · shipping {shipping === 0 ? "FREE" : shipping === null ? formatPrice(deliveryForAddress.shippingFee) : formatPrice(shipping)} · {deliveryForAddress.cod ? "COD uplabdh hai" : "sirf online payment"}.
+        </p>
+      )}
+
+      {live && paymentMethod === "online" && (
         <div className="rounded-2xl border border-[#881337]/20 bg-[#881337]/5 p-4 text-sm text-stone-700">
           <p className="font-semibold text-[#881337]">Secure payment window</p>
           <p className="mt-1 leading-relaxed">
-            UPI, credit/debit cards, net banking and EMI are handled inside the Razorpay window on the next step.
-            We never see or store your card or UPI credentials.
+            UPI, card aur net banking Razorpay ki secure window me honge. Hum aapka card number, CVV ya UPI PIN kabhi nahi dekhte ya save karte.
           </p>
-          {serviceability && (
-            <p className="mt-2 text-xs text-stone-500">
-              Delivering to {address.pincode} in about {serviceability.etaDays} day{serviceability.etaDays === 1 ? "" : "s"}
-              {serviceability.cod ? " · Cash on Delivery available" : " · Cash on Delivery not available for this pincode"}
-            </p>
-          )}
         </div>
       )}
 
-      {/* Instrument details are never collected here; live payments use the hosted provider flow. */}
-      {!live && paymentMethod === "upi" && (
-        <div>
-          <label
-            htmlFor="upi-id"
-            className="block text-sm font-semibold text-gray-700 mb-1.5"
-          >
-            UPI ID
-          </label>
-          <input
-            id="upi-id"
-            name="upiId"
-            type="text"
-            inputMode="email"
-            autoComplete="off"
-            aria-invalid={Boolean(paymentError)}
-            aria-describedby={paymentError ? "payment-error" : undefined}
-            placeholder="yourname@upi"
-            value={upiId}
-            onChange={(e) => {
-              setUpiId(e.target.value);
-              setPaymentError("");
-            }}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#881337]/20 focus:border-[#881337]"
-          />
+      {paymentMethod === "cod" && deliveryForAddress?.cod && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
+          <p className="font-semibold">COD ki jaankari</p>
+          <p className="mt-1">Parcel milne par kul {formatPrice(total)} cash ya UPI se de. Delivery ke din phone uplabdh rakhe — courier aapse sampark karega.</p>
         </div>
       )}
 
-      {!live && paymentMethod === "card" && (
-        <div className="space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-200">
-          <div>
-            <label
-              htmlFor="card-number"
-              className="block text-sm font-semibold text-gray-700 mb-1.5"
-            >
-              Card Number
-            </label>
-            <input
-              id="card-number"
-              name="cc-number"
-              type="text"
-              inputMode="numeric"
-              autoComplete="cc-number"
-              placeholder="1234 5678 9012 3456"
-              maxLength={19}
-              value={cardDetails.number}
-              onChange={(e) => {
-                setCardDetails((prev) => ({
-                  ...prev,
-                  number: e.target.value.replace(/[^\d ]/g, ""),
-                }));
-                setPaymentError("");
-              }}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#881337]"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="card-expiry"
-                className="block text-sm font-semibold text-gray-700 mb-1.5"
-              >
-                Expiry Date
-              </label>
-              <input
-                id="card-expiry"
-                name="cc-exp"
-                type="text"
-                inputMode="numeric"
-                autoComplete="cc-exp"
-                placeholder="MM / YY"
-                maxLength={7}
-                value={cardDetails.expiry}
-                onChange={(e) => {
-                  setCardDetails((prev) => ({
-                    ...prev,
-                    expiry: e.target.value,
-                  }));
-                  setPaymentError("");
-                }}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#881337]"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="card-cvv"
-                className="block text-sm font-semibold text-gray-700 mb-1.5"
-              >
-                CVV
-              </label>
-              <input
-                id="card-cvv"
-                name="cc-csc"
-                type="password"
-                inputMode="numeric"
-                autoComplete="cc-csc"
-                placeholder="•••"
-                maxLength={4}
-                value={cardDetails.cvv}
-                onChange={(e) => {
-                  setCardDetails((prev) => ({
-                    ...prev,
-                    cvv: e.target.value.replace(/\D/g, ""),
-                  }));
-                  setPaymentError("");
-                }}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#881337]"
-              />
-            </div>
-          </div>
-          <div>
-            <label
-              htmlFor="card-name"
-              className="block text-sm font-semibold text-gray-700 mb-1.5"
-            >
-              Cardholder Name
-            </label>
-            <input
-              id="card-name"
-              name="cc-name"
-              type="text"
-              autoComplete="cc-name"
-              placeholder="Name on card"
-              value={cardDetails.name}
-              onChange={(e) => {
-                setCardDetails((prev) => ({ ...prev, name: e.target.value }));
-                setPaymentError("");
-              }}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#881337]"
-            />
-          </div>
-        </div>
-      )}
+      {/* Card/UPI details are NEVER collected on this page — the hosted Razorpay window owns them. */}
 
       {/* Final total */}
       <div className="bg-[#881337]/5 border border-[#881337]/20 rounded-2xl p-4 flex items-center justify-between">
         <div>
           <p className="text-xs text-gray-600">Amount Payable</p>
-          <p className="text-2xl font-bold text-gray-900">
-            ₹{total.toLocaleString()}
-          </p>
+          <p className="text-2xl font-bold text-gray-900">{formatPrice(total)}</p>
         </div>
         <div className="text-right text-xs text-gray-500">
           <div className="flex items-center gap-1.5 justify-end font-semibold text-emerald-700">
@@ -1263,23 +1473,34 @@ export default function CheckoutPage() {
 
       <div className="flex gap-3">
         <button
+          type="button"
           onClick={() => setStep(1)}
-          className="flex-1 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition"
+          className="min-h-12 flex-1 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition"
         >
           ← Back
         </button>
         <button
+          type="button"
           onClick={() => void handlePlaceOrder()}
-          disabled={placing || !live}
-          className="flex-grow py-3 bg-[#881337] text-white rounded-xl font-bold text-base hover:bg-[#701a35] transition disabled:cursor-not-allowed disabled:bg-stone-400"
+          disabled={placing || !live || shipping === null || paymentUncertain || (paymentMethod === "cod" && (!deliveryForAddress || !deliveryForAddress.cod))}
+          className="min-h-12 flex-grow py-3 bg-[#881337] text-white rounded-xl font-bold text-base hover:bg-[#701a35] transition disabled:cursor-not-allowed disabled:bg-stone-400"
         >
-          {placing ? "Placing order…" : paymentMethod === "cod" || !live ? "Place Order →" : `Pay ₹${total.toLocaleString()} →`}
+          {placing
+            ? "Kripya ruke…"
+            : paymentUncertain
+              ? "Payment ki pushti baaki hai"
+              : pendingPayment && pendingPayment.fingerprint === checkoutFingerprint
+                ? `Payment dobara kare · ${formatPrice(total)} →`
+                : paymentMethod === "cod"
+                  ? `Place COD Order · ${formatPrice(total)} →`
+                  : `Pay ${formatPrice(total)} →`}
         </button>
       </div>
 
       <p className="text-xs text-gray-500 text-center leading-relaxed">
-        By placing this order you agree to our Terms & Conditions and Privacy
-        Policy. Delivery within 5–7 business days across India.
+        Order karke aap hamari <Link href="/terms" className="font-semibold text-[#881337] underline underline-offset-2">Terms</Link> aur{" "}
+        <Link href="/privacy" className="font-semibold text-[#881337] underline underline-offset-2">Privacy Policy</Link> se sahmat hote hain.
+        Dispatch aam taur par 2–3 working days me hota hai; delivery samay pincode par nirbhar hai.
       </p>
     </div>
   );
@@ -1289,12 +1510,12 @@ export default function CheckoutPage() {
       <strong className="font-semibold">Checkout unavailable.</strong> The storefront API is not configured, so orders cannot be placed.
     </div>
   ) : !isAuthenticated ? (
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#881337]/20 bg-[#881337]/5 px-4 py-3 text-[12.5px] text-stone-700">
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#881337]/20 bg-[#881337]/5 px-4 py-3 text-[12.5px] leading-relaxed text-stone-700">
       <span>
-        <strong className="font-semibold">Signed out.</strong> Sign in so we can save your bag, addresses and order history.
+        <strong className="font-semibold">Guest checkout:</strong> bina account order ho jayega aur tracking bina login milegi. Chahe to sign in karke address aur order history save kare.
       </span>
-      <Link href="/login?redirect=/checkout" className="rounded-xl bg-[#881337] px-3.5 py-2 text-[12px] font-semibold text-white hover:bg-[#6b0f2b]">
-        Sign in
+      <Link href="/login?redirect=/checkout" className="min-h-10 shrink-0 rounded-xl bg-[#881337] px-3.5 py-2 text-[12px] font-semibold leading-6 text-white hover:bg-[#6b0f2b]">
+        Sign in (optional)
       </Link>
     </div>
   ) : null;
@@ -1327,8 +1548,18 @@ export default function CheckoutPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8">
+        <h1 className="sr-only">Secure Checkout</h1>
         <StepIndicator current={step} />
         {sessionNotice}
+        <details className="mb-5 lg:hidden">
+          <summary className="flex min-h-12 cursor-pointer items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-900">
+            <span>Order Summary</span>
+            <span className="text-[#881337]">{shipping === null ? `${formatPrice(subtotal - discount + giftFee + SHIPPING_FEE_NEAR)}–${formatPrice(subtotal - discount + giftFee + SHIPPING_FEE_FAR)}` : formatPrice(total)}</span>
+          </summary>
+          <div className="mt-3">
+            <OrderSummary compact discount={discount} giftFee={giftFee} shipping={shipping} />
+          </div>
+        </details>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8">
           {/* Main Step Content */}
@@ -1348,7 +1579,7 @@ export default function CheckoutPage() {
 
           {/* Order Summary Sidebar */}
           <div className="hidden lg:block">
-            <OrderSummary discount={discount} giftFee={giftFee} />
+            <OrderSummary discount={discount} giftFee={giftFee} shipping={shipping} />
           </div>
         </div>
       </div>

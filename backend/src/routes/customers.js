@@ -19,6 +19,7 @@ const profileSchema = z.object({
     whatsapp: z.boolean().optional(),
     smsUpdates: z.boolean().optional(),
     whatsappUpdates: z.boolean().optional(),
+    preferredSize: z.string().trim().max(16).optional(),
   }).optional(),
   avatar: z.string().trim().optional(),
 });

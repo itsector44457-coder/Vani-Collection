@@ -8,6 +8,7 @@ const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { ensureCategories } = require('../lib/category-defaults');
+const { listingSearchFilter } = require('../services/catalogue-search');
 
 const productImage = z.object({ url: z.url(), alt: z.string().optional(), position: z.number().optional() });
 const variant = z.object({ sku: z.string().min(2), barcode: z.string().optional(), size: z.string().optional(), color: z.string().optional(), images: z.array(productImage).optional(), mrp: z.number().nonnegative(), price: z.number().nonnegative(), costPrice: z.number().nonnegative().optional(), weightGrams: z.number().positive().optional(), active: z.boolean().optional() });
@@ -21,29 +22,46 @@ module.exports = ({ auth }) => {
     if (req.query.category && req.query.category !== 'all') filter.category = req.query.category;
     const search = String(req.query.q || req.query.search || '').trim();
     if (search) {
-      const safe = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(safe, 'i');
-      filter.$or = [
-        { name: regex },
-        { description: regex },
-        { shortDescription: regex },
-        { category: regex },
-        { subcategory: regex },
-        { fabric: regex },
-        { craft: regex },
-        { tags: regex },
-        { 'variants.sku': regex },
-        { 'variants.color': regex },
-      ];
+      // Concept search: each word may match through Hinglish/shop synonyms, but every word must
+      // match somewhere — "lal kurti" should not return every red saree in the shop.
+      Object.assign(filter, listingSearchFilter(search) || {});
     }
-    const [data, total] = await Promise.all([
+    const [rows, total] = await Promise.all([
       Product.find(filter).select('-variants.costPrice').sort({ featured: -1, createdAt: -1 }).skip((page - 1) * limit).limit(limit),
       Product.countDocuments(filter),
     ]);
+    // Attach the same sellable-stock map the single-product endpoint returns, so listing filters
+    // ("my size, in stock") and card availability run on real inventory instead of guessing.
+    const skus = [...new Set(rows.flatMap((product) => product.variants.map((variant) => variant.sku)))];
+    const stock = skus.length ? await Inventory.find({ sku: { $in: skus } }).select('sku onHand reserved').lean() : [];
+    const availableBySku = new Map(stock.map((row) => [row.sku, row.onHand - row.reserved]));
+    const data = rows.map((product) => {
+      const inventory = {};
+      for (const variant of product.variants) {
+        if (availableBySku.has(variant.sku)) inventory[variant.sku] = availableBySku.get(variant.sku);
+      }
+      return { ...product.toObject(), inventory };
+    });
     res.json({ data, meta: { page, limit, total, pages: Math.ceil(total / limit) } });
   }));
+  // Lightweight existence/canonical-slug probe for the storefront proxy. It intentionally returns
+  // only the current slug (no variants, prices or inventory), so a renamed/missing product can be
+  // turned into a real 308/404 before the product page starts streaming under a 200 header.
+  router.get('/exists/:slug', asyncHandler(async (req, res) => {
+    const product = await Product.findOne({
+      status: 'active',
+      $or: [{ slug: req.params.slug }, { previousSlugs: req.params.slug }],
+    }).select('slug').lean();
+    if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
+    res.json({ data: { slug: product.slug } });
+  }));
   router.get('/:slug', asyncHandler(async (req, res) => {
-    const product = await Product.findOne({ slug: req.params.slug, status: 'active' }).select('-variants.costPrice');
+    // A renamed product also answers at its previous slugs; the payload carries the *current* slug,
+    // which is how the storefront knows to answer the old URL with a permanent redirect to it.
+    const product = await Product.findOne({
+      status: 'active',
+      $or: [{ slug: req.params.slug }, { previousSlugs: req.params.slug }],
+    }).select('-variants.costPrice');
     if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
     const stock = await Inventory.find({ sku: { $in: product.variants.map((v) => v.sku) } });
     res.json({ data: { ...product.toObject(), inventory: Object.fromEntries(stock.map((s) => [s.sku, s.onHand - s.reserved])) } });
@@ -57,8 +75,21 @@ module.exports = ({ auth }) => {
   }));
   router.patch('/:id', auth, requireRoles('catalog_manager', 'admin', 'super_admin'), validate(productInput.partial()), audit('product.update', 'Product'), asyncHandler(async (req, res) => {
     if (req.body.category && !await Category.exists({ slug: req.body.category, isActive: true })) throw new AppError(422, 'INVALID_CATEGORY', 'Choose an active product category');
-    const product = await Product.findByIdAndUpdate(req.params.id, { ...req.body, updatedBy: req.user.id }, { returnDocument: 'after', runValidators: true });
+    const product = await Product.findById(req.params.id);
     if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
+    // Renaming a product must not orphan its old URL: remember the outgoing slug so the storefront
+    // can 301 it to the new one (see Product.previousSlugs and GET /products/:slug above).
+    if (req.body.slug && req.body.slug !== product.slug) {
+      if (await Product.exists({ slug: req.body.slug, _id: { $ne: product._id } })) {
+        throw new AppError(409, 'PRODUCT_SLUG_EXISTS', 'Another product already uses this URL slug');
+      }
+      const history = new Set(product.previousSlugs || []);
+      history.add(product.slug);
+      history.delete(req.body.slug);
+      req.body.previousSlugs = [...history];
+    }
+    Object.assign(product, req.body, { updatedBy: req.user.id });
+    await product.save();
     res.json({ data: product });
   }));
   router.delete('/:id', auth, requireRoles('catalog_manager', 'admin', 'super_admin'), audit('product.delete', 'Product'), asyncHandler(async (req, res) => {

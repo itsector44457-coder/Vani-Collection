@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { INSTAGRAM_URL } from "../lib/seo";
+import { STORE_PHONE_E164, storeWhatsAppUrl } from "../lib/site-contact";
 
-const PHONE_NUMBER = "+919001234567";
-const WHATSAPP_URL = "https://wa.me/?text=Hello%20Vani%20Collection!";
+const WHATSAPP_URL = storeWhatsAppUrl("Hello Vani Collection!");
 
 const iconProps = {
   viewBox: "0 0 24 24",
@@ -74,19 +74,43 @@ function CloseIcon() {
 const contactItems = [
   { label: "Visit Guna Atelier & Contact", href: "/contact", Icon: LocationIcon, external: false },
   { label: "Chat on WhatsApp", href: WHATSAPP_URL, Icon: WhatsAppIcon, external: true },
-  { label: "Call Vani Collection", href: `tel:${PHONE_NUMBER}`, Icon: PhoneIcon, external: false },
+  { label: "Call Vani Collection", href: `tel:${STORE_PHONE_E164}`, Icon: PhoneIcon, external: false },
   { label: "Visit Instagram", href: INSTAGRAM_URL, Icon: InstagramIcon, external: true },
 ];
 
 export default function FloatingContactMenu() {
   const [open, setOpen] = useState(false);
   const reduceMotion = useReducedMotion();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpen(false);
+      toggleRef.current?.focus({ preventScroll: true });
+    };
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    };
+  }, [open]);
 
   return (
-    <div className="fixed bottom-[5.25rem] right-4 z-[80] flex flex-col items-center gap-2.5 sm:right-6 lg:bottom-6">
+    <div ref={containerRef} className="fixed bottom-[5.25rem] right-4 z-[80] flex flex-col items-center gap-2.5 sm:right-6 lg:bottom-6">
       <AnimatePresence>
         {open && (
           <motion.div
+            id="floating-contact-options"
+            role="group"
+            aria-label="Contact options"
             className="flex flex-col items-center gap-2.5"
             initial={reduceMotion ? false : "hidden"}
             animate="visible"
@@ -104,6 +128,7 @@ export default function FloatingContactMenu() {
                 title={label}
                 target={external ? "_blank" : undefined}
                 rel={external ? "noopener noreferrer" : undefined}
+                onClick={() => setOpen(false)}
                 variants={{
                   hidden: { opacity: 0, y: reduceMotion ? 0 : 24, scale: reduceMotion ? 1 : 0.88 },
                   visible: { opacity: 1, y: 0, scale: 1 },
@@ -119,10 +144,12 @@ export default function FloatingContactMenu() {
       </AnimatePresence>
 
       <motion.button
+        ref={toggleRef}
         type="button"
         onClick={() => setOpen((current) => !current)}
-        aria-label={open ? "Close contact options" : "Open contact options"}
+        aria-label={open ? "Contact options band kare" : "Contact options khole"}
         aria-expanded={open}
+        aria-controls="floating-contact-options"
         whileTap={reduceMotion ? undefined : { scale: 0.94 }}
         className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60 bg-[#caa85f] text-white shadow-[0_8px_24px_rgba(66,47,19,0.25)] transition-colors hover:bg-[#b89345] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#881337] focus-visible:ring-offset-2"
       >

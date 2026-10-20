@@ -1,14 +1,17 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import { Badge, ButtonGhost, ButtonPrimary, Card, PageHeader } from "@/lib/account-ui";
 import { ApiError, api, isApiConfigured } from "@/lib/api-client";
-import { cancelOrder, getOrder } from "@/lib/storefront-api";
+import { addCartItem, cancelOrder, createOrderPaymentSession, getOrder, loadRazorpay, verifyRazorpayPayment } from "@/lib/storefront-api";
+import { useCart } from "@/context/CartContext";
 import { orderStatusLabel, type OrderAddress, type OrderLine, type StoreOrder } from "@/lib/storefront-types";
 
 const FLOW = ["pending_payment", "confirmed", "processing", "packed", "shipped", "delivered"];
-const CANCELABLE = ["pending_payment", "confirmed", "processing"];
+const CANCELABLE = ["pending_payment", "confirmed"];
+const CANCEL_REASONS = ["Size galat chuna tha", "Address/phone galat hai", "Ab zarurat nahi hai", "Duplicate order ban gaya", "Koi aur kaaran"];
 
 const statusTone = (status: string) =>
   status === "delivered"
@@ -20,6 +23,21 @@ const statusTone = (status: string) =>
         : "warning";
 
 const money = (value: number) => `₹${value.toLocaleString("en-IN")}`;
+const paymentStatusLabel = (status?: string) => ({
+  pending: "Payment pending",
+  authorized: "Payment authorized",
+  paid: "Paid",
+  failed: "Payment failed",
+  expired: "Payment expired",
+  refunded: "Refunded",
+}[status ?? ""] ?? "Unavailable");
+const paymentStatusTone = (status?: string) => status === "paid"
+  ? "success"
+  : status === "failed" || status === "expired"
+    ? "danger"
+    : status === "refunded"
+      ? "info"
+      : "warning";
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -29,6 +47,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState(CANCEL_REASONS[0]);
+  const [paying, setPaying] = useState(false);
+  const [buyingAgain, setBuyingAgain] = useState(false);
+  const { refreshCart, setIsCartOpen } = useCart();
 
   useEffect(() => {
     if (!live) return;
@@ -48,13 +71,89 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const handleCancel = async () => {
     setBusy(true);
     setNotice(null);
+    setError(null);
     try {
-      setOrder(await cancelOrder(id, "Cancelled from the customer account"));
-      setNotice("Order cancelled. Prepaid refunds arrive in 5–7 working days.");
+      setOrder(await cancelOrder(id, cancelReason));
+      setCancelOpen(false);
+      setNotice("Order cancel ho gaya hai. Prepaid refund aam taur par 5–7 working days me mool payment method par aata hai.");
     } catch (cause) {
-      setNotice((cause as Error)?.message || "We could not cancel this order. Please contact support.");
+      setError((cause as Error)?.message || "Order cancel nahi ho paya. Kripya support se sampark kare.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleResumePayment = async () => {
+    if (!order || paying) return;
+    setPaying(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const payment = await createOrderPaymentSession(order._id);
+      const ready = await loadRazorpay();
+      if (!ready || !window.Razorpay) {
+        setError("Payment window nahi khul paya. Connection jaanch kar dobara koshish kare — naya order nahi banega.");
+        setPaying(false);
+        return;
+      }
+      const shippingAddress = order.shippingAddress;
+      const checkout = new window.Razorpay({
+        key: payment.keyId,
+        amount: payment.amount,
+        currency: payment.currency,
+        name: "Vani Collection",
+        description: `Order ${order.orderNumber}`,
+        order_id: payment.id,
+        prefill: { name: shippingAddress?.fullName ?? "", email: shippingAddress?.email ?? "", contact: shippingAddress?.phone ?? "" },
+        notes: { orderNumber: order.orderNumber },
+        theme: { color: "#881337" },
+        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+          try {
+            await verifyRazorpayPayment({ orderId: order._id, ...response });
+            setOrder(await getOrder(order._id));
+            setNotice("Payment safal ho gaya hai. Order confirm kar diya gaya hai.");
+          } catch {
+            setError("Payment ho sakta hai, lekin abhi pushti nahi mili. Kripya dobara payment na kare — email/order status kuch minute baad jaanche.");
+          } finally {
+            setPaying(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPaying(false);
+            setNotice("Payment adhura reh gaya hai. Isi order ke liye yahan se dobara payment ho sakta hai.");
+          },
+        },
+      });
+      checkout.open();
+    } catch (cause) {
+      setError((cause as Error)?.message || "Payment shuru nahi ho paya. Kripya dobara koshish kare.");
+      setPaying(false);
+    }
+  };
+
+  const handleBuyAgain = async () => {
+    if (!order || buyingAgain) return;
+    setBuyingAgain(true);
+    setError(null);
+    setNotice(null);
+    const failed: string[] = [];
+    let added = 0;
+    for (const item of order.items) {
+      try {
+        await addCartItem(item.sku, item.quantity);
+        added += 1;
+      } catch {
+        failed.push(item.name ?? item.sku);
+      }
+    }
+    setBuyingAgain(false);
+    if (added) {
+      refreshCart();
+      setIsCartOpen(true);
+      setNotice(failed.length ? `Kuch items bag me jod diye gaye hain. Yeh abhi uplabdh nahi hai: ${failed.join(", ")}.` : "Saare items dobara bag me jod diye gaye hain.");
+    } else {
+      setError(`Koi item abhi uplabdh nahi hai: ${failed.join(", ")}.`);
     }
   };
 
@@ -92,7 +191,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const items: OrderLine[] = order?.items ?? [];
   const amounts = order?.amounts ?? { subtotal: 0, discount: 0, shipping: 0, total: 0, tax: 0 };
   const address: OrderAddress | undefined = order?.shippingAddress;
-  const paymentMethod = order ? (order.payment.method === "cod" ? "Cash on Delivery" : "Paid online") : "";
+  const paymentMethod = order ? (order.payment.method === "cod" ? "Cash on Delivery" : "Online payment (Razorpay)") : "";
+  const canResumePayment = Boolean(order && order.status === "pending_payment" && order.payment.method === "razorpay" && ["pending", "failed"].includes(order.payment.status));
+  const canBuyAgain = Boolean(order && ["delivered", "cancelled", "returned", "refunded"].includes(order.status));
+  const history = [...(order?.statusHistory ?? [])].reverse();
 
   if (!live) {
     return (
@@ -187,15 +289,37 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     </>
                   )}
                 </>
-              ) : (
+              ) : eta ? (
                 <>
                   Estimated delivery by <span className="font-semibold text-stone-900">{eta}</span>
                 </>
+              ) : status === "delivered" ? (
+                "Yeh order delivered ho chuka hai."
+              ) : status === "shipped" ? (
+                "Parcel dispatch ho chuka hai — AWB jaankari jald yahan aur email par milegi."
+              ) : (
+                "Dispatch aam taur par 2–3 working days me hota hai. AWB milte hi tracking yahan dikhegi."
               )}
             </p>
           </>
         )}
       </Card>
+
+      {history.length > 0 && (
+        <Card title="Order history" className="mb-5">
+          <ol className="space-y-4">
+            {history.map((entry, index) => (
+              <li key={`${entry.status}-${entry.at}-${index}`} className="relative flex gap-3">
+                <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${index === 0 ? "bg-[#881337] text-white" : "bg-stone-100 text-stone-400"}`}>✓</span>
+                <span>
+                  <span className="block text-[13px] font-semibold text-stone-900">{orderStatusLabel(entry.status)}</span>
+                  <span className="mt-0.5 block text-[11.5px] text-stone-500">{new Date(entry.at).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" })}{entry.note ? ` · ${entry.note}` : ""}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr]">
         {/* Items */}
@@ -203,14 +327,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <ul className="divide-y divide-[#f0ebe3]">
             {items.map((item) => (
               <li key={item.sku} className="flex items-start gap-4 py-4 first:pt-0 last:pb-0">
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#faf7f2] to-[#f0ebe3] text-[20px] font-bold text-[#881337] ring-1 ring-[#ebe6de]">
-                  {(item.name ?? item.sku).charAt(0)}
+                <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#faf7f2] to-[#f0ebe3] text-[20px] font-bold text-[#881337] ring-1 ring-[#ebe6de]">
+                  {item.image ? <Image src={item.image} alt="" fill unoptimized sizes="64px" className="object-cover object-top" /> : (item.name ?? item.sku).charAt(0)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[13.5px] font-semibold text-stone-900">{item.name ?? item.sku}</p>
                   <p className="mt-0.5 text-[11.5px] text-stone-500">
                     SKU {item.sku}
-                    {item.size ? ` · Size ${item.size}` : ""} · Qty {item.quantity}
+                    {item.size ? ` · Size ${item.size}` : ""}{item.color ? ` · ${item.color}` : ""} · Qty {item.quantity}
                   </p>
                   <p className="mt-2 text-[13px] font-semibold">{money(item.lineTotal)}</p>
                 </div>
@@ -235,6 +359,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 {amounts.shipping === 0 ? "FREE" : money(amounts.shipping)}
               </span>
             </div>
+            {(amounts.giftFee ?? 0) > 0 && (
+              <div className="mt-2 flex justify-between text-[12.5px] text-amber-900">
+                <span>Gift packaging</span>
+                <span>{money(amounts.giftFee ?? 0)}</span>
+              </div>
+            )}
             <div className="mt-3 flex justify-between border-t border-[#f0ebe3] pt-3 text-[15px] font-semibold">
               <span>Total</span>
               <span>{money(amounts.total)}</span>
@@ -264,20 +394,62 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <Card title="Payment">
             <p className="text-[12.5px] text-stone-600">{paymentMethod}</p>
             <div className="mt-2 flex items-center gap-2">
-              <Badge tone={order?.payment.status === "paid" ? "success" : "warning"} dot>
-                {order?.payment.status ?? "Unavailable"}
+              <Badge tone={paymentStatusTone(order?.payment.status)} dot>
+                {paymentStatusLabel(order?.payment.status)}
               </Badge>
             </div>
+            {order?.payment.status === "expired" && (
+              <p className="mt-3 text-[12px] leading-relaxed text-rose-800">Payment ka samay khatm ho gaya aur reserved stock chhod diya gaya hai. Khareed ke liye kripya naya order bane.</p>
+            )}
+            {order?.status === "cancelled" && order.payment.status === "paid" && (
+              <p className="mt-3 text-[12px] leading-relaxed text-rose-800">Is cancelled order par payment record mila hai. Dobara payment na kare — refund jaanch ke liye support se sampark kare.</p>
+            )}
+            {canResumePayment && (
+              <>
+                <p className="mt-3 text-[12px] leading-relaxed text-amber-800">Is order ka online payment adhura hai. Yahi se payment pura kare — naya order nahi banega.</p>
+                <ButtonPrimary onClick={() => void handleResumePayment()} disabled={paying} className="mt-3 w-full">
+                  {paying ? "Payment khul raha hai…" : "Payment pura kare"}
+                </ButtonPrimary>
+              </>
+            )}
           </Card>
 
           <Card title="Need help?">
             <p className="text-[12.5px] text-stone-600">Questions about this order? We&apos;re here to help.</p>
             <div className="mt-4 flex flex-col gap-2">
-              <ButtonPrimary>Contact support</ButtonPrimary>
-              {live && order && CANCELABLE.includes(order.status) && (
-                <ButtonGhost onClick={() => void handleCancel()} disabled={busy}>
-                  {busy ? "Cancelling…" : "Cancel order"}
+              <Link href="/contact" className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#881337] px-5 py-2.5 text-[12.5px] font-semibold text-white transition hover:bg-[#6b0f2b] focus:outline-none focus-visible:ring-4 focus-visible:ring-[#881337]/25">
+                Contact support
+              </Link>
+              {order?.status === "delivered" && (
+                <>
+                  <Link href="/account/reviews" className="inline-flex min-h-11 items-center justify-center rounded-full border border-stone-300 bg-white px-5 py-2.5 text-[12.5px] font-semibold text-stone-700 transition hover:border-[#881337] hover:text-[#881337]">Review likhe</Link>
+                  <Link href={`/account/returns?order=${order._id}`} className="inline-flex min-h-11 items-center justify-center rounded-full border border-stone-300 bg-white px-5 py-2.5 text-[12.5px] font-semibold text-stone-700 transition hover:border-[#881337] hover:text-[#881337]">Return / size exchange</Link>
+                </>
+              )}
+              {canBuyAgain && (
+                <ButtonGhost onClick={() => void handleBuyAgain()} disabled={buyingAgain}>
+                  {buyingAgain ? "Bag me jod rahe…" : "Dobara bag me jode"}
                 </ButtonGhost>
+              )}
+              {live && order && CANCELABLE.includes(order.status) && !cancelOpen && (
+                <ButtonGhost onClick={() => setCancelOpen(true)} disabled={busy || paying}>
+                  Cancel order
+                </ButtonGhost>
+              )}
+              {live && order && CANCELABLE.includes(order.status) && cancelOpen && (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4" role="group" aria-label="Order cancel confirm kare">
+                  <p className="text-[12.5px] font-semibold text-rose-900">Pakka cancel karna hai?</p>
+                  <label className="mt-3 block text-[11.5px] font-semibold text-rose-900" htmlFor="order-cancel-reason">Kaaran</label>
+                  <select id="order-cancel-reason" value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} className="mt-1.5 min-h-11 w-full rounded-lg border border-rose-200 bg-white px-3 text-[12.5px] outline-none focus:border-rose-400">
+                    {CANCEL_REASONS.map((reason) => <option key={reason} value={reason}>{reason}</option>)}
+                  </select>
+                  <button type="button" onClick={() => void handleCancel()} disabled={busy} className="mt-3 min-h-11 w-full rounded-full bg-rose-700 px-4 text-[12.5px] font-semibold text-white disabled:opacity-50">
+                    {busy ? "Cancel ho raha hai…" : "Ha, order cancel kare"}
+                  </button>
+                  <button type="button" onClick={() => setCancelOpen(false)} disabled={busy} className="mt-2 min-h-11 w-full rounded-full border border-rose-200 bg-white px-4 text-[12.5px] font-semibold text-rose-800">
+                    Nahi, order rakhe
+                  </button>
+                </div>
               )}
               {/* Invoices are generated only for real backend orders. */}
               {live && order && (

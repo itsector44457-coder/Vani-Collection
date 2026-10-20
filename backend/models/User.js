@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema({
     whatsapp: { type: Boolean, default: true },
     smsUpdates: { type: Boolean, default: true },
     whatsappUpdates: { type: Boolean, default: true },
+    preferredSize: { type: String, trim: true, maxlength: 16 },
   },
   avatar: { type: String, trim: true },
   refreshTokenHashes: [{ hash: String, expiresAt: Date, userAgent: String, createdAt: { type: Date, default: Date.now } }],

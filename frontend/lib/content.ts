@@ -17,7 +17,7 @@ import type { Metadata } from "next";
 export interface ContentDoc {
   _id: string;
   key: string;
-  kind: "page" | "section" | "banner" | "faq" | "policy" | "testimonial" | "lookbook" | "product_collection";
+  kind: "page" | "section" | "banner" | "faq" | "policy" | "testimonial" | "lookbook" | "product_collection" | "journal";
   title?: string;
   subtitle?: string;
   body?: string;
@@ -56,7 +56,7 @@ export interface PublishedReel {
   };
 }
 
-export const CONTENT_KINDS = ["page", "section", "banner", "faq", "policy", "testimonial", "lookbook", "product_collection"] as const;
+export const CONTENT_KINDS = ["page", "section", "banner", "faq", "policy", "testimonial", "lookbook", "product_collection", "journal"] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
 
 /* ------------------------------------------------------------------ fetching */
@@ -172,100 +172,44 @@ export interface Testimonial {
   image?: string;
 }
 
-export const DEFAULT_TESTIMONIALS: Testimonial[] = [
-  {
-    id: "testi-1",
-    name: "Dr. Ananya Roy",
-    city: "Bengaluru",
-    rating: 5,
-    title: "Softest Mul Cotton I Have Ever Worn!",
-    comment: "The Gulab Bagh Anarkali is pure bliss in summer heat. Featherlight fabric, exquisite handcrafted detailing, and it arrived in Guna-packaged luxury within 3 days!",
-    verified: true,
-    date: "October 2026",
-    product: "Gulab Bagh Anarkali Set",
-    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80",
-  },
-  {
-    id: "testi-2",
-    name: "Meera Singhania",
-    city: "Mumbai",
-    rating: 5,
-    title: "Turned Heads at My Sister's Sangeet",
-    comment: "The festive Chanderi Silk Kurti Set has the most subtle, regal sheen. Received non-stop compliments all evening. The stitching and fit are tailored to absolute perfection.",
-    verified: true,
-    date: "September 2026",
-    product: "Chanderi Silk Festive Kurti",
-    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&q=80",
-  },
-  {
-    id: "testi-3",
-    name: "Pooja Sharma",
-    city: "Bhopal",
-    rating: 5,
-    title: "Authentic MP Handcraft at its Finest",
-    comment: "Being from MP, I know authentic handblock prints. Vani Collection in Guna is doing true justice to our traditional craft. The mul cotton feels like a gentle second skin.",
-    verified: true,
-    date: "October 2026",
-    product: "Handblock Mul Cotton Co-ord",
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&q=80",
-  },
-  {
-    id: "testi-4",
-    name: "Kavita Deshmukh",
-    city: "Pune",
-    rating: 5,
-    title: "Flawless Fit & Premium Fabric",
-    comment: "I was hesitant to buy party wear online, but the measurements are 100% accurate. The fabric drape is royal and the team support was incredibly helpful over WhatsApp.",
-    verified: true,
-    date: "August 2026",
-    product: "Zari Embroidered Party Gown",
-    image: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=400&q=80",
-  },
-  {
-    id: "testi-5",
-    name: "Ritu Verma",
-    city: "Indore",
-    rating: 5,
-    title: "My Go-To Boutique for Every Festival",
-    comment: "Already ordered 4 suits this festive season. No color bleeding, no shrinkage, and the packaging makes you feel like royalty opening a gift.",
-    verified: true,
-    date: "September 2026",
-    product: "Festive Angrakha Kurti Set",
-    image: "", // Graceful fallback demonstration without customer photo
-  },
-];
-
-/** Customer testimonials from `kind=testimonial`. */
-export function toTestimonials(docs: ContentDoc[], fallback: Testimonial[]): Testimonial[] {
-  if (!docs.length) return fallback;
-  const rows = docs
-    .map((doc, index): Testimonial | null => {
+/**
+ * Customer testimonials from `kind=testimonial` — the only source the homepage review wall renders.
+ *
+ * There is deliberately **no bundled fallback**: inventing named "verified" customers when the CMS
+ * is empty is exactly the trust and advertising risk this section must never carry. No published
+ * testimonials means no review section (CustomerReviews renders nothing for an empty list).
+ * Fields are taken only from the document itself; a document missing a name or review text is
+ * skipped instead of being padded out with another customer's details.
+ */
+export function toTestimonials(docs: ContentDoc[]): Testimonial[] {
+  return docs
+    // Legacy About-page pillars were once saved with kind=testimonial; they are not customer reviews.
+    .filter((doc) => !doc.key.startsWith("about.sustain."))
+    .map((doc): Testimonial | null => {
       const blocks = blocksAsObject(doc);
-      const base = fallback[index];
-      const name = str(blocks.name) ?? str(blocks.author) ?? str(doc.title) ?? base?.name;
-      const comment = str(doc.body) ?? str(blocks.comment) ?? base?.comment;
+      const name = str(blocks.name) ?? str(blocks.author);
+      const comment = str(doc.body) ?? str(blocks.comment);
       if (!name || !comment) return null;
-      const rating = num(blocks.rating) ?? base?.rating ?? 5;
+      const rating = num(blocks.rating) ?? 5;
       const mediaUrl = Array.isArray(doc.media) && doc.media[0] && typeof doc.media[0] === "object" && "url" in doc.media[0]
         ? str(doc.media[0].url)
         : undefined;
-      const image = str(blocks.image) ?? str(blocks.avatar) ?? str(blocks.photo) ?? mediaUrl ?? base?.image;
+      const image = str(blocks.image) ?? str(blocks.avatar) ?? str(blocks.photo) ?? mediaUrl;
       return {
         id: doc.key,
         name,
-        city: str(blocks.city) ?? str(blocks.location) ?? base?.city ?? "",
+        city: str(blocks.city) ?? str(blocks.location) ?? "",
         // Clamp to the 1–5 the star renderer expects; a stray 50 would draw 50 stars.
         rating: Math.min(5, Math.max(1, Math.round(rating))),
-        title: str(doc.title) ?? base?.title ?? "",
+        title: str(doc.title) ?? "",
         comment,
-        verified: bool(blocks.verified, base?.verified ?? false),
-        date: str(blocks.date) ?? base?.date ?? "",
-        product: str(blocks.product) ?? base?.product ?? "",
+        verified: bool(blocks.verified, false),
+        date: str(blocks.date) ?? "",
+        product: str(blocks.product) ?? "",
         image: image || undefined,
       };
     })
     .filter((row): row is Testimonial => row !== null);
-  return rows.length ? rows : fallback;
 }
 
 /* -------------------------------------------------------------------- lookbook */
@@ -412,6 +356,90 @@ export function toCategoryStories(docs: ContentDoc[], fallback: CategoryStory[])
   return rows.length ? rows : fallback;
 }
 
+
+/* ---------------------------------------------------------------------- journal */
+
+export interface JournalArticle {
+  key: string;
+  slug: string;
+  title: string;
+  excerpt: string;
+  body: string;
+  coverImage?: string;
+  coverAlt: string;
+  author: string;
+  category: string;
+  tags: string[];
+  seoTitle?: string;
+  seoDescription?: string;
+  publishedAt: string;
+  updatedAt: string;
+  position: number;
+}
+
+/** URL slug for a journal document: the explicit blocks.slug wins, then the journal.<slug> key. */
+export function journalSlugOf(doc: ContentDoc): string {
+  const blocks = blocksAsObject(doc);
+  const fromBlocks = str(blocks.slug);
+  if (fromBlocks) return fromBlocks.toLowerCase();
+  return doc.key.replace(/^journal\./, "").toLowerCase();
+}
+
+/** Published articles from `kind=journal`. Incomplete documents are skipped, never padded out. */
+export function toJournalArticles(docs: ContentDoc[]): JournalArticle[] {
+  return docs
+    .map((doc): JournalArticle | null => {
+      const blocks = blocksAsObject(doc);
+      const title = str(doc.title);
+      const body = typeof doc.body === "string" ? doc.body.trim() : "";
+      const slug = journalSlugOf(doc);
+      if (!title || !body || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
+      const tagsRaw = blocks.tags;
+      const tags = Array.isArray(tagsRaw)
+        ? tagsRaw.filter((tag): tag is string => typeof tag === "string" && Boolean(tag.trim())).map((tag) => tag.trim())
+        : typeof tagsRaw === "string"
+          ? tagsRaw.split(",").map((tag) => tag.trim()).filter(Boolean)
+          : [];
+      const cover = firstImage(doc) ?? str(blocks.coverImage) ?? str(blocks.image);
+      const coverAlt = (Array.isArray(doc.media) ? str(doc.media[0]?.alt) : undefined) ?? str(blocks.coverAlt) ?? title;
+      return {
+        key: doc.key,
+        slug,
+        title,
+        excerpt: str(doc.subtitle) ?? str(blocks.excerpt) ?? "",
+        body,
+        coverImage: cover,
+        coverAlt,
+        author: str(blocks.author) ?? "yadav",
+        category: str(blocks.category) ?? "Journal",
+        tags,
+        seoTitle: str(blocks.seoTitle),
+        seoDescription: str(blocks.seoDescription),
+        publishedAt: str(blocks.publishedAt) ?? doc.createdAt ?? "",
+        updatedAt: doc.updatedAt ?? doc.createdAt ?? "",
+        position: doc.position ?? 0,
+      };
+    })
+    .filter((row): row is JournalArticle => row !== null);
+}
+
+export async function fetchJournalArticles(): Promise<JournalArticle[]> {
+  const docs = await fetchContentByKind("journal");
+  return toJournalArticles(docs);
+}
+
+export async function fetchJournalArticle(slug: string): Promise<JournalArticle | null> {
+  const wanted = slug.toLowerCase();
+  const articles = await fetchJournalArticles();
+  return articles.find((article) => article.slug === wanted) ?? null;
+}
+
+/** Rough reading time for an article body, in whole minutes (never less than 1). */
+export function journalReadingMinutes(body: string): number {
+  const words = body.split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
 /* ------------------------------------------------------------ everything at once */
 
 export interface HomepageContent<TBanners, TTestimonials, TLookbook, TStories> {
@@ -436,7 +464,6 @@ export interface HomepageContent<TBanners, TTestimonials, TLookbook, TStories> {
  */
 export async function fetchHomepageContent(fallbacks: {
   banners: HeroSlide[];
-  testimonials: Testimonial[];
   lookbook: Lookbook;
   stories: CategoryStory[];
 }): Promise<HomepageContent<HeroSlide[], Testimonial[], Lookbook, CategoryStory[]>> {
@@ -462,7 +489,7 @@ export async function fetchHomepageContent(fallbacks: {
   return {
     founder: toFounderMessage(published.find((item) => item.key === FOUNDER_KEY)),
     banners: toHeroSlides(banners, fallbacks.banners),
-    testimonials: toTestimonials(testimonials, fallbacks.testimonials),
+    testimonials: toTestimonials(testimonials),
     lookbook: toLookbook(lookbookList, fallbacks.lookbook),
     lookbooks: toLookbooks(lookbookList, [fallbacks.lookbook]),
     stories: toCategoryStories(stories, fallbacks.stories),

@@ -73,7 +73,7 @@ export default function AccountShell({ children }: { children: ReactNode }) {
       {/* -------- Top brand bar -------- */}
       <header className="sticky top-0 z-30 border-b border-[#ebe6de] bg-[#faf7f2]/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-5 lg:px-8">
-          <Link href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex min-h-11 items-center gap-3" aria-label="Vani Collection home">
             <div className="relative flex h-10 w-10 items-center justify-center">
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#dfc28c] via-[#c9a56b] to-[#8a6d3f]" />
               <div className="absolute inset-[1.5px] rounded-[14px] bg-[#faf7f2]" />
@@ -83,7 +83,7 @@ export default function AccountShell({ children }: { children: ReactNode }) {
             </div>
             <div className="leading-tight">
               <div className="font-serif text-[16px] font-semibold tracking-tight">
-                Vani
+                Vani Collection
               </div>
               <div className="text-[8.5px] font-semibold uppercase tracking-[0.22em] text-stone-400">
                 My Account
@@ -94,7 +94,7 @@ export default function AccountShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-2">
             <Link
               href="/"
-              className="hidden rounded-full border border-stone-300 bg-white px-4 py-2 text-[12px] font-semibold text-stone-700 transition hover:border-stone-400 sm:inline-flex"
+              className="hidden min-h-11 items-center rounded-full border border-stone-300 bg-white px-4 py-2 text-[12px] font-semibold text-stone-700 transition hover:border-stone-400 sm:inline-flex"
             >
               Continue shopping
             </Link>
@@ -111,10 +111,12 @@ export default function AccountShell({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => setMobileOpen((v) => !v)}
-              className="rounded-xl border border-[#ebe6de] bg-white p-2.5 text-stone-600 lg:hidden"
-              aria-label="Toggle menu"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#ebe6de] bg-white text-stone-600 lg:hidden"
+              aria-label={mobileOpen ? "Close account menu" : "Open account menu"}
+              aria-expanded={mobileOpen}
+              aria-controls="account-navigation"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="3" y1="6" x2="21" y2="6" />
                 <line x1="3" y1="12" x2="21" y2="12" />
                 <line x1="3" y1="18" x2="21" y2="18" />
@@ -133,7 +135,7 @@ export default function AccountShell({ children }: { children: ReactNode }) {
               mobileOpen ? "block" : "hidden"
             } lg:block lg:sticky lg:top-24 lg:self-start`}
           >
-            <nav className="rounded-2xl border border-[#ebe6de] bg-white p-3">
+            <nav id="account-navigation" aria-label="Account" className="rounded-2xl border border-[#ebe6de] bg-white p-3">
               {SECTIONS.map((section, si) => (
                 <div key={section.label} className={si > 0 ? "mt-4" : ""}>
                   <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">
@@ -147,8 +149,9 @@ export default function AccountShell({ children }: { children: ReactNode }) {
                         <li key={item.name}>
                           <Link
                             href={item.href}
+                            aria-current={active ? "page" : undefined}
                             onClick={() => setMobileOpen(false)}
-                            className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
+                            className={`group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
                               active
                                 ? "bg-[#881337]/[0.06] text-[#881337]"
                                 : "text-stone-600 hover:bg-stone-100/70 hover:text-stone-900"
@@ -191,9 +194,9 @@ export default function AccountShell({ children }: { children: ReactNode }) {
                     logout();
                     router.replace("/login");
                   }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-stone-600 transition hover:bg-stone-100/70 hover:text-rose-600"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium text-stone-600 transition hover:bg-stone-100/70 hover:text-rose-600"
                 >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                  <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                     <path d="m16 17 5-5-5-5M21 12H9" />
                   </svg>

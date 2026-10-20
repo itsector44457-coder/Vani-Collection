@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import "lenis/dist/lenis.css";
 import "./globals.css";
 import SmoothScroll from "../components/SmoothScroll";
@@ -8,6 +9,27 @@ import CartDrawer from "../components/CartDrawer";
 import QuickViewModal from "../components/QuickViewModal";
 import SiteSchema from "../components/seo/site-schema";
 import { SITE_LOCALE, SITE_NAME, SITE_TAGLINE, SITE_URL } from "../lib/seo";
+
+/**
+ * Brand typefaces, versioned with the app and self-hosted by next/font/local (the CSS previously only *named* system fallbacks, so
+ * every device rendered a different "serif"). `display: swap` keeps text visible while files load,
+ * and the CSS variables feed the existing `--font-playfair` / `--font-sans` tokens in globals.css.
+ */
+const playfair = localFont({
+  src: [
+    { path: "./fonts/playfair-display-latin-wght-normal.woff2", weight: "400 900", style: "normal" },
+    { path: "./fonts/playfair-display-latin-wght-italic.woff2", weight: "400 900", style: "italic" },
+  ],
+  variable: "--font-playfair",
+  display: "swap",
+});
+
+const jakarta = localFont({
+  src: "./fonts/plus-jakarta-sans-latin-wght-normal.woff2",
+  weight: "200 800",
+  variable: "--font-jakarta",
+  display: "swap",
+});
 
 const SITE_DESCRIPTION =
   "Vani Collection — Speciality in fancy kurties and party wear dresses. Handcrafted ethnic wear, pure mul cotton, and royal festive ensembles in Guna, Madhya Pradesh.";
@@ -92,7 +114,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en-IN" className="antialiased">
+    <html lang="en-IN" className={`${playfair.variable} ${jakarta.variable} antialiased`}>
       <body className="min-h-screen flex flex-col bg-[#faf7f2] text-[#1c1917] selection:bg-[#881337] selection:text-white">
         {/* Organization + WebSite/SearchAction, emitted once for the whole site. Every Product,
             CollectionPage and BreadcrumbList node points back at these two by @id. */}

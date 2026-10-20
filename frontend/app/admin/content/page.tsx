@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Alert,
   Badge,
@@ -44,13 +45,14 @@ const DEMO_CONTENT: ContentDoc[] = [
 /** What each kind actually drives, so an editor knows the consequence of a change. */
 const KIND_HINTS: Record<string, string> = {
   banner: "Homepage hero slides, in `position` order",
-  testimonial: "Homepage customer reviews",
+  testimonial: "Homepage customer reviews — managed in Admin → Homepage reviews (consent + verified checks)",
   lookbook: "Homepage shoppable lookbook (first published block only)",
   faq: "Homepage FAQ accordion + FAQPage structured data",
   section: "Homepage category story tiles",
   page: "Standalone page copy",
   policy: "Shipping / returns / privacy policy copy",
   product_collection: "Homepage product selection and display order",
+  journal: "Blog articles at /journal — managed in Admin → Journal / Blog (SEO checks + preview)",
 };
 
 const KIND_TONES: Record<string, BadgeTone> = {
@@ -61,6 +63,8 @@ const KIND_TONES: Record<string, BadgeTone> = {
   section: "neutral",
   page: "neutral",
   policy: "neutral",
+  journal: "gold",
+  product_collection: "info",
 };
 
 type KindFilter = "all" | ContentKind;
@@ -155,7 +159,7 @@ const EMPTY_FORM: FormState = {
   testiName: "",
   testiCity: "",
   testiRating: "5",
-  testiVerified: true,
+  testiVerified: false,
   testiProduct: "",
   testiDate: "",
   testiImage: "",
@@ -207,7 +211,7 @@ const toForm = (doc: ContentDoc): FormState => {
     testiName: typeof blocks.name === "string" ? blocks.name : (doc.title ?? ""),
     testiCity: typeof blocks.city === "string" ? blocks.city : "",
     testiRating: typeof blocks.rating === "number" ? String(blocks.rating) : "5",
-    testiVerified: typeof blocks.verified === "boolean" ? blocks.verified : true,
+    testiVerified: typeof blocks.verified === "boolean" ? blocks.verified : false,
     testiProduct: typeof blocks.product === "string" ? blocks.product : "",
     testiDate: typeof blocks.date === "string" ? blocks.date : "",
     testiImage: typeof blocks.image === "string" ? blocks.image : (typeof blocks.avatar === "string" ? blocks.avatar : (typeof blocks.photo === "string" ? blocks.photo : (doc.media?.[0]?.url ?? ""))),
@@ -226,6 +230,7 @@ const toForm = (doc: ContentDoc): FormState => {
 };
 
 export default function ContentPage() {
+  const router = useRouter();
   const [kind, setKind] = useState<KindFilter>("all");
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<ContentDoc | null>(null);
@@ -307,9 +312,18 @@ export default function ContentPage() {
     return `${prefix}${number}`;
   };
 
+  // Testimonials and journal articles have dedicated editors with the safety/SEO fields this
+  // generic block form cannot express. Route staff there instead of saving them half-configured.
+  const dedicatedPath = (value: ContentKind) => (value === "testimonial" ? "/admin/testimonials" : value === "journal" ? "/admin/journal" : null);
+
   const openCreate = () => {
-    setEditing(null);
     const nextKind = kind === "all" ? "banner" : kind;
+    const dedicated = dedicatedPath(nextKind);
+    if (dedicated) {
+      router.push(dedicated);
+      return;
+    }
+    setEditing(null);
     setForm({
       ...EMPTY_FORM,
       kind: nextKind,
@@ -333,6 +347,12 @@ export default function ContentPage() {
   };
 
   const onKindChange = (newKind: ContentKind) => {
+    const dedicated = dedicatedPath(newKind);
+    if (!editing && dedicated) {
+      setFormOpen(false);
+      router.push(dedicated);
+      return;
+    }
     setForm((current) => ({
       ...current,
       kind: newKind,
@@ -341,6 +361,11 @@ export default function ContentPage() {
   };
 
   const openEdit = (doc: ContentDoc) => {
+    const dedicated = dedicatedPath(doc.kind);
+    if (dedicated) {
+      router.push(dedicated);
+      return;
+    }
     setEditing(doc);
     setForm(toForm(doc));
     setError(null);
@@ -527,7 +552,7 @@ export default function ContentPage() {
       <PageHeading
         eyebrow="Content"
         title="Website content"
-        subtitle="Manage structured storefront pages, homepage product placement, banners, testimonials, the lookbook and FAQs. Product details and inventory stay in the product catalogue."
+        subtitle="Manage structured storefront pages, homepage product placement, banners, lookbook and FAQs. Homepage reviews and Journal articles now have their own safer editors in the sidebar."
         action={
           <ButtonPrimary onClick={openCreate} disabled={content.source !== "live"}>
             New block
@@ -705,7 +730,7 @@ export default function ContentPage() {
               />
             </Field>
             <Field label="Kind" htmlFor="content-kind">
-              <Select id="content-kind" value={form.kind} onChange={(event) => set("kind", event.target.value as ContentKind)}>
+              <Select id="content-kind" value={form.kind} onChange={(event) => onKindChange(event.target.value as ContentKind)}>
                 {CONTENT_KINDS.map((value) => (
                   <option key={value} value={value}>{value}</option>
                 ))}

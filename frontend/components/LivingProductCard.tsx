@@ -11,7 +11,7 @@ interface LivingProductCardProps {
   isWish: boolean;
   toggleWishlist: (id: string) => void;
   onQuickView?: (product: Product) => void;
-  onAddToCart?: (product: Product, size: string, quantity: number) => void;
+  onAddToCart?: (product: Product, size: string, quantity: number) => boolean | void | Promise<boolean | void>;
   selectedSize?: string;
   onSelectSize?: (productId: string, size: string) => void;
   minimal?: boolean;
@@ -33,6 +33,8 @@ export default function LivingProductCard({
   const [isMobile, setIsMobile] = useState(false);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
   const [addedAnimation, setAddedAnimation] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const addedTimerRef = useRef<number | null>(null);
   const hasAlternatePhoto = Boolean(product.hoverImage && product.hoverImage !== product.image);
 
   // Product motion is desktop-only and opt-in on hover. Avoiding viewport
@@ -74,12 +76,42 @@ export default function LivingProductCard({
     }
   };
 
-  const handleAdd = () => {
-    if (!onAddToCart) return;
-    onAddToCart(product, selectedSize || product.sizes?.[0] || "", 1);
-    setAddedAnimation(true);
-    setTimeout(() => setAddedAnimation(false), 1200);
+  const activeSize = selectedSize && product.sizes?.includes(selectedSize)
+    ? selectedSize
+    : product.sizes?.length === 1
+      ? product.sizes[0]
+      : "";
+  const sizeUnavailable = (size: string): boolean => {
+    const variants = (product.variants ?? []).filter((variant) => variant.size === size);
+    return variants.length > 0 && variants.every((variant) => variant.available !== undefined && variant.available <= 0);
   };
+  const activeSizeUnavailable = activeSize ? sizeUnavailable(activeSize) : false;
+  const hasAvailableSize = !product.sizes?.length || product.sizes.some((size) => !sizeUnavailable(size));
+
+  const handleAdd = async () => {
+    if (!onAddToCart || isAdding) return;
+    if (product.sizes && product.sizes.length > 1 && !activeSize) {
+      onQuickView?.(product);
+      return;
+    }
+    if (activeSizeUnavailable) return;
+    setIsAdding(true);
+    try {
+      const added = await onAddToCart(product, activeSize, 1);
+      if (added === false) return;
+      setAddedAnimation(true);
+      if (addedTimerRef.current !== null) window.clearTimeout(addedTimerRef.current);
+      addedTimerRef.current = window.setTimeout(() => setAddedAnimation(false), 1200);
+    } catch {
+      // Cart providers surface their own error; never show a false success state.
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  useEffect(() => () => {
+    if (addedTimerRef.current !== null) window.clearTimeout(addedTimerRef.current);
+  }, []);
 
   const showVideo = isPlaying;
 
@@ -151,7 +183,7 @@ export default function LivingProductCard({
           e.stopPropagation();
           toggleWishlist(product.id);
         }}
-        className={`absolute top-2 sm:top-3 right-2 sm:right-3 z-10 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center transition shadow-xs text-xs sm:text-sm active:scale-90 ${
+        className={`absolute right-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-sm shadow-xs transition hover:bg-white active:scale-90 sm:right-3 sm:top-3 ${
           isWish ? "text-rose-600" : "text-stone-600 hover:text-rose-600"
         }`}
         aria-label={isWish ? `Remove ${product.title} from wishlist` : `Add ${product.title} to wishlist`}
@@ -168,7 +200,7 @@ export default function LivingProductCard({
             e.stopPropagation();
             onQuickView(product);
           }}
-          className="hidden sm:block absolute bottom-3 inset-x-3 z-10 bg-white/95 hover:bg-white text-stone-900 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-md transform translate-y-2 group-hover:translate-y-0 focus:opacity-100 focus:translate-y-0"
+          className="absolute inset-x-3 bottom-3 z-10 hidden min-h-11 translate-y-2 rounded-lg bg-white/95 py-2.5 text-xs font-semibold uppercase tracking-wider text-stone-900 opacity-0 shadow-md transition-all duration-300 hover:bg-white focus:translate-y-0 focus:opacity-100 group-hover:translate-y-0 group-hover:opacity-100 sm:block"
           aria-label={`Quick view ${product.title}`}
         >
           Quick View
@@ -223,8 +255,14 @@ export default function LivingProductCard({
 
           {/* Ratings */}
           <div className={`flex items-center gap-1 text-[10px] sm:text-xs text-stone-500 ${minimal ? "mb-1.5" : "mb-2"}`}>
-            <span className="text-amber-500 font-bold">★ {product.rating}</span>
-            <span className="hidden xs:inline">({product.reviewsCount})</span>
+            {product.reviewsCount > 0 ? (
+              <>
+                <span className="text-amber-500 font-bold">★ {product.rating}</span>
+                <span>({product.reviewsCount} reviews)</span>
+              </>
+            ) : (
+              <span>No reviews yet</span>
+            )}
           </div>
 
           {/* Size Selector Chips - Omitted in minimal mode */}
@@ -235,9 +273,10 @@ export default function LivingProductCard({
                   key={size}
                   type="button"
                   onClick={() => onSelectSize(product.id, size)}
-                  aria-label={`Select size ${size} for ${product.title}`}
+                  disabled={sizeUnavailable(size)}
+                  aria-label={sizeUnavailable(size) ? `Size ${size} uplabdh nahi hai — ${product.title}` : `Select size ${size} for ${product.title}`}
                   aria-pressed={selectedSize === size}
-                  className={`min-h-8 min-w-8 px-2 py-1 rounded text-[11px] font-medium border transition ${
+                  className={`min-h-11 min-w-11 rounded border px-2 py-2 text-xs font-medium transition disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400 disabled:line-through ${
                     selectedSize === size
                       ? "bg-[#1c1917] text-white border-[#1c1917]"
                       : "bg-white text-stone-700 border-stone-300 hover:border-stone-400"
@@ -255,11 +294,11 @@ export default function LivingProductCard({
           <div className={`flex items-baseline justify-between ${minimal ? "mb-0" : "mb-2 sm:mb-3"}`}>
             <div className="flex items-baseline gap-1 sm:gap-1.5">
               <span className={`font-bold text-[#881337] ${minimal ? "text-sm sm:text-base" : "text-sm sm:text-base md:text-lg"}`}>
-                ₹{product.price}
+                ₹{product.price.toLocaleString("en-IN")}
               </span>
               {product.originalPrice > product.price && (
                 <span className="text-[10px] sm:text-xs text-stone-400 line-through">
-                  ₹{product.originalPrice}
+                  ₹{product.originalPrice.toLocaleString("en-IN")}
                 </span>
               )}
             </div>
@@ -278,8 +317,10 @@ export default function LivingProductCard({
           {!minimal && onAddToCart && (
             <button
               type="button"
-              onClick={handleAdd}
-              className={`w-full py-2 sm:py-2.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all duration-300 shadow-xs flex items-center justify-center gap-1 active:scale-95 ${
+              onClick={() => void handleAdd()}
+              disabled={isAdding || !hasAvailableSize || activeSizeUnavailable}
+              aria-label={activeSize ? `${product.title} size ${activeSize} bag me daale` : `${product.title} ke liye size chune`}
+              className={`flex min-h-11 w-full items-center justify-center gap-1 rounded-full py-2.5 text-xs font-semibold uppercase tracking-wider shadow-xs transition-all duration-300 active:scale-95 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600 ${
                 addedAnimation
                   ? "bg-emerald-700 text-white"
                   : "bg-[#1c1917] hover:bg-[#881337] text-white"
@@ -293,7 +334,7 @@ export default function LivingProductCard({
                   Added to Bag
                 </span>
               ) : (
-                <span>+ Add to Bag</span>
+                <span>{isAdding ? "Adding…" : !hasAvailableSize ? "Out of Stock" : activeSize ? `+ Add ${activeSize} to Bag` : "Size Chune"}</span>
               )}
             </button>
           )}
