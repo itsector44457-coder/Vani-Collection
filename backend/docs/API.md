@@ -39,7 +39,7 @@ Common codes: `AUTH_REQUIRED` 401, `FORBIDDEN` 403, `ROUTE_NOT_FOUND` 404, `VALI
 | GET | `/products/:slug` | product + per-SKU available stock; includes optional product-specific `sizeGuide` text |
 | GET | `/categories` | active product categories, ordered for storefront filters and the Collections menu |
 | GET | `/navigation` | active categories, dropdown definitions, and public navbar settings |
-| GET | `/reels` | Active reels ordered for the storefront, linked to active products only |
+| GET | `/reels` | Active shoppable video records, linked to active products only; powers Shop From The Video beneath the homepage hero |
 | GET | `/search?q=` | lightweight typeahead (≥2 chars) |
 | GET | `/content/:key` | published CMS block/page |
 | GET | `/content?kind=` | list published content |
@@ -83,18 +83,19 @@ leaving it blank uses the standard size chart.
 
 ### Content blocks the storefront reads
 
-`GET /content?kind=` returns published blocks ordered by `position`. The homepage maps each kind onto
-a section, and falls back to its bundled copy per kind — so a partially populated CMS renders a mix
-of live and bundled content rather than all-or-nothing. Fields an editor leaves blank inherit from
-the bundled block at the same position.
+`GET /content?kind=` returns published blocks ordered by `position`. The homepage maps its supported
+homepage kinds onto sections and falls back to bundled copy per kind, so a partially populated CMS
+renders a mix of live and bundled content rather than all-or-nothing. About-page and standalone-page
+content use their dedicated keys and editors. Fields an editor leaves blank inherit from the bundled
+homepage block at the same position.
 
-| `kind` | Homepage section | Fields used |
+| `kind` | Consumer | Fields used |
 | --- | --- | --- |
 | `banner` | homepage hero slides, in `position` order | `title`, `subtitle`, `body`, `ctaLabel`, `ctaHref`, `media[{url,alt,kind:image|video}]`, `blocks.tag`, `blocks.position` (image crop) |
 | `testimonial` | customer reviews | `title`, `body`, `blocks.{name,city,rating,verified,date,product}` |
 | `lookbook` | shoppable lookbook (**first published block only**) | `title`, `subtitle`, `media[0].url`, `blocks.pins[]` |
 | `faq` | FAQ accordion **and** `FAQPage` JSON-LD | `title` = question, `body` = answer |
-| `section` | category story tiles | `title`, `subtitle`, `media[0].url`, `blocks.{count,filterKey}` |
+| `section` | About-page content; legacy homepage Story blocks are no longer rendered | varies by consuming page (`title`, `subtitle`, `body`, `media[]`, `blocks`) |
 | `product_collection` | homepage product grid | `title`, `subtitle`, `blocks.productIds` in display order; product details remain in the catalogue |
 | `page` | shipping, returns, privacy, terms and size-guide pages | `title`, `subtitle`, `body`, `media[0]`, `blocks.sections[]` |
 | `policy` | available to page integrations | depends on the consuming page |

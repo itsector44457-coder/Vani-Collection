@@ -30,7 +30,6 @@ body {
   overflow-x: hidden;
   overflow-x: clip;
   -webkit-tap-highlight-color: transparent;
-  touch-action: pan-y;
 }
 
 
@@ -106,6 +105,23 @@ textarea:focus-visible,
   display: none;
 }
 
+/* The video rail stays poster-only until opened, keeping mobile video decoders idle. */
+.shop-video-card {
+  width: calc((100vw - 2rem - 0.75rem) / 2);
+}
+
+@media (min-width: 640px) {
+  .shop-video-card { width: 265px; }
+}
+
+@media (min-width: 768px) {
+  .shop-video-card { width: 285px; }
+}
+
+.shop-video-track {
+  touch-action: pan-x pan-y;
+}
+
 /* Image zoom & hover shimmer utilities */
 .luxury-card-hover {
   transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -169,55 +185,12 @@ textarea:focus-visible,
     display: none;
   }
 
-  .reels-page-container .reels-feed-video {
-    display: block !important;
-  }
 }
 
 /* Fluid typography clamp */
 .text-fluid-hero {
   font-size: clamp(2rem, 6vw, 5rem);
   line-height: 1.08;
-}
-
-/* Reels scroll snap - strict settings */
-.reels-scroll-container {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.reels-scroll-container::-webkit-scrollbar {
-  display: none;
-}
-
-.reel-item {
-  position: relative;
-  overflow: hidden;
-}
-
-/* Override zoom for reels page to get exact viewport height */
-@media (min-width: 640px) {
-  .reels-page-container {
-    zoom: 1 !important;
-  }
-}
-
-/* Desktop scroll hint animation */
-@keyframes fadeInOut {
-  0%, 100% { opacity: 0.3; transform: translateX(-50%) translateY(0px); }
-  50% { opacity: 0.8; transform: translateX(-50%) translateY(-5px); }
-}
-.reels-nav-button {
-  background: rgba(0,0,0,0.8) !important;
-  border: 2px solid rgba(255,255,255,0.5) !important;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
-  backdrop-filter: blur(20px) !important;
-}
-
-.reels-nav-button:hover {
-  background: rgba(0,0,0,0.9) !important;
-  border-color: rgba(255,255,255,0.7) !important;
-  transform: scale(1.05) !important;
 }
 
 /* Hide scrollbar utility */

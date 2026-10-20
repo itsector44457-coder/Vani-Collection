@@ -58,6 +58,8 @@ export interface PublishedReel {
 
 export const CONTENT_KINDS = ["page", "section", "banner", "faq", "policy", "testimonial", "lookbook", "product_collection", "journal"] as const;
 export type ContentKind = (typeof CONTENT_KINDS)[number];
+export type ContentEditorKind = Exclude<ContentKind, "section">;
+export const CONTENT_EDITOR_KINDS = CONTENT_KINDS.filter((kind): kind is ContentEditorKind => kind !== "section");
 
 /* ------------------------------------------------------------------ fetching */
 
@@ -313,50 +315,6 @@ export function toFaqItems(docs: ContentDoc[]): FaqItem[] {
     .filter((item): item is FaqItem => item !== null);
 }
 
-/* ------------------------------------------------------------------- categories */
-
-export interface CategoryStory {
-  id: string;
-  name: string;
-  tagline: string;
-  description: string;
-  image: string;
-  video?: string;
-  count: string;
-  filterKey: string;
-  ctaLabel: string;
-}
-
-/** Category story tiles from `kind=section`. Falls back to the bundled stories when absent. */
-export function toCategoryStories(docs: ContentDoc[], fallback: CategoryStory[]): CategoryStory[] {
-  if (!docs.length) return fallback;
-  const rows = docs
-    .map((doc, index): CategoryStory | null => {
-      const blocks = blocksAsObject(doc);
-      const base = fallback[index];
-      const name = str(doc.title) ?? base?.name;
-      const media = Array.isArray(doc.media) ? doc.media : [];
-      const image = str(media.find((item) => item?.kind !== "video" && str(item?.url))?.url)
-        ?? str(blocks.image)
-        ?? base?.image;
-      if (!name || !image) return null;
-      return {
-        id: doc.key,
-        name,
-        tagline: str(doc.subtitle) ?? str(blocks.tagline) ?? base?.tagline ?? "",
-        description: str(doc.body) ?? str(blocks.description) ?? "",
-        image,
-        video: str(media.find((item) => item?.kind === "video" && str(item?.url))?.url),
-        count: str(blocks.count) ?? base?.count ?? "",
-        filterKey: str(blocks.filterKey) ?? base?.filterKey ?? "",
-        ctaLabel: str(doc.ctaLabel) ?? "Shop this collection",
-      };
-    })
-    .filter((row): row is CategoryStory => row !== null);
-  return rows.length ? rows : fallback;
-}
-
-
 /* ---------------------------------------------------------------------- journal */
 
 export interface JournalArticle {
@@ -442,12 +400,11 @@ export function journalReadingMinutes(body: string): number {
 
 /* ------------------------------------------------------------ everything at once */
 
-export interface HomepageContent<TBanners, TTestimonials, TLookbook, TStories> {
+export interface HomepageContent<TBanners, TTestimonials, TLookbook> {
   banners: TBanners;
   testimonials: TTestimonials;
   lookbook: TLookbook;
   lookbooks: Lookbook[];
-  stories: TStories;
   founder: FounderMessage;
   faqs: FaqItem[];
   productCollection: { title?: string; subtitle?: string; productIds: string[] } | null;
@@ -458,15 +415,14 @@ export interface HomepageContent<TBanners, TTestimonials, TLookbook, TStories> {
 /**
  * One pass over the CMS for the whole homepage.
  *
- * The five kinds are fetched concurrently, and each mapper independently falls back, so a partially
+ * Homepage blocks are fetched in one pass. Each mapper independently falls back, so a partially
  * populated CMS (say, banners but no testimonials) renders a mix of live and bundled content rather
  * than all-or-nothing.
  */
 export async function fetchHomepageContent(fallbacks: {
   banners: HeroSlide[];
   lookbook: Lookbook;
-  stories: CategoryStory[];
-}): Promise<HomepageContent<HeroSlide[], Testimonial[], Lookbook, CategoryStory[]>> {
+}): Promise<HomepageContent<HeroSlide[], Testimonial[], Lookbook>> {
   // CMS changes should show on the next homepage request after an editor publishes them.
   const response = await fetchCatalogue<{ data: ContentDoc[] }>("/api/content", 0);
   const published = Array.isArray(response?.data) ? response.data : [];
@@ -474,7 +430,6 @@ export async function fetchHomepageContent(fallbacks: {
   const banners = ofKind("banner");
   const testimonials = ofKind("testimonial");
   const lookbookList = ofKind("lookbook");
-  const stories = ofKind("section");
   const faqs = ofKind("faq");
   const productCollections = ofKind("product_collection");
 
@@ -492,14 +447,13 @@ export async function fetchHomepageContent(fallbacks: {
     testimonials: toTestimonials(testimonials),
     lookbook: toLookbook(lookbookList, fallbacks.lookbook),
     lookbooks: toLookbooks(lookbookList, [fallbacks.lookbook]),
-    stories: toCategoryStories(stories, fallbacks.stories),
     faqs: toFaqItems(faqs),
     productCollection: productCollection ? {
       title: str(productCollection.title),
       subtitle: str(productCollection.subtitle),
       productIds,
     } : null,
-    fromCms: Boolean(published.some((item) => item.key === FOUNDER_KEY) || banners.length || testimonials.length || lookbookList.length || stories.length || faqs.length || productCollection),
+    fromCms: Boolean(published.some((item) => item.key === FOUNDER_KEY) || banners.length || testimonials.length || lookbookList.length || faqs.length || productCollection),
   };
 }
 

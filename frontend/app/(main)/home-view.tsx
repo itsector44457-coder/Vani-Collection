@@ -10,12 +10,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
 import type { HeroSlide, Lookbook, Testimonial, PublishedReel } from "../../lib/content";
-import type { CategoryStory as CmsCategoryStory } from "../../lib/content";
 import { useCatalogue } from "../../lib/use-storefront";
 import type { Product } from "../../lib/storefront-types";
-import StoryReelModal from "../../components/StoryReelModal";
 import LivingProductCard from "../../components/LivingProductCard";
 import ShopFromVideo from "../../components/ShopFromVideo";
+import OrderStatusBand from "../../components/OrderStatusBand";
 import ShopByCategory from "../../components/ShopByCategory";
 import StylistConciergeBand from "../../components/StylistConciergeBand";
 import { api, isApiConfigured, type StoreCategory } from "../../lib/api-client";
@@ -27,7 +26,6 @@ export interface HomeViewProps {
   testimonials?: Testimonial[];
   lookbook?: Lookbook;
   lookbooks?: Lookbook[];
-  stories?: CmsCategoryStory[];
   faqs?: { question: string; answer: string }[];
   productCollection?: { title?: string; subtitle?: string; productIds: string[] } | null;
   /** True when at least one block came from the CMS. Drives the small "live content" note. */
@@ -50,7 +48,6 @@ export default function HomeView({
   testimonials = [],
   lookbook = { title: "", subtitle: "", image: "", pins: [] },
   lookbooks = [],
-  stories = [],
   faqs = [],
   productCollection = null,
   fromCms = false,
@@ -70,8 +67,6 @@ export default function HomeView({
 
   // Active filter tab
   const [activeTab, setActiveTab] = useState<string>("all");
-  // Story modal state
-  const [activeStory, setActiveStory] = useState<CmsCategoryStory | null>(null);
   // Active Hero Slide
   const [heroSlide, setHeroSlide] = useState<number>(0);
   // Start with the lightweight image experience; video remains an explicit opt-in.
@@ -378,58 +373,11 @@ export default function HomeView({
 
       </section>
 
-      {/* ================= 2. CIRCULAR STORY HIGHLIGHTS (Aisha Creations Style) ================= */}
-      {stories.length > 0 && (
-      <section id="stories" className="py-5 sm:py-10 border-b border-[#e8dfd5] bg-[#faf7f2]">
-        <div className="max-w-[1500px] mx-auto px-4 sm:px-8">
-          <div className="flex items-center justify-between mb-3 sm:mb-4">
-            <div>
-              <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.3em] text-[#b8935a]">
-                Live From Atelier
-              </span>
-              <h2 className="font-serif text-lg sm:text-2xl text-stone-900">
-                Shop Our Story Highlights
-              </h2>
-            </div>
-            <span className="text-[11px] text-stone-500 hidden sm:inline">
-              Tap any highlight to preview reels & outfits
-            </span>
-          </div>
-
-          {/* Stories Horizontal Scroll with touch snap */}
-          <div className="flex items-start gap-3 sm:gap-7 overflow-x-auto pb-3 pt-1 scrollbar-none snap-x -mx-4 px-4 sm:mx-0 sm:px-0">
-            {stories.map((story) => (
-              <button
-                key={story.id}
-                onClick={() => setActiveStory(story)}
-                className="flex flex-col items-center shrink-0 group focus:outline-none snap-start min-w-[72px] sm:min-w-[88px]"
-              >
-                {/* Glowing ring */}
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full p-[2px] sm:p-[2.5px] bg-gradient-to-tr from-[#dfc28c] via-[#881337] to-[#b8935a] group-hover:scale-105 transition-transform duration-300 shadow-xs">
-                  <div className="w-full h-full rounded-full border-2 border-white overflow-hidden bg-stone-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={story.image}
-                      alt={story.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                  </div>
-                </div>
-                <span className="text-[10px] sm:text-xs font-medium text-stone-800 mt-1.5 sm:mt-2 text-center max-w-[72px] sm:max-w-[85px] leading-tight group-hover:text-[#881337] transition">
-                  {story.name}
-                </span>
-                <span className="text-[8.5px] sm:text-[9px] text-[#b8935a] font-semibold">
-                  {story.count}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-      )}
+      {/* ================= 2. SHOP FROM THE VIDEO ================= */}
+      <ShopFromVideo reels={reels} />
+      <OrderStatusBand />
 
       {/* ================= 3. CURATED BENTO COLLECTIONS (Label Amrita Prestige Style) ================= */}
-      {stories.length > 0 && (
       <section className="py-12 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
         <div className="text-center max-w-xl mx-auto mb-10 sm:mb-16">
           <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
@@ -557,7 +505,6 @@ export default function HomeView({
           </div>
         </div>
       </section>
-      )}
 
       {/* ================= 4. RESPONSIVE PRODUCT GRID (2 COLS MOBILE, 3 COLS TABLET, 4 COLS PC) ================= */}
       <section id="products" className="py-12 sm:py-20 bg-white border-y border-[#e8dfd5]">
@@ -641,9 +588,6 @@ export default function HomeView({
           };
         })}
       />
-
-      {/* ================= 4b. SHOP FROM THE VIDEO (REELS SHOWCASE & MODAL) ================= */}
-      <ShopFromVideo reels={reels} />
 
       {/* ================= 5. INTERACTIVE LOOKBOOK (HOTSPOTS BANNER) ================= */}
       {currentLookbook?.image && (
@@ -1004,17 +948,9 @@ export default function HomeView({
         </div>
       </section>
 
-
-
-      {/* ================= 9. LIVE VIDEO SHOPPING + ORDER STATUS ================= */}
+      {/* ================= 9. LIVE VIDEO SHOPPING ================= */}
       <StylistConciergeBand />
 
-      {/* Story Reel Modal */}
-      <StoryReelModal
-        story={activeStory}
-        onClose={() => setActiveStory(null)}
-        onSelectCategory={(key) => setActiveTab(key)}
-      />
     </div>
   );
 }

@@ -85,14 +85,14 @@ const DEMO_PRODUCTS: Paginated<AdminCatalogueProduct> = {
 
 const STATUS_FILTERS = ["All", "Active", "Inactive"] as const;
 
-export default function ReelsView() {
+export default function ShopFromVideoView() {
   const session = useAdminSession();
   const [statusFilter, setStatusFilter] = useState<typeof STATUS_FILTERS[number]>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Check if user has required role for reels management
+  // Check if user has the required role to manage storefront videos
   const hasReelsAccess = Boolean(
     session.user?.roles?.some(role => 
       ['catalog_manager', 'admin', 'super_admin'].includes(role)
@@ -158,9 +158,9 @@ export default function ReelsView() {
   if (session.authenticated && !hasReelsAccess) {
     return (
       <div className="space-y-5">
-        <PageHeading eyebrow="Content" title="Reels" subtitle="Access restricted" />
+        <PageHeading eyebrow="Content" title="Shop From The Video" subtitle="Access restricted" />
         <Alert tone="warning">
-          <strong>Access denied.</strong> Reels management requires catalog_manager, admin, or super_admin role.
+          <strong>Access denied.</strong> Video management requires catalog_manager, admin, or super_admin role.
         </Alert>
       </div>
     );
@@ -243,7 +243,7 @@ export default function ReelsView() {
       reels.refresh();
       closeModal();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Could not save the reel");
+      setError(cause instanceof ApiError ? cause.message : "Could not save the video");
     } finally {
       setSubmitting(false);
     }
@@ -259,7 +259,7 @@ export default function ReelsView() {
       await api.deleteReel(reel._id);
       reels.refresh();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Could not delete the reel");
+      setError(cause instanceof ApiError ? cause.message : "Could not delete the video");
     } finally {
       setBusyId(null);
     }
@@ -269,13 +269,13 @@ export default function ReelsView() {
     <div className="space-y-5">
       <PageHeading
         eyebrow="Content"
-        title="Reels"
-        subtitle={`${reelsList.length} reels · ${statusCounts.Active} active · ${statusCounts.Inactive} inactive`}
+        title="Shop From The Video"
+        subtitle={`${reelsList.length} videos · ${statusCounts.Active} active · ${statusCounts.Inactive} inactive`}
         action={
           <div className="flex items-center gap-2">
             <AdminDataBadge resource={reels} />
             <ButtonPrimary onClick={openCreateModal}>
-              + Add reel
+              + Add video
             </ButtonPrimary>
           </div>
         }
@@ -289,7 +289,7 @@ export default function ReelsView() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-stone-400">
               <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
             </svg>
-            <label htmlFor="reel-search" className="sr-only">Search reels</label>
+            <label htmlFor="reel-search" className="sr-only">Search videos</label>
             <input
               id="reel-search"
               value={searchQuery}
@@ -313,7 +313,7 @@ export default function ReelsView() {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-[#f0ebe3] text-[10.5px] font-semibold uppercase tracking-[0.12em] text-stone-400">
-                <th className="pb-3 pr-4">Reel</th>
+                <th className="pb-3 pr-4">Video</th>
                 <th className="pb-3 pr-4">Product</th>
                 <th className="pb-3 pr-4">Position</th>
                 <th className="pb-3 pr-4">Status</th>
@@ -325,7 +325,7 @@ export default function ReelsView() {
               {filtered.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-10 text-center text-[12.5px] text-stone-500">
-                    No reels match this filter.
+                    No videos match this filter.
                   </td>
                 </tr>
               )}
@@ -388,7 +388,7 @@ export default function ReelsView() {
                     <td className="py-3.5 text-right">
                       <div className="flex justify-end gap-1 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
                         <Link
-                          href={`/reels#${reel._id}`}
+                          href="/#shop-from-video"
                           className="rounded-lg px-2.5 py-1.5 text-[11.5px] font-medium text-stone-600 hover:bg-[#f0ebe3]"
                         >
                           View
@@ -419,7 +419,7 @@ export default function ReelsView() {
 
         <div className="mt-4 flex items-center justify-between border-t border-[#f0ebe3] pt-4 text-[12px] text-stone-500">
           <span>Showing {filtered.length} of {reelsList.length}</span>
-          <span>{reels.source === "live" ? "Live data from the backend" : "Live reels unavailable"}</span>
+          <span>{reels.source === "live" ? "Live data from the backend" : "Live video records unavailable"}</span>
         </div>
       </Card>
 
@@ -427,15 +427,15 @@ export default function ReelsView() {
       <Modal
         open={showModal}
         onClose={closeModal}
-        title={editingReel ? "Edit reel" : "Create reel"}
-        description={editingReel ? "Update reel information and settings" : "Add a new reel to your content collection"}
+        title={editingReel ? "Edit video" : "Create video"}
+        description={editingReel ? "Update video details and settings" : "Add a video to Shop From The Video on the storefront"}
         footer={
           <>
             <ButtonGhost onClick={closeModal} disabled={submitting}>
               Cancel
             </ButtonGhost>
             <ButtonPrimary onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "Saving…" : editingReel ? "Update reel" : "Create reel"}
+              {submitting ? "Saving…" : editingReel ? "Update video" : "Create video"}
             </ButtonPrimary>
           </>
         }
@@ -446,24 +446,24 @@ export default function ReelsView() {
               id="reel-title"
               value={formData.title || ""}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Enter reel title"
+              placeholder="Enter video title"
               required
             />
             {formErrors.title && <span className="text-[11px] text-rose-600">{formErrors.title}</span>}
           </Field>
 
-          <Field label="Description" htmlFor="reel-description" hint="Optional description for the reel">
+          <Field label="Description" htmlFor="reel-description" hint="Optional description shown with the video">
             <Textarea
               id="reel-description"
               value={formData.description || ""}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Enter reel description"
+              placeholder="Enter video description"
               rows={3}
             />
             {formErrors.description && <span className="text-[11px] text-rose-600">{formErrors.description}</span>}
           </Field>
 
-          <Field label="Video URL" htmlFor="reel-video" hint="Paste a public MP4/WebM/MOV URL or a YouTube/Vimeo link. Only Active reels linked to an active product appear on /reels.">
+          <Field label="Video URL" htmlFor="reel-video" hint="Paste a public MP4/WebM/MOV URL or a YouTube/Vimeo link. Active videos linked to active products appear in Shop From The Video, immediately after the homepage banner.">
             <TextInput
               id="reel-video"
               type="url"
@@ -476,7 +476,7 @@ export default function ReelsView() {
             {formErrors.videoUrl && <span className="text-[11px] text-rose-600">{formErrors.videoUrl}</span>}
           </Field>
 
-          <Field label="Thumbnail URL" htmlFor="reel-thumbnail" hint="Optional custom thumbnail image">
+          <Field label="Thumbnail URL" htmlFor="reel-thumbnail" hint="Optional custom video thumbnail">
             <TextInput
               id="reel-thumbnail"
               type="url"

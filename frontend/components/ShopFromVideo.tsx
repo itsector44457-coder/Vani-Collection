@@ -9,7 +9,7 @@ import type { PublishedReel } from "../lib/content";
 import { STORE_PHONE_DISPLAY, storeWhatsAppUrl } from "../lib/site-contact";
 
 /* ------------------------------------------------------------------ */
-/*  Lazy Card with Viewport-aware Boomerang Video Playback            */
+/*  Lightweight, poster-first card: video is fetched only on open       */
 /* ------------------------------------------------------------------ */
 function VideoCard({
   reel,
@@ -20,38 +20,6 @@ function VideoCard({
   onOpen: () => void;
   hasMovedRef: React.RefObject<boolean>;
 }) {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isVisible, setIsVisible] = useState(false);
-  const [videoError, setVideoError] = useState(false);
-
-  // Lazy observer: only play video when the card is within the user's viewport
-  // This ensures MINIMAL load on the website and zero battery / CPU drain!
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry) {
-          setIsVisible(entry.isIntersecting);
-          if (videoRef.current) {
-            if (entry.isIntersecting) {
-              videoRef.current.play().catch(() => { });
-            } else {
-              videoRef.current.pause();
-            }
-          }
-        }
-      },
-      { rootMargin: "150px", threshold: 0.15 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   const image = reel.thumbnailUrl || reel.productId?.images?.[0]?.url || "";
   const prices = (reel.productId?.variants ?? []).map((variant) => variant.price).filter((value) => Number.isFinite(value) && value > 0);
   const price = prices.length ? Math.min(...prices) : null;
@@ -59,13 +27,11 @@ function VideoCard({
 
   return (
     <div
-      ref={cardRef}
       onClick={() => {
         if (hasMovedRef.current) return;
         onOpen();
       }}
-      style={{ transform: "translate3d(0,0,0)", willChange: "transform", contain: "layout paint" }}
-      className="group relative flex w-[230px] shrink-0 snap-start cursor-pointer flex-col overflow-hidden rounded-2xl border border-stone-200/90 bg-white shadow-sm transition-shadow duration-300 hover:shadow-xl sm:w-[265px] md:w-[285px]"
+      className="shop-video-card group relative flex shrink-0 snap-start cursor-pointer flex-col overflow-hidden rounded-xl border border-stone-200/90 bg-white shadow-sm transition-shadow duration-300 hover:shadow-xl sm:rounded-2xl"
     >
       <button
         type="button"
@@ -74,83 +40,68 @@ function VideoCard({
           if (!hasMovedRef.current) onOpen();
         }}
         aria-label={`${reel.title || reel.productId?.name || "Video look"} dekhe`}
-        className="absolute inset-0 z-20 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#881337]"
+        className="absolute inset-0 z-20 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#881337] sm:rounded-2xl"
       />
 
-      {/* ── Top: Video Area (9:16 Portrait Boomerang Loop) ── */}
-      <div className="relative aspect-[9/15] w-full overflow-hidden bg-stone-900" style={{ transform: "translate3d(0,0,0)" }}>
-        {!videoError && isVisible ? (
-          <video
-            ref={videoRef}
-            src={reel.videoUrl}
-            poster={image}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="none"
-            disablePictureInPicture
-            disableRemotePlayback
-            style={{ transform: "translate3d(0,0,0)" }}
-            onError={() => setVideoError(true)}
-            className="w-full h-full object-cover"
-          />
-        ) : image ? (
+      {/* Poster-first portrait card: avoids autoplay, decoder work, and video downloads while scrolling. */}
+      <div className="relative aspect-[9/15] w-full overflow-hidden bg-stone-900">
+        {image ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={image}
             alt={reel.title || "Video Look"}
-            className="w-full h-full object-cover"
+            className="h-full w-full object-cover"
             loading="lazy"
+            decoding="async"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center px-5 text-center font-serif text-lg text-[#dfc28c]">
+          <div className="flex h-full w-full items-center justify-center px-3 text-center font-serif text-sm text-[#dfc28c] sm:px-5 sm:text-lg">
             {reel.title || reel.productId?.name || "Video Look"}
           </div>
         )}
 
-        {/* Gradient shadow for text visibility */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25 pointer-events-none" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/25" />
 
-        {/* Top Text / Badge (Solid background without heavy blur for 120fps scrolling) */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-[#dfc28c] bg-black/75 px-2.5 py-1 rounded-full border border-[#dfc28c]/40 shadow-xs">
+        <div className="pointer-events-none absolute left-2 right-2 top-2 z-10 flex items-center justify-between sm:left-3 sm:right-3 sm:top-3">
+          <span className="rounded-full border border-[#dfc28c]/40 bg-black/75 px-2 py-1 text-[8px] font-bold uppercase tracking-wider text-[#dfc28c] sm:px-2.5 sm:text-[9px]">
             Tap to Watch
           </span>
-          <span className="w-7 h-7 rounded-full bg-black/75 flex items-center justify-center text-white text-xs border border-white/20 shadow-xs">
-            🔇
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white shadow-xs">
+            <svg aria-hidden="true" width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
+              <path d="M1 1.2c0-.7.8-1.1 1.4-.7l6.4 4.3a1.5 1.5 0 0 1 0 2.4l-6.4 4.3A.85.85 0 0 1 1 10.8z" />
+            </svg>
           </span>
         </div>
 
-        {/* Middle Banner text (Matching Image 1: ORDER NOW) */}
-        <div className="absolute bottom-3 inset-x-3 text-center text-white z-10 pointer-events-none">
-          <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-[#dfc28c] drop-shadow-sm">
-            ORDER NOW:-
+        <div className="pointer-events-none absolute inset-x-2 bottom-2 z-10 text-center text-white sm:inset-x-3 sm:bottom-3">
+          <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-[#dfc28c] drop-shadow-sm sm:text-[10px] sm:tracking-[0.2em]">
+            ORDER NOW
           </p>
-          <p className="text-[11px] font-semibold text-white/95 tracking-wide drop-shadow-sm">
+          <p className="text-[9px] font-semibold tracking-wide text-white/95 drop-shadow-sm sm:text-[11px]">
             {STORE_PHONE_DISPLAY}
           </p>
         </div>
       </div>
 
-      {/* ── Bottom: Product Info Bar (Matching Image 1 exactly) ── */}
-      <div className="p-3 sm:p-3.5 bg-white flex items-center gap-2.5 border-t border-stone-100 min-w-0">
+      {/* Product details stay compact so both posters fit on a phone screen. */}
+      <div className="flex min-w-0 items-center gap-2 border-t border-stone-100 bg-white p-2 sm:gap-2.5 sm:p-3.5">
         {image ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={image}
             alt={reel.productId?.name || "Product"}
-            className="h-10 w-10 shrink-0 rounded-lg border border-stone-200 bg-stone-50 object-cover"
+            className="h-8 w-8 shrink-0 rounded-lg border border-stone-200 bg-stone-50 object-cover sm:h-10 sm:w-10"
             loading="lazy"
+            decoding="async"
           />
         ) : (
-          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-[#faf7f2] font-serif text-[#881337]">VC</span>
+          <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-stone-200 bg-[#faf7f2] font-serif text-sm text-[#881337] sm:h-10 sm:w-10">VC</span>
         )}
         <div className="min-w-0 flex-1">
-          <h4 className="text-[12px] sm:text-[13px] font-semibold text-stone-900 truncate leading-snug group-hover:text-[#881337] transition-colors">
+          <h4 className="truncate text-[10px] font-semibold leading-snug text-stone-900 transition-colors group-hover:text-[#881337] sm:text-[13px]">
             {reel.productId?.name || reel.title}
           </h4>
-          <p className="text-[11px] font-bold text-stone-600 mt-0.5">
+          <p className="mt-0.5 truncate text-[9px] font-bold text-stone-600 sm:text-[11px]">
             {formattedPrice}
           </p>
         </div>
@@ -171,8 +122,8 @@ export default function ShopFromVideo({
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Only real Admin-published reels are shown. Bundled demo reels previously invented product
-  // names, prices and descriptions, then presented them as orderable stock.
+  // Only Admin-published videos are shown. Bundled demo clips previously invented product names,
+  // prices and descriptions, then presented them as orderable stock.
   const displayReels = propReels ?? [];
 
   // Modal State
@@ -236,7 +187,7 @@ export default function ShopFromVideo({
     if (addedTimerRef.current !== null) window.clearTimeout(addedTimerRef.current);
   }, []);
 
-  // Drag-to-scroll state for hand dragging with mouse or touch (Butter-smooth 120fps with RAF)
+  // Drag-to-scroll state for mouse input; touch keeps native scrolling and snapping.
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
   const scrollLeftStartRef = useRef(0);
@@ -308,7 +259,7 @@ export default function ShopFromVideo({
   const scroll = (direction: "left" | "right") => {
     const el = scrollRef.current;
     if (!el) return;
-    const distance = direction === "left" ? -340 : 340;
+    const distance = el.clientWidth * (direction === "left" ? -0.75 : 0.75);
     el.scrollBy({ left: distance, behavior: "smooth" });
   };
 
@@ -420,7 +371,24 @@ export default function ShopFromVideo({
     }
   };
 
-  if (displayReels.length === 0) return null;
+  if (displayReels.length === 0) {
+    return (
+      <section id="shop-from-video" aria-labelledby="shop-from-video-heading" className="scroll-mt-24 border-b border-[#e8dfd5] bg-[#faf7f2] px-4 py-8 sm:px-8 sm:py-16">
+        <div className="mx-auto max-w-[1500px] text-center">
+          <span className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#881337]">Artisanal Video Looks</span>
+          <h2 id="shop-from-video-heading" className="mt-2 font-serif text-xl font-normal tracking-tight text-stone-900 sm:text-3xl lg:text-4xl">
+            Shop From The Video
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-stone-600">
+            Our latest styling videos will appear here as they are published. Explore the collection in the meantime.
+          </p>
+          <Link href="/products" className="mx-auto mt-6 flex min-h-11 w-fit items-center rounded-full bg-[#881337] px-6 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-[#701a35]">
+            Browse the collection
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <>
@@ -445,15 +413,15 @@ export default function ShopFromVideo({
       </div>
 
       {/* ── Main Section: Shop From The Video ── */}
-      <section className="py-12 sm:py-16 bg-[#faf7f2] border-b border-[#e8dfd5] relative overflow-hidden">
+      <section id="shop-from-video" aria-labelledby="shop-from-video-heading" className="scroll-mt-24 relative overflow-hidden border-b border-[#e8dfd5] bg-[#faf7f2] py-8 sm:py-16">
         <div className="max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
           {/* Section Header */}
-          <div className="flex items-center justify-between mb-8 sm:mb-10">
+          <div className="mb-5 flex items-center justify-between sm:mb-10">
             <div>
               <span className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#881337] block mb-1">
                 Artisanal Video Looks
               </span>
-              <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-normal text-stone-900 tracking-tight">
+              <h2 id="shop-from-video-heading" className="font-serif text-xl font-normal tracking-tight text-stone-900 sm:text-3xl lg:text-4xl">
                 Shop From The Video
               </h2>
             </div>
@@ -466,7 +434,7 @@ export default function ShopFromVideo({
                 type="button"
                 onClick={() => scroll("left")}
                 aria-label="Scroll left"
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 shadow-xs transition hover:border-[#881337] hover:bg-[#881337] hover:text-white"
+                className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 shadow-xs transition hover:border-[#881337] hover:bg-[#881337] hover:text-white sm:h-11 sm:w-11"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="15 18 9 12 15 6" />
@@ -476,7 +444,7 @@ export default function ShopFromVideo({
                 type="button"
                 onClick={() => scroll("right")}
                 aria-label="Scroll right"
-                className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 shadow-xs transition hover:border-[#881337] hover:bg-[#881337] hover:text-white"
+                className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-stone-300 bg-white text-stone-700 shadow-xs transition hover:border-[#881337] hover:bg-[#881337] hover:text-white sm:h-11 sm:w-11"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <polyline points="9 18 15 12 9 6" />
@@ -495,7 +463,7 @@ export default function ShopFromVideo({
             style={{
               WebkitOverflowScrolling: "touch",
             }}
-            className="flex gap-4 sm:gap-6 overflow-x-auto scrollbar-none py-2 -mx-4 sm:-mx-8 lg:-mx-12 px-4 sm:px-8 lg:px-12 cursor-grab active:cursor-grabbing select-none touch-pan-x"
+            className="shop-video-track flex snap-x snap-proximity gap-3 overflow-x-auto overscroll-x-contain scrollbar-none py-1 -mx-4 px-4 select-none sm:gap-6 sm:py-2 sm:-mx-8 sm:px-8 lg:-mx-12 lg:px-12 cursor-grab active:cursor-grabbing"
           >
             {displayReels.map((reel, index) => (
               <VideoCard

@@ -8,6 +8,7 @@ import { useCart } from "../context/CartContext";
 import SearchOverlay from "./SearchOverlay";
 import { api, isApiConfigured, type NavigationMenu, type NavigationSettings, type StoreCategory } from "../lib/api-client";
 import { storeWhatsAppUrl } from "../lib/site-contact";
+import { normalizeNavigationLinks } from "../lib/navigation";
 import { useModalDialog } from "../lib/use-modal-dialog";
 
 // Utility function to convert display names to URL category parameters
@@ -166,8 +167,7 @@ const FALLBACK_NAV_SETTINGS: NavigationSettings = {
     "✦ 100% Certified Pure Handcrafted Ensembles · Guna",
   ],
   links: [
-    { label: "Stories", href: "/#stories", isActive: true },
-    { label: "Reels", href: "/reels", isActive: true },
+    { label: "Shop From The Video", href: "/#shop-from-video", isActive: true },
     { label: "Journal", href: "/journal", isActive: true },
     { label: "Living Looks", href: "/#products", isActive: true },
     { label: "Contact", href: "/contact", isActive: true },
@@ -206,7 +206,7 @@ export default function Navbar() {
       .then(({ data }) => {
         setStoreCategories(data.categories);
         setDropdownMenus(data.menus);
-        setSettings(data.settings);
+        setSettings({ ...data.settings, links: normalizeNavigationLinks(data.settings.links) });
         setExpandedMobileCategory(data.categories[0]?.navigationGroup || null);
       })
       .catch((cause: unknown) => {
@@ -214,6 +214,8 @@ export default function Navbar() {
       });
     return () => controller.abort();
   }, []);
+
+  const navLinks = normalizeNavigationLinks(settings.links);
 
   const categories = storeCategories.length
     ? storeCategories
@@ -404,21 +406,21 @@ export default function Navbar() {
                 panelBg={settings.colors.headerBg}
               />
 
-              {settings.links.filter((link) => link.isActive).map((link) => (
+              {navLinks.filter((link) => link.isActive).map((link) => (
                 <Link key={`${link.label}-${link.href}`} href={link.href} className="group relative px-3 py-2 text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors whitespace-nowrap" style={{ color: settings.colors.headerText }}>
                   <span>{link.label}</span>
                   <span className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100" style={{ backgroundColor: settings.colors.accent }} />
                 </Link>
               ))}
 
-              {!settings.links.some((link) => link.href === "/journal" || link.label.toLowerCase() === "journal") && (
+              {!navLinks.some((link) => link.href === "/journal" || link.label.toLowerCase() === "journal") && (
                 <Link href="/journal" className="group relative px-3 py-2 text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors whitespace-nowrap" style={{ color: settings.colors.headerText }}>
                   <span>Journal</span>
                   <span className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100" style={{ backgroundColor: settings.colors.accent }} />
                 </Link>
               )}
 
-              {!settings.links.some((link) => link.href === "/about" || link.label.toLowerCase().includes("story") || link.label.toLowerCase().includes("about")) && (
+              {!navLinks.some((link) => link.href === "/about" || link.label.toLowerCase().includes("story") || link.label.toLowerCase().includes("about")) && (
                 <Link
                   href="/about"
                   className="group relative px-4 py-2 text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors"
@@ -432,7 +434,7 @@ export default function Navbar() {
                 </Link>
               )}
 
-              {!settings.links.some((link) => link.href === "/contact" || link.label.toLowerCase() === "contact") && (
+              {!navLinks.some((link) => link.href === "/contact" || link.label.toLowerCase() === "contact") && (
                 <Link
                   href="/contact"
                   className="group relative px-4 py-2 text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors"
@@ -616,33 +618,25 @@ export default function Navbar() {
                 </button>
               </div>
 
-              {/* Quick Links for Features */}
-              <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-stone-200/80 bg-white/30 shrink-0">
+              {/* Quick Links */}
+              <div className="grid grid-cols-2 gap-2 border-b border-stone-200/80 bg-white/30 px-4 py-3 shrink-0">
                 <Link
-                  href="/reels"
+                  href="/#shop-from-video"
                   onClick={() => setMobileDrawerOpen(false)}
-                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-br from-[#881337] to-[#701a35] p-2.5 text-xs font-semibold text-white shadow-md"
+                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-br from-[#881337] to-[#701a35] p-2.5 text-center text-[11px] font-semibold text-white shadow-md"
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="white" stroke="none">
-                    <rect x="2" y="2" width="20" height="20" rx="4" />
-                    <path d="M10 8l6 4-6 4V8z" fill="#881337" />
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="16" rx="3" />
+                    <path d="m10 9 5 3-5 3z" fill="currentColor" stroke="none" />
                   </svg>
-                  <span>Reels</span>
-                </Link>
-                <Link
-                  href="/#stories"
-                  onClick={() => setMobileDrawerOpen(false)}
-                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-stone-200 bg-white p-2.5 text-xs font-semibold text-stone-800 transition hover:bg-stone-50"
-                >
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span>Stories</span>
+                  <span>Shop From The Video</span>
                 </Link>
                 <Link
                   href="/contact"
                   onClick={() => setMobileDrawerOpen(false)}
                   className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[#dfc28c]/40 bg-[#dfc28c]/15 p-2.5 text-xs font-semibold text-[#7a5c2b] transition hover:bg-[#dfc28c]/25"
                 >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                  <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" /></svg>
                   <span>Contact</span>
                 </Link>
               </div>
@@ -723,12 +717,12 @@ export default function Navbar() {
 
                 {/* Additional Quick Links */}
                 <div className="pt-4 border-t border-stone-200 space-y-2 text-xs text-stone-700">
-                  {settings.links.filter((link) => link.isActive).map((link) => (
+                  {navLinks.filter((link) => link.isActive).map((link) => (
                     <Link key={`mobile-${link.label}-${link.href}`} href={link.href} onClick={() => setMobileDrawerOpen(false)} className="flex min-h-11 items-center justify-between rounded-lg px-3 py-2.5 hover:bg-stone-100" style={{ color: settings.colors.headerText }}>
                       <span>{link.label}</span><span>→</span>
                     </Link>
                   ))}
-                  {!settings.links.some((link) => link.href === "/journal") && (
+                  {!navLinks.some((link) => link.href === "/journal") && (
                     <Link href="/journal" onClick={() => setMobileDrawerOpen(false)} className="flex min-h-11 items-center justify-between rounded-lg px-3 py-2.5 hover:bg-stone-100" style={{ color: settings.colors.headerText }}>
                       <span>Journal</span><span>→</span>
                     </Link>
@@ -838,19 +832,18 @@ export default function Navbar() {
             <span className="mt-0.5 text-[10px] font-medium">Shop</span>
           </Link>
 
-          {/* Reels — PROMINENT CENTER BUTTON */}
+          {/* Shop From The Video */}
           <Link
-            href="/reels"
-            className="flex min-h-11 min-w-11 flex-col items-center justify-center -mt-5"
+            href="/#shop-from-video"
+            className="-mt-5 flex min-h-11 min-w-11 flex-col items-center justify-center"
           >
-            <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg border-2" style={{ background: `linear-gradient(135deg, ${settings.colors.accent}, ${settings.colors.announcementBg})`, borderColor: settings.colors.announcementText }}>
-              {/* Play / Reels icon */}
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <rect x="2" y="2" width="20" height="20" rx="5" />
-                <path d="M8 9.5l8 4.5-8 4.5V9.5z" fill="white" stroke="none" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 shadow-lg" style={{ background: `linear-gradient(135deg, ${settings.colors.accent}, ${settings.colors.announcementBg})`, borderColor: settings.colors.announcementText }}>
+              <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                <rect x="3" y="4" width="18" height="16" rx="3" />
+                <path d="m10 9 5 3-5 3z" fill="white" stroke="none" />
               </svg>
             </div>
-            <span className="mt-1 text-[10px] font-bold tracking-wide" style={{ color: settings.colors.accent }}>Reels</span>
+            <span className="mt-1 text-[10px] font-bold tracking-wide" style={{ color: settings.colors.accent }}>Video</span>
           </Link>
 
           {/* Wishlist → Account */}

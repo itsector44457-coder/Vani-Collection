@@ -85,8 +85,8 @@ Two consequences worth knowing:
 - The deployment needs outbound access to those hosts. A platform with restricted egress will show
   broken images even though the storefront itself works.
 
-`ProductImageGallery`, `LivingProductCard`, the account order/wishlist thumbnails and the reels
-product thumbs all use it. Some marketing and modal components still use plain `<img>` with an
+`ProductImageGallery`, `LivingProductCard`, the account order/wishlist thumbnails and the Shop From The Video
+product thumbnails all use it. Some marketing and modal components still use plain `<img>` with an
 `eslint-disable` for `@next/next/no-img-element`; `components/seo/og-card.tsx` has a genuine
 exception, since satori rasterises the Open Graph card itself and `next/image` does not exist inside
 `ImageResponse`.
@@ -95,15 +95,15 @@ exception, since satori rasterises the Open Graph card itself and `next/image` d
 
 ## Homepage CMS
 
-The hero banners, customer testimonials, shoppable lookbook, category stories and FAQ are editable
-content blocks (`/admin/content` → `PUT /api/content/:key`). `lib/content.ts` maps the loosely-shaped
-Content documents onto the exact structures the homepage renders, so wiring the CMS up did not mean
-redesigning anything.
+The hero banners, customer testimonials, shoppable lookbook, product selection and FAQ are editable
+content blocks (`/admin/content` → `PUT /api/content/:key`). Shop From The Video is managed separately
+in `/admin/shop-from-video` and shares its published video records with the homepage section directly
+below the hero. `lib/content.ts` maps loosely-shaped CMS documents onto the structures the homepage renders.
 
-`app/(main)/page.tsx` is a Server Component: it fetches all five kinds in one pass, mounts the
-`FAQPage` JSON-LD and declares the homepage canonical. The interactive body lives in
-`app/(main)/home-view.tsx` and takes the content as props, each defaulting to the bundled copy in
-`data/products.ts`.
+`app/(main)/page.tsx` is a Server Component: it fetches homepage CMS content, published Shop From The
+Video clips and the initial product catalogue, mounts the `FAQPage` JSON-LD and declares the homepage
+canonical. The interactive body lives in `app/(main)/home-view.tsx` and takes the content as props, each
+defaulting to bundled copy where appropriate.
 
 The fallback contract is **per kind and per field**, not all-or-nothing:
 

@@ -93,7 +93,6 @@ export const STATIC_PAGES: { path: string; changeFrequency: "daily" | "weekly" |
   { path: "/products", changeFrequency: "daily", priority: 0.9, label: "Our Collection" },
   { path: "/about", changeFrequency: "monthly", priority: 0.8, label: "Our Story" },
   { path: "/contact", changeFrequency: "monthly", priority: 0.8, label: "Contact Us" },
-  { path: "/reels", changeFrequency: "weekly", priority: 0.7, label: "Reels" },
   { path: "/journal", changeFrequency: "weekly", priority: 0.7, label: "Journal" },
   { path: "/size-guide", changeFrequency: "monthly", priority: 0.6, label: "Size Guide" },
   { path: "/shipping", changeFrequency: "monthly", priority: 0.6, label: "Shipping & Delivery" },
