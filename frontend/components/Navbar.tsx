@@ -163,6 +163,7 @@ const FALLBACK_NAV_SETTINGS: NavigationSettings = {
   announcements: [
     "✦ Speciality in Fancy Kurties & Party Wear Dresses",
     "✦ Free Express Shipping Across India Above ₹1,999",
+    "✦ Cash on Delivery Available (select pincodes)",
     "✦ 100% Certified Pure Handcrafted Ensembles · Guna",
   ],
   links: [

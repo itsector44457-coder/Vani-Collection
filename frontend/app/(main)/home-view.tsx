@@ -16,6 +16,8 @@ import type { Product } from "../../lib/storefront-types";
 import StoryReelModal from "../../components/StoryReelModal";
 import LivingProductCard from "../../components/LivingProductCard";
 import ShopFromVideo from "../../components/ShopFromVideo";
+import ShopByCategory from "../../components/ShopByCategory";
+import StylistConciergeBand from "../../components/StylistConciergeBand";
 import { api, isApiConfigured, type StoreCategory } from "../../lib/api-client";
 import { STORE_PHONE_DISPLAY, storeWhatsAppUrl } from "../../lib/site-contact";
 
@@ -619,6 +621,27 @@ export default function HomeView({
         </div>
       </section>
 
+      {/* ================= 4a. SHOP BY CATEGORIES (tiles with live piece counts) ================= */}
+      <ShopByCategory
+        items={(categories.length
+          ? categories
+          : // Demo / no-API mode: derive the tiles from the bundled catalogue so the section still shows.
+            [...new Set(catalogueProducts.map((product) => product.category))].map((slug) => ({
+              _id: slug,
+              slug,
+              name: slug.replace(/-/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
+              bannerImage: undefined as string | undefined,
+            }))
+        ).map((category) => {
+          const inCategory = catalogueProducts.filter((product) => product.category === category.slug);
+          return {
+            category,
+            count: inCategory.length,
+            image: category.bannerImage || inCategory[0]?.image || undefined,
+          };
+        })}
+      />
+
       {/* ================= 4b. SHOP FROM THE VIDEO (REELS SHOWCASE & MODAL) ================= */}
       <ShopFromVideo reels={reels} />
 
@@ -982,6 +1005,9 @@ export default function HomeView({
       </section>
 
 
+
+      {/* ================= 9. LIVE VIDEO SHOPPING + ORDER STATUS ================= */}
+      <StylistConciergeBand />
 
       {/* Story Reel Modal */}
       <StoryReelModal
