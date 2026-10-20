@@ -9,7 +9,6 @@ import { isApiConfigured } from "../lib/api-client";
 import { searchProducts } from "../lib/storefront-api";
 import type { Product } from "../lib/storefront-types";
 import { formatPrice } from "../lib/utils";
-import { useScrollLock } from "./SmoothScroll";
 
 interface SearchOverlayProps {
   isOpen: boolean;
@@ -60,7 +59,6 @@ function HighlightedTitle({ title, query }: { title: string; query: string }) {
 }
 
 export default function SearchOverlay({ isOpen, onClose }: SearchOverlayProps) {
-  useScrollLock(isOpen);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Product[]>([]);
   const [totalResults, setTotalResults] = useState(0);

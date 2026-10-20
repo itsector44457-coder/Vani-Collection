@@ -16,7 +16,7 @@ A luxury Indian ethnic wear destination based in Guna, Madhya Pradesh — specia
   - Curated Bento collections (Mul Cotton, Festive Heirlooms, Co-ord Sets, Under ₹1,999)
   - Interactive Editorial Lookbook with shoppable hotspots
   - Slide-over Cart Drawer with real-time free shipping progress bar & coupon system
-  - Lenis smooth momentum scrolling
+  - Native browser scrolling for a fast, predictable experience
 - **Design Aesthetic**:
   - Royal heritage palette (Crimson, Deep Wine, Warm Cream, Antique Gold)
   - Serif typography (`Playfair Display` + `Plus Jakarta Sans`)
@@ -47,6 +47,6 @@ node server.js
 - **Framework**: Next.js 16 (App Router)
 - **Styling**: Tailwind CSS v4 & Vanilla CSS
 - **Animations**: Framer Motion
-- **Smooth Scroll**: Lenis (`lenis/react`)
+- **Scrolling**: Native browser scrolling (no scroll hijacking)
 - **Icons**: Custom SVG & Lucide Icons
 - **TypeScript**: Strict type checking

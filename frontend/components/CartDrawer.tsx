@@ -10,7 +10,6 @@ import { useCart } from "../context/CartContext";
 import { readSavedPincode, savePincode, SHIPPING_FEE_FAR, SHIPPING_FEE_LABEL, shippingFeeFor } from "../lib/pricing";
 import { checkServiceability, type Serviceability } from "../lib/storefront-api";
 import { formatPrice } from "../lib/utils";
-import { useScrollLock } from "./SmoothScroll";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -35,8 +34,6 @@ export default function CartDrawer() {
     isInWishlist,
     hasLocalOnlyItems,
   } = useCart();
-  // Freeze the page behind the drawer (Lenis included) while it is open.
-  useScrollLock(isCartOpen);
   const router = useRouter();
   const drawerRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);

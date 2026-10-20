@@ -1,8 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import "lenis/dist/lenis.css";
 import "./globals.css";
-import SmoothScroll from "../components/SmoothScroll";
 import { CartProvider } from "../context/CartContext";
 import { AuthProvider } from "../context/AuthContext";
 import CartDrawer from "../components/CartDrawer";
@@ -121,11 +119,9 @@ export default function RootLayout({
         <SiteSchema />
         <AuthProvider>
           <CartProvider>
-            <SmoothScroll>
-              {children}
-              <CartDrawer />
-              <QuickViewModal />
-            </SmoothScroll>
+            {children}
+            <CartDrawer />
+            <QuickViewModal />
           </CartProvider>
         </AuthProvider>
       </body>
