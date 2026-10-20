@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { productHref } from "../lib/utils";
+import { useScrollLock } from "./SmoothScroll";
 import { storeWhatsAppUrl } from "../lib/site-contact";
 import { useModalDialog } from "../lib/use-modal-dialog";
 import type { Product } from "../lib/storefront-types";
@@ -18,6 +19,7 @@ const sizeKnownOutOfStock = (product: Product, size: string): boolean => {
 
 export default function QuickViewModal() {
   const { quickViewProduct, setQuickViewProduct, addToCart, toggleWishlist, isInWishlist } = useCart();
+  useScrollLock(Boolean(quickViewProduct));
   const { user } = useAuth();
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [activeImgIndex, setActiveImgIndex] = useState<number>(0);
