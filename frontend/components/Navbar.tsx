@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useLenis } from "./SmoothScroll";
+import { useScrollLock } from "./SmoothScroll";
 import { useCart } from "../context/CartContext";
 import SearchOverlay from "./SearchOverlay";
 import { api, isApiConfigured, type NavigationMenu, type NavigationSettings, type StoreCategory } from "../lib/api-client";
@@ -163,6 +163,7 @@ const FALLBACK_NAV_SETTINGS: NavigationSettings = {
   announcements: [
     "✦ Speciality in Fancy Kurties & Party Wear Dresses",
     "✦ Free Express Shipping Across India Above ₹1,999",
+    "✦ Cash on Delivery Available (select pincodes)",
     "✦ 100% Certified Pure Handcrafted Ensembles · Guna",
   ],
   links: [
@@ -198,7 +199,6 @@ export default function Navbar() {
   const mobileDrawerRef = useModalDialog<HTMLDivElement>(mobileDrawerOpen, closeMobileDrawer);
 
   const { cartCount, setIsCartOpen, wishlist } = useCart();
-  const lenis = useLenis();
 
   useEffect(() => {
     if (!isApiConfigured()) return;
@@ -271,12 +271,8 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  /* ---------- Freeze Lenis when overlay/menu opens ---------- */
-  useEffect(() => {
-    if (!lenis) return;
-    if (searchOpen || mobileDrawerOpen) lenis.stop();
-    else lenis.start();
-  }, [searchOpen, mobileDrawerOpen, lenis]);
+  /* ---------- Freeze page scroll while the search overlay or mobile menu is open ---------- */
+  useScrollLock(searchOpen || mobileDrawerOpen);
 
   return (
     <>
