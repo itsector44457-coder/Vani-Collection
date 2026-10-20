@@ -3,6 +3,7 @@ const Inventory = require('../../models/Inventory');
 const Product = require('../../models/Product');
 const Order = require('../../models/Order');
 const email = require('../services/email');
+const { expirePendingPayments } = require('../services/order-expiry');
 
 const BACKOFF_MS = [30_000, 120_000, 600_000, 3_600_000, 21_600_000];
 const SENSITIVE_EMAIL_TEMPLATES = new Set(['signup-otp', 'staff-invitation']);
@@ -121,7 +122,7 @@ async function processPendingEmails({ limit = 25, log = console } = {}) {
   return results;
 }
 
-function startIntegrationWorker({ intervalMs = 60_000, emailIntervalMs = 15_000, log = console } = {}) {
+function startIntegrationWorker({ intervalMs = 60_000, emailIntervalMs = 15_000, pendingPaymentTtlMs, log = console } = {}) {
   const loop = (worker, ms, label) => {
     let running = false;
     const tick = async () => {
@@ -135,7 +136,12 @@ function startIntegrationWorker({ intervalMs = 60_000, emailIntervalMs = 15_000,
   };
   const stopEvents = loop(processPendingEvents, intervalMs, 'integration worker');
   const stopEmails = loop(processPendingEmails, emailIntervalMs, 'email worker');
-  return () => { stopEvents(); stopEmails(); };
+  const stopPaymentExpiry = loop(
+    ({ log: workerLog }) => expirePendingPayments({ ttlMs: pendingPaymentTtlMs, log: workerLog }),
+    intervalMs,
+    'pending payment expiry worker',
+  );
+  return () => { stopEvents(); stopEmails(); stopPaymentExpiry(); };
 }
 
-module.exports = { handleEvent, processPendingEvents, processPendingEmails, startIntegrationWorker };
+module.exports = { handleEvent, processPendingEvents, processPendingEmails, expirePendingPayments, startIntegrationWorker };

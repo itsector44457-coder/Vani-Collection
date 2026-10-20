@@ -63,12 +63,12 @@ const buildApp = ({ config, logger }) => {
   mount('/api/categories', require('./routes/categories')({ auth }));
   mount('/api/navigation', require('./routes/navigation')({ auth }));
   mount('/api/reels', require('./routes/public-reels')());
-  mount('/api/orders', require('./routes/orders')({ config, auth }));
+  mount('/api/orders', require('./routes/orders')({ config, auth, optionalAuth }));
   mount('/api/inventory', require('./routes/inventory')({ auth }));
   mount('/api/customers', require('./routes/customers')({ config, auth }));
   mount('/api/loyalty', require('./routes/loyalty')({ auth }));
   mount('/api/reviews', require('./routes/reviews')({ auth }));
-  mount('/api/coupons', require('./routes/coupons')({ auth }));
+  mount('/api/coupons', require('./routes/coupons')({ auth, optionalAuth }));
   mount('/api/returns', require('./routes/returns')({ auth }));
   mount('/api/admin', require('./routes/admin')({ auth, config }));
   mount('/api/admin/reels', require('./routes/reels')({ auth }));
@@ -77,7 +77,7 @@ const buildApp = ({ config, logger }) => {
   mount('/api/shipments', require('./routes/shipments')({ config, auth }));
   mount('/api/uploads', require('./routes/uploads')({ auth }));
   mount('/api/webhooks', require('./routes/webhooks')({ config }));
-  mount('/api', require('./routes/misc')({ config, auth }));
+  mount('/api', require('./routes/misc')({ config, auth, optionalAuth }));
 
   app.use((_req, _res, next) => next(new AppError(404, 'ROUTE_NOT_FOUND', 'Endpoint not found')));
   // eslint-disable-next-line no-unused-vars

@@ -26,6 +26,12 @@ const productSchema = new mongoose.Schema({
   status: { type: String, enum: ['draft', 'active', 'archived'], default: 'draft', index: true },
   featured: { type: Boolean, default: false }, seo: { title: String, description: String },
   erpProductId: { type: String, sparse: true, index: true }, erpUpdatedAt: Date,
+  /**
+   * Slugs this product used to live at. `GET /products/:slug` resolves them to the current slug so
+   * the storefront can answer renamed product URLs with a permanent redirect instead of a 404 —
+   * renaming a product in admin must never silently throw away its search ranking.
+   */
+  previousSlugs: { type: [{ type: String, lowercase: true, trim: true }], default: [], index: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true, optimisticConcurrency: true });
 productSchema.index({ name: 'text', description: 'text', tags: 'text' });

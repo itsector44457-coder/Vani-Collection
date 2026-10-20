@@ -3,6 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import BreadcrumbSchema from "@/components/seo/breadcrumb-schema";
 import { absoluteUrl } from "@/lib/seo";
+import { STORE_PHONE_DISPLAY, STORE_WHATSAPP_NUMBER } from "@/lib/site-contact";
 import { fetchContentByKind, fetchContentByKey } from "@/lib/content";
 
 interface CraftPillar { title: string; tagline: string; desc: string; badge: string; image: string; }
@@ -19,8 +20,8 @@ const DA: AtelierInfo = {
   heroSubtitle: "Vani Collection was founded with a singular, unyielding devotion: to rescue India's most treasured handloom textiles from machine replication and restore pure, breathable luxury to the modern woman's wardrobe.",
   location: 'Station Road, Guna, Madhya Pradesh',
   hours: 'Mon \u2013 Sat \u00b7 10:30 AM \u2013 7:30 PM',
-  phone: '+91 98765-43210',
-  waPhone: '919876543210',
+  phone: STORE_PHONE_DISPLAY,
+  waPhone: STORE_WHATSAPP_NUMBER,
   storyPara1: 'In an era dominated by synthetic polyesters and cold, hurried mass-production factories, Vani Collection took the road less traveled \u2014 back to the sun-baked artisan colonies of Bagru, Sanganer, and Patan.',
   storyPara2: "We started with just three wooden looms and five fifth-generation master block carvers who feared their ancestral craft would disappear forever. We made a sacred vow: never use artificial polyester blends, never dilute our natural dyes.",
   statBadgeNumber: '1,200+',
@@ -69,7 +70,10 @@ async function load() {
     };
     const cc = sec.filter((d) => d.key.startsWith('about.craft.'));
     const crafts: CraftPillar[] = cc.length ? cc.map((d, i) => { const b = pb(d.blocks); const df = DC[i] ?? DC[0]; return { title: s(d.title) || df.title, tagline: s(d.subtitle) || s(b.tagline) || df.tagline, desc: s(d.body) || df.desc, badge: s(b.badge) || df.badge, image: d.media?.[0]?.url || s(b.image) || df.image }; }) : DC;
-    const sc = sus.filter((d) => d.key.startsWith('about.sustain.'));
+    const sectionPillars = sec.filter((d) => d.key.startsWith('about.sustain.'));
+    // Older saves stored these pillars as testimonials by mistake; keep reading them until staff
+    // re-save (or use the migration button in Admin → Homepage reviews).
+    const sc = sectionPillars.length ? sectionPillars : sus.filter((d) => d.key.startsWith('about.sustain.'));
     const sustainability: SustainabilityPillar[] = sc.length ? sc.map((d, i) => { const b = pb(d.blocks); const df = DS[i] ?? DS[0]; return { icon: s(b.icon) || df.icon, title: s(d.title) || df.title, desc: s(d.body) || df.desc }; }) : DS;
     return { atelier, crafts, sustainability };
   } catch { return { atelier: DA, crafts: DC, sustainability: DS }; }

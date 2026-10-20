@@ -1,4 +1,5 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const mongoose = require('mongoose');
 const Razorpay = require('razorpay');
 const { z } = require('zod');
@@ -12,6 +13,7 @@ const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { shippingFeeFor, checkCouponValidity, computeDiscount } = require('../services/pricing');
+const { serviceability } = require('../services/shipping');
 const { queueEmail, orderEmailData, orderRecipient } = require('../services/email');
 const { awardLoyaltyForOrder } = require('../services/loyalty');
 const { renderInvoicePdf, loadHsnBySku } = require('../services/invoice');
@@ -55,9 +57,78 @@ const orderInput = z.object({
   giftOptions: giftOptionsInput,
 });
 
-module.exports = ({ config, auth }) => {
+const publicTrackInput = z.object({
+  /** Order number (e.g. VC…) or the courier AWB printed on the shipping label. */
+  identifier: z.string().trim().min(4).max(64),
+  /** Full 10-digit mobile used on the order — the shared secret that unlocks the lookup. */
+  phone: z.string().trim().min(10).max(15),
+});
+
+module.exports = ({ config, auth, optionalAuth }) => {
   const router = express.Router();
-  router.post('/', auth, validate(orderInput), asyncHandler(async (req, res) => {
+
+  /**
+   * Guest order tracking.
+   *
+   * Shoppers land here from WhatsApp/SMS links and will not sign in just to see where a parcel is,
+   * so this lookup is public — but it is unlocked by the full mobile number on the order, returns a
+   * deliberately thin payload (no name, address, email or payment identifiers), and answers a
+   * generic 404 for every failure so order numbers cannot be enumerated. A dedicated limiter keeps
+   * phone-guessing impractical on top of the app-wide API limit.
+   */
+  const publicTrackLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: config.NODE_ENV === 'test' ? 1_000_000 : 20,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: { code: 'RATE_LIMITED', message: 'Too many tracking attempts, please try again later' } },
+  });
+  router.post('/track-public', publicTrackLimiter, validate(publicTrackInput), asyncHandler(async (req, res) => {
+    const identifier = req.body.identifier.toUpperCase();
+    const phoneDigits = req.body.phone.replace(/\D/g, '').slice(-10);
+    if (!/^[6-9]\d{9}$/.test(phoneDigits)) throw new AppError(404, 'ORDER_NOT_FOUND', 'We could not find an order matching those details.');
+    const order = await Order.findOne({ $or: [{ orderNumber: identifier }, { 'shipment.awb': identifier }] }).lean();
+    const orderPhone = String(order?.shippingAddress?.phone || '').replace(/\D/g, '').slice(-10);
+    if (!order || orderPhone !== phoneDigits) throw new AppError(404, 'ORDER_NOT_FOUND', 'We could not find an order matching those details.');
+    res.json({
+      data: {
+        orderNumber: order.orderNumber,
+        status: order.status,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        items: (order.items || []).map((item) => ({
+          name: item.name, image: item.image, size: item.size, color: item.color, quantity: item.quantity,
+        })),
+        total: order.amounts?.total,
+        paymentMethod: order.payment?.method,
+        shipment: order.shipment ? {
+          awb: order.shipment.awb,
+          courier: order.shipment.courier,
+          trackingUrl: order.shipment.trackingUrl,
+          status: order.shipment.status,
+          estimatedDelivery: order.shipment.estimatedDelivery,
+        } : undefined,
+        statusHistory: (order.statusHistory || []).map((entry) => ({
+          status: entry.status, at: entry.at, note: entry.note,
+        })),
+      },
+    });
+  }));
+  /**
+   * Guest-first checkout: a signed-in session is attached when present, but shoppers can order with
+   * just their delivery details (the order carries `guestEmail`, and tracking works through
+   * /track-public with the order mobile). Guest order creation is an obvious abuse target — bots
+   * reserving stock with fake COD orders — so it gets its own tight ceiling on top of the global
+   * API limiter. Account-bound coupons stay safe: checkCouponValidity rejects them for guests.
+   */
+  const orderCreateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: config.NODE_ENV === 'test' ? 1_000_000 : 10,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: { code: 'RATE_LIMITED', message: 'Too many order attempts, please try again later' } },
+  });
+  router.post('/', orderCreateLimiter, optionalAuth, validate(orderInput), asyncHandler(async (req, res) => {
     if (req.body.paymentMethod === 'razorpay' && (!config.RAZORPAY_KEY_ID || !config.RAZORPAY_KEY_SECRET)) throw new AppError(503, 'PAYMENT_NOT_CONFIGURED', 'Online payment is not configured');
     const session = await mongoose.startSession(); let order;
     try {
@@ -77,16 +148,25 @@ module.exports = ({ config, auth }) => {
         let discount = 0; const code = req.body.couponCode?.toUpperCase();
         if (code) {
           const coupon = await Coupon.findOne({ code, active: true }).session(session);
-          const validity = checkCouponValidity(coupon, subtotal, new Date(), { userId: req.user.id });
+          const validity = checkCouponValidity(coupon, subtotal, new Date(), { userId: req.user?.id });
           if (!validity.valid) throw new AppError(422, 'INVALID_COUPON', validity.reason);
           discount = computeDiscount(coupon, subtotal);
           coupon.usedCount += 1; await coupon.save({ session });
         }
-        const shipping = shippingFeeFor(subtotal - discount);
+        // Charge exactly what the pincode checker quoted: the fee is pincode-based (₹79/₹99),
+        // and COD is refused here — not just in the UI — where the zone does not support it.
+        const delivery = serviceability(req.body.shippingAddress.pincode);
+        if (!delivery.serviceable) throw new AppError(422, 'PINCODE_NOT_SERVICEABLE', 'We cannot deliver to this pincode yet.');
+        if (req.body.paymentMethod === 'cod' && !delivery.cod) {
+          throw new AppError(422, 'COD_NOT_AVAILABLE', 'Cash on Delivery is not available for this pincode — please pay online.');
+        }
+        const shipping = shippingFeeFor(subtotal - discount, { fee: delivery.shippingFee });
         const giftFee = req.body.giftOptions?.packaging ? 149 : 0;
         const total = subtotal - discount + shipping + giftFee;
+        const guestEmail = req.user ? undefined : String(req.body.shippingAddress.email || '').trim().toLowerCase();
         [order] = await Order.create([{
-          customerId: req.user.id,
+          customerId: req.user?.id,
+          guestEmail,
           items,
           shippingAddress: req.body.shippingAddress,
           billingAddress: req.body.billingAddress || req.body.shippingAddress,
@@ -95,18 +175,36 @@ module.exports = ({ config, auth }) => {
           amounts: { subtotal, discount, shipping, tax, giftFee, total },
           payment: { method: req.body.paymentMethod, status: 'pending' },
           status: req.body.paymentMethod === 'cod' ? 'confirmed' : 'pending_payment',
-          statusHistory: [{ status: req.body.paymentMethod === 'cod' ? 'confirmed' : 'pending_payment', actor: req.user.email }],
+          statusHistory: [{ status: req.body.paymentMethod === 'cod' ? 'confirmed' : 'pending_payment', actor: req.user?.email || guestEmail || 'guest' }],
         }], { session });
       });
     } finally { await session.endSession(); }
     let paymentOrder = null;
     if (req.body.paymentMethod === 'razorpay') {
-      const razorpay = new Razorpay({ key_id: config.RAZORPAY_KEY_ID, key_secret: config.RAZORPAY_KEY_SECRET });
-      paymentOrder = await razorpay.orders.create({ amount: Math.round(order.amounts.total * 100), currency: 'INR', receipt: order.orderNumber, notes: { internalOrderId: order.id } });
-      order.payment.providerOrderId = paymentOrder.id; await order.save();
+      try {
+        const razorpay = new Razorpay({ key_id: config.RAZORPAY_KEY_ID, key_secret: config.RAZORPAY_KEY_SECRET });
+        paymentOrder = await razorpay.orders.create({ amount: Math.round(order.amounts.total * 100), currency: 'INR', receipt: order.orderNumber, notes: { internalOrderId: order.id } });
+        order.payment.providerOrderId = paymentOrder.id; await order.save();
+      } catch (gatewayError) {
+        // The internal order already reserved stock. If the gateway cannot mint its payment order,
+        // cancel + unreserve immediately: an orphaned pending_payment order is invisible to the
+        // shopper (this request fails) yet would hold sellable stock forever.
+        req.log?.error?.({ err: gatewayError, orderId: order.id }, 'Razorpay order creation failed; releasing reservation');
+        const releaseSession = await mongoose.startSession();
+        try {
+          await releaseSession.withTransaction(async () => {
+            for (const item of order.items) await Inventory.updateOne({ sku: item.sku }, { $inc: { reserved: -item.quantity } }, { session: releaseSession });
+            order.status = 'cancelled';
+            order.payment.status = 'failed';
+            order.statusHistory.push({ status: 'cancelled', actor: 'system', note: 'Payment gateway unavailable before checkout opened' });
+            await order.save({ session: releaseSession });
+          });
+        } finally { await releaseSession.endSession(); }
+        throw new AppError(503, 'PAYMENT_GATEWAY_UNAVAILABLE', 'Online payment is unavailable right now. Please try again or choose Cash on Delivery.');
+      }
     }
-    await notifyOrder(req, 'order-confirmation', order, { actor: req.user });
-    res.status(201).json({ data: order, payment: paymentOrder && { id: paymentOrder.id, amount: paymentOrder.amount, currency: paymentOrder.currency, keyId: config.RAZORPAY_KEY_ID } });
+    await notifyOrder(req, 'order-confirmation', order, { actor: req.user || null });
+    res.status(201).json({ data: order, payment: paymentOrder && { id: paymentOrder.id, amount: paymentOrder.amount, currency: paymentOrder.currency, keyId: config.RAZORPAY_KEY_ID, expiresAt: new Date(order.createdAt.getTime() + config.PENDING_PAYMENT_TTL_MINUTES * 60_000) } });
   }));
   router.get('/mine', auth, asyncHandler(async (req, res) => res.json({ data: await Order.find({ customerId: req.user.id }).sort({ createdAt: -1 }).lean() })));
   router.get('/:id', auth, asyncHandler(async (req, res) => {
@@ -131,6 +229,37 @@ module.exports = ({ config, auth }) => {
     }
     await notifyOrder(req, 'order-cancelled', order, { data: { reason: req.body.reason }, actor: req.user });
     res.json({ data: order });
+  }));
+
+  /**
+   * Resume an unfinished online payment from the account. Returns the SAME Razorpay order minted
+   * at checkout whenever one exists (a second gateway order for one internal order would split
+   * reconciliation), and only mints a replacement when the original handoff never happened.
+   */
+  router.post('/:id/payment-session', auth, asyncHandler(async (req, res) => {
+    const order = await Order.findOne({ _id: req.params.id, customerId: req.user.id }).catch(() => null);
+    if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+    if (order.payment?.method !== 'razorpay' || order.status !== 'pending_payment' || !['pending', 'failed'].includes(order.payment?.status || 'pending')) {
+      throw new AppError(409, 'PAYMENT_NOT_PENDING', 'This order is not waiting for an online payment.');
+    }
+    const paymentExpiresAt = new Date(order.createdAt.getTime() + config.PENDING_PAYMENT_TTL_MINUTES * 60_000);
+    if (paymentExpiresAt <= new Date()) {
+      throw new AppError(410, 'PAYMENT_SESSION_EXPIRED', 'Is order ki payment reservation khatm ho gayi hai. Kripya naya order banaye.');
+    }
+    if (!config.RAZORPAY_KEY_ID || !config.RAZORPAY_KEY_SECRET) throw new AppError(503, 'PAYMENT_NOT_CONFIGURED', 'Online payment is not configured');
+    if (!order.payment.providerOrderId) {
+      try {
+        const razorpay = new Razorpay({ key_id: config.RAZORPAY_KEY_ID, key_secret: config.RAZORPAY_KEY_SECRET });
+        const paymentOrder = await razorpay.orders.create({ amount: Math.round(order.amounts.total * 100), currency: 'INR', receipt: order.orderNumber, notes: { internalOrderId: order.id, resumed: 'true' } });
+        order.payment.providerOrderId = paymentOrder.id;
+        order.payment.status = 'pending';
+        await order.save();
+      } catch (gatewayError) {
+        req.log?.error?.({ err: gatewayError, orderId: order.id }, 'Razorpay resume-session creation failed');
+        throw new AppError(503, 'PAYMENT_GATEWAY_UNAVAILABLE', 'Online payment is unavailable right now. Please try again shortly.');
+      }
+    }
+    res.json({ data: { id: order.payment.providerOrderId, amount: Math.round(order.amounts.total * 100), currency: 'INR', keyId: config.RAZORPAY_KEY_ID, orderNumber: order.orderNumber, expiresAt: paymentExpiresAt } });
   }));
 
   router.get('/', auth, requireRoles('support', 'warehouse', 'finance', 'admin', 'super_admin'), asyncHandler(async (req, res) => {

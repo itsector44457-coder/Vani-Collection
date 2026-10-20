@@ -21,7 +21,7 @@ const orderSchema = new mongoose.Schema({
     fee: { type: Number, default: 0 },
   },
   status: { type: String, enum: ['pending_payment', 'confirmed', 'processing', 'packed', 'shipped', 'delivered', 'cancelled', 'return_requested', 'returned', 'refunded'], default: 'pending_payment', index: true },
-  payment: { method: { type: String, enum: ['razorpay', 'cod'] }, status: { type: String, enum: ['pending', 'authorized', 'paid', 'failed', 'refunded'], default: 'pending' }, providerOrderId: String, providerPaymentId: String, paidAt: Date },
+  payment: { method: { type: String, enum: ['razorpay', 'cod'] }, status: { type: String, enum: ['pending', 'authorized', 'paid', 'failed', 'expired', 'refunded'], default: 'pending' }, providerOrderId: String, providerPaymentId: String, paidAt: Date },
   shipment: { provider: String, shipmentId: String, awb: String, courier: String, trackingUrl: String, status: String, labelUrl: String, estimatedDelivery: Date },
   erpOrderId: String, erpSyncStatus: { type: String, enum: ['pending', 'synced', 'failed'], default: 'pending' },
   notes: String, source: { type: String, default: 'website' }, statusHistory: [{ status: String, at: { type: Date, default: Date.now }, actor: String, note: String }],

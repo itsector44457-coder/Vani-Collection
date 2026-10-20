@@ -3,9 +3,12 @@ import ProductsView from "./products-view";
 import BreadcrumbSchema from "@/components/seo/breadcrumb-schema";
 import { JsonLd } from "@/components/seo/json-ld";
 import { collectionPageSchema } from "@/components/seo/schema";
+import { fetchServerProducts } from "@/lib/server-catalogue";
 import {
   absoluteUrl,
   categoryLabel,
+  categoryUrl,
+  fetchSeoCategories,
   fetchSeoCategory,
   SITE_NAME,
   SITE_TAGLINE,
@@ -13,20 +16,23 @@ import {
 } from "@/lib/seo";
 
 interface ProductsPageProps {
-  searchParams: Promise<{ category?: string; search?: string; sort?: string; price?: string; fabric?: string }>;
+  searchParams: Promise<{ category?: string; search?: string; sort?: string; price?: string; fabric?: string; sizes?: string; color?: string; availability?: string; offer?: string }>;
 }
+
+/** The listing HTML (grid included) is regenerated at most every five minutes. */
+export const revalidate = 300;
 
 /**
  * The listing mirrors `price`, `fabric`, `sort` and `search` into the URL, which would otherwise
  * create an unbounded set of duplicate indexable pages for one catalogue.
  *
- * - The canonical keeps **only** `category`, so every filtered permutation points back at the clean
- *   category page.
+ * - The canonical consolidates every filtered permutation onto the clean category landing page
+ *   (`/collections/<slug>`); this faceted view stays fully usable for shoppers.
  * - A `search` query is `noindex` outright: results pages are thin, near-duplicate and not something
  *   a shopper should land on from Google.
  */
 function canonicalFor(category?: string): string {
-  return category && category !== "all" ? absoluteUrl(`/products?category=${encodeURIComponent(category)}`) : absoluteUrl("/products");
+  return category && category !== "all" ? categoryUrl(category) : absoluteUrl("/products");
 }
 
 const COLLECTION_DESCRIPTION = `Shop handcrafted pure mul cotton, Bagru handblock prints, co-ord sets, Anarkalis and festive heirlooms from ${SITE_NAME}, Guna. ${SITE_TAGLINE}.`;
@@ -76,8 +82,29 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const category = params.category && params.category !== "all" ? params.category : undefined;
   const isSearch = Boolean(params.search?.trim());
 
+  // Server-rendered first paint: the grid below arrives as real HTML (names, prices, photos, links)
+  // for crawlers and slow phones; the client view then owns filtering/sorting without refetching.
+  const [initialCatalogue, seoCategories] = await Promise.all([
+    fetchServerProducts({ category, q: params.search, limit: 100, maxProducts: 500 }),
+    fetchSeoCategories(),
+  ]);
+  const initialCategories = seoCategories.map((item, index) => ({
+    name: item.name,
+    slug: item.slug,
+    description: item.description,
+    guideContent: item.guideContent,
+    seo: item.seo,
+    faqs: item.faqs,
+    bannerImage: item.bannerImage,
+    navigationGroup: item.navigationGroup ?? "Collections",
+    position: item.position ?? index,
+    isActive: true,
+  }));
+
   // Search pages are noindex, so there is no point marking them up.
-  if (isSearch) return <ProductsView />;
+  if (isSearch) {
+    return <ProductsView initialProducts={initialCatalogue?.products} initialCategories={initialCategories} />;
+  }
 
   const label = categoryLabel(category);
   const title = category ? `${label} | ${SITE_NAME}` : `Our Collection | ${SITE_NAME}`;
@@ -85,9 +112,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
     ? `${label} handcrafted in Guna by ${SITE_NAME}.`
     : COLLECTION_DESCRIPTION;
 
-  // Only the top of the category is needed for `hasPart`; the listing itself renders client-side.
   const products = await fetchSeoCategory(category, 30);
-  const path = category ? `/products?category=${encodeURIComponent(category)}` : "/products";
+  const path = category ? `/collections/${encodeURIComponent(category)}` : "/products";
 
   return (
     <>
@@ -96,7 +122,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
           title,
           truncate(description, 300),
           path,
-          products.map((product) => product.name)
+          products.map((product) => product.name),
+          products.filter((product) => product.slug).map((product) => ({ name: product.name, slug: product.slug }))
         )}
       />
       <BreadcrumbSchema
@@ -113,7 +140,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               ]
         }
       />
-      <ProductsView />
+      <ProductsView initialProducts={initialCatalogue?.products} initialCategories={initialCategories} />
     </>
   );
 }

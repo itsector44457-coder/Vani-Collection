@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { CATEGORIES, absoluteUrl, fetchSeoCategories, fetchSeoProducts, productImageUrls, STATIC_PAGES } from "@/lib/seo";
+import { fetchJournalArticles } from "@/lib/content";
 
 /**
  * Regenerate hourly rather than on every crawler hit. `sitemap.ts` is a cached Route Handler by
@@ -24,7 +25,11 @@ const parseDate = (value?: string): Date | undefined => {
  * crawlers a 500 and drop the whole index.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [products, liveCategories] = await Promise.all([fetchSeoProducts(5000), fetchSeoCategories()]);
+  const [products, liveCategories, journalArticles] = await Promise.all([
+    fetchSeoProducts(5000),
+    fetchSeoCategories(),
+    fetchJournalArticles().catch(() => []),
+  ]);
 
   const staticEntries: MetadataRoute.Sitemap = STATIC_PAGES.map((page) => ({
     url: absoluteUrl(page.path),
@@ -49,7 +54,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   const categoryEntries: MetadataRoute.Sitemap = Array.from(categories.entries()).map(([key, lastModified]) => ({
-    url: absoluteUrl(`/products?category=${encodeURIComponent(key)}`),
+    url: absoluteUrl(`/collections/${encodeURIComponent(key)}`),
     lastModified: lastModified ?? new Date(),
     changeFrequency: "daily",
     priority: 0.7,
@@ -69,5 +74,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       };
     });
 
-  return [...staticEntries, ...categoryEntries, ...productEntries];
+  const journalEntries: MetadataRoute.Sitemap = journalArticles.map((article) => ({
+    url: absoluteUrl(`/journal/${article.slug}`),
+    lastModified: parseDate(article.updatedAt) ?? parseDate(article.publishedAt) ?? new Date(),
+    changeFrequency: "monthly",
+    priority: 0.65,
+    ...(article.coverImage ? { images: [article.coverImage] } : {}),
+  }));
+
+  return [...staticEntries, ...categoryEntries, ...journalEntries, ...productEntries];
 }

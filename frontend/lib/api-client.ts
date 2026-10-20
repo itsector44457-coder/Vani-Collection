@@ -282,6 +282,12 @@ export interface AdminCatalogueProduct {
   slug: string;
   category: string;
   status: string;
+  description?: string;
+  shortDescription?: string;
+  fabric?: string;
+  craft?: string;
+  tags?: string[];
+  seo?: { title?: string; description?: string };
   featured?: boolean;
   images?: { url: string; alt?: string }[];
   variants: AdminCatalogueVariant[];
@@ -334,6 +340,9 @@ export interface StoreCategory {
   name: string;
   slug: string;
   description?: string;
+  guideContent?: string;
+  seo?: { title?: string; description?: string };
+  faqs?: { question: string; answer: string }[];
   navigationGroup: string;
   position: number;
   isActive: boolean;
@@ -716,7 +725,7 @@ export const LOYALTY_TIERS: { name: LoyaltyTierName; label: string }[] = [
  * the backend does not enforce.
  */
 export interface ContentInput {
-  kind?: "page" | "section" | "banner" | "faq" | "policy" | "testimonial" | "lookbook" | "product_collection";
+  kind?: "page" | "section" | "banner" | "faq" | "policy" | "testimonial" | "lookbook" | "product_collection" | "journal";
   title?: string;
   subtitle?: string;
   body?: string;
@@ -770,9 +779,10 @@ export const api = {
     return apiFetch<Paginated<AdminOrder>>(`/api/orders?${query.toString()}`, { signal });
   },
   updateOrderStatus: (orderId: string, status: string, note?: string) => apiFetch<{ data: AdminOrder }>(`/api/orders/${orderId}/status`, { method: "PATCH", body: { status, note } }),
-  catalogue: (params: { q?: string; limit?: number } = {}, signal?: AbortSignal) => {
+  catalogue: (params: { q?: string; limit?: number; page?: number } = {}, signal?: AbortSignal) => {
     const query = new URLSearchParams();
     if (params.q) query.set("q", params.q);
+    if (params.page) query.set("page", String(params.page));
     query.set("limit", String(params.limit ?? 50));
     return apiFetch<Paginated<AdminCatalogueProduct>>(`/api/admin/catalogue?${query.toString()}`, { signal });
   },

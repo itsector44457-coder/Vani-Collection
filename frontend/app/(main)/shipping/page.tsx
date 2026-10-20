@@ -3,6 +3,7 @@ import Link from "next/link";
 import ManagedContentPage from "../../../components/ManagedContentPage";
 import BreadcrumbSchema from "@/components/seo/breadcrumb-schema";
 import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
+import { STORE_PHONE_DISPLAY, storeWhatsAppUrl } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
   title: "Shipping & Delivery Policy | Vani Collection",
@@ -54,13 +55,13 @@ export default async function ShippingPage() {
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-[#f8f7f4] p-6 rounded-lg">
                 <h3 className="font-semibold text-lg mb-3 text-stone-800">Free Shipping</h3>
-                <p className="text-sm text-stone-600 mb-2">Orders above ₹1,999</p>
+                <p className="text-sm text-stone-600 mb-2">Orders of ₹1,999 or more (after discount)</p>
                 <p className="text-xs text-stone-500">Available across India</p>
               </div>
               <div className="bg-[#f8f7f4] p-6 rounded-lg">
-                <h3 className="font-semibold text-lg mb-3 text-stone-800">Express Shipping</h3>
-                <p className="text-sm text-stone-600 mb-2">₹149 for orders below ₹1,999</p>
-                <p className="text-xs text-stone-500">1-3 business days delivery</p>
+                <h3 className="font-semibold text-lg mb-3 text-stone-800">Standard Shipping</h3>
+                <p className="text-sm text-stone-600 mb-2">₹79–₹99 for orders below ₹1,999, by delivery pincode</p>
+                <p className="text-xs text-stone-500">Sahi charge checkout par pincode likhne par confirm hota hai — wahi charge lagega jo wahan dikhega.</p>
               </div>
             </div>
           </section>
@@ -73,21 +74,21 @@ export default async function ShippingPage() {
                 <span className="w-6 h-6 rounded-full bg-green-600 text-white text-xs flex items-center justify-center font-bold">1</span>
                 <div>
                   <h4 className="font-semibold text-stone-800">Order Processing</h4>
-                  <p className="text-sm text-stone-600">1-2 business days for handcrafted items</p>
+                  <p className="text-sm text-stone-600">Handcrafted pieces aam taur par 2–3 working days me taiyaar karke dispatch kiye jate hain.</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-4 bg-blue-50 rounded-lg">
                 <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</span>
                 <div>
                   <h4 className="font-semibold text-stone-800">Dispatch</h4>
-                  <p className="text-sm text-stone-600">Orders dispatched from our Guna atelier</p>
+                  <p className="text-sm text-stone-600">Orders Guna atelier se dispatch hote hain; AWB SMS, WhatsApp aur email par bheja jata hai.</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-4 bg-purple-50 rounded-lg">
                 <span className="w-6 h-6 rounded-full bg-purple-600 text-white text-white text-xs flex items-center justify-center font-bold">3</span>
                 <div>
                   <h4 className="font-semibold text-stone-800">Delivery</h4>
-                  <p className="text-sm text-stone-600">Metro cities: 2-4 days | Other cities: 5-7 days</p>
+                  <p className="text-sm text-stone-600">Aapke pincode ki estimated delivery date product page aur checkout par pincode check karne par dikhti hai.</p>
                 </div>
               </div>
             </div>
@@ -96,14 +97,7 @@ export default async function ShippingPage() {
           {/* Shipping Partners */}
           <section>
             <h2 className="font-serif text-2xl text-[#881337] mb-6">Shipping Partners</h2>
-            <p className="text-stone-600 mb-4">We work with trusted logistics partners to ensure safe delivery:</p>
-            <div className="flex flex-wrap gap-4">
-              {["BlueDart", "FedEx", "Delhivery", "DTDC"].map((partner) => (
-                <span key={partner} className="px-4 py-2 bg-stone-100 text-stone-700 rounded-full text-sm font-medium">
-                  {partner}
-                </span>
-              ))}
-            </div>
+            <p className="text-stone-600 mb-4">Har order ke liye courier partner pincode aur service ke hisab se chuna jata hai. Dispatch ke samay courier ka naam aur AWB number SMS, WhatsApp aur email par confirm kiya jata hai — parcel bina login ke hamare <a href="/track-order" className="font-semibold text-[#881337] underline">Track Order page</a> se bhi track hota hai.</p>
           </section>
 
           {/* COD Information */}
@@ -111,18 +105,18 @@ export default async function ShippingPage() {
             <h2 className="font-serif text-2xl text-[#881337] mb-6">Cash on Delivery (COD)</h2>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
               <h3 className="font-semibold text-amber-800 mb-2">COD Available</h3>
-              <p className="text-amber-700 text-sm mb-2">Additional charges: ₹50 for COD orders</p>
-              <p className="text-amber-600 text-xs">Available for orders up to ₹15,000</p>
+              <p className="text-amber-700 text-sm mb-2">COD par koi extra charge nahi hai — delivery par wahi order total dena hota hai jo checkout par dikha tha.</p>
+              <p className="text-amber-600 text-xs">COD chune hue pincodes par milta hai; checkout par pincode check karke confirm ho jata hai.</p>
             </div>
           </section>
 
           {/* International Shipping */}
           <section>
             <h2 className="font-serif text-2xl text-[#881337] mb-6">International Shipping</h2>
-            <p className="text-stone-600 mb-4">We ship worldwide! Contact us for international shipping quotes:</p>
+            <p className="text-stone-600 mb-4">Online checkout abhi sirf India ke liye hai. Bharat ke bahar delivery ke liye pehle humse sampark kare — hum jaanch karke sahi shipping quote denge:</p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
               <p className="text-blue-800 text-sm mb-2">📧 Email: Vanicollectionguna@gmail.com</p>
-              <p className="text-blue-800 text-sm">📱 WhatsApp: +91 98765-43210</p>
+              <p className="text-blue-800 text-sm">📱 WhatsApp: {STORE_PHONE_DISPLAY}</p>
             </div>
           </section>
 
@@ -138,7 +132,7 @@ export default async function ShippingPage() {
                 📧 Email Support
               </a>
               <a
-                href="https://wa.me/?text=Hi, I have a question about shipping"
+                href={storeWhatsAppUrl("Hi, I have a question about shipping")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-[#25D366] text-white rounded-full text-sm font-medium hover:bg-[#1ea952] transition"

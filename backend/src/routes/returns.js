@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const { z } = require('zod');
 const Order = require('../../models/Order');
 const User = require('../../models/User');
@@ -18,12 +19,87 @@ const RETURN_STATUSES = ['requested', 'approved', 'rejected', 'pickup_scheduled'
 module.exports = ({ auth }) => {
   const router = express.Router();
   router.post('/', auth, validate(z.object({ orderId: z.string(), type: z.enum(['return', 'exchange']).default('return'), items: z.array(z.object({ sku: z.string(), quantity: z.number().int().min(1), reason: z.string().min(3), condition: z.string().optional(), images: z.array(z.url()).max(3).default([]) })).min(1) })), asyncHandler(async (req, res) => {
-    const order = await Order.findOne({ _id: req.body.orderId, customerId: req.user.id }); if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
-    if (!['delivered', 'shipped'].includes(order.status)) throw new AppError(409, 'RETURN_WINDOW_CLOSED', 'Returns are allowed only for delivered or in-transit orders');
-    const delivered = order.statusHistory.find((h) => h.status === 'delivered')?.at || order.updatedAt;
-    if (Date.now() - new Date(delivered).getTime() > 7 * 86400000) throw new AppError(409, 'RETURN_WINDOW_CLOSED', 'Return window of 7 days has closed');
-    const requested = await ReturnRequest.create({ orderId: order._id, customerId: req.user.id, type: req.body.type, items: req.body.items, refundAmount: req.body.items.reduce((sum, item) => { const line = order.items.find((i) => i.sku === item.sku); return sum + (line ? line.unitPrice * item.quantity : 0); }, 0) });
-    order.status = 'return_requested'; order.statusHistory.push({ status: 'return_requested', actor: req.user.email, note: requested.returnNumber }); await order.save();
+    let order;
+    let requested;
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        order = await Order.findOne({ _id: req.body.orderId, customerId: req.user.id }).session(session);
+        if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+
+        // A partial return moves the order to `return_requested`; keep that state eligible so a
+        // second delivered piece can still be returned separately. In-transit orders are not
+        // returnable until they have actually been delivered.
+        if (!['delivered', 'return_requested'].includes(order.status)) {
+          throw new AppError(409, 'RETURN_WINDOW_CLOSED', 'Returns are allowed only after delivery');
+        }
+        const delivered = order.statusHistory.find((h) => h.status === 'delivered')?.at || order.updatedAt;
+        if (Date.now() - new Date(delivered).getTime() > 7 * 86400000) {
+          throw new AppError(409, 'RETURN_WINDOW_CLOSED', 'Return window of 7 days has closed');
+        }
+
+        // Merge duplicate SKU rows before validating, so quantity limits cannot be bypassed by
+        // splitting one return into several lines.
+        const requestedBySku = new Map();
+        for (const item of req.body.items) {
+          const existing = requestedBySku.get(item.sku);
+          if (existing) existing.quantity += item.quantity;
+          else requestedBySku.set(item.sku, { ...item });
+        }
+        const normalizedItems = [...requestedBySku.values()];
+
+        const previousReturns = await ReturnRequest.find({
+          orderId: order._id,
+          customerId: req.user.id,
+          status: { $ne: 'rejected' },
+        }).session(session);
+        const alreadyRequested = new Map();
+        for (const record of previousReturns) {
+          for (const item of record.items || []) {
+            alreadyRequested.set(item.sku, (alreadyRequested.get(item.sku) || 0) + Number(item.quantity || 0));
+          }
+        }
+
+        let grossItemValue = 0;
+        for (const item of normalizedItems) {
+          const lines = order.items.filter((line) => line.sku === item.sku);
+          if (!lines.length) {
+            throw new AppError(422, 'RETURN_ITEM_NOT_IN_ORDER', `Item ${item.sku} is not part of this order`);
+          }
+          const orderedQuantity = lines.reduce((sum, line) => sum + Number(line.quantity || 0), 0);
+          const remainingQuantity = orderedQuantity - (alreadyRequested.get(item.sku) || 0);
+          if (item.quantity > remainingQuantity) {
+            throw new AppError(409, 'RETURN_QUANTITY_EXCEEDED', remainingQuantity > 0
+              ? `Only ${remainingQuantity} item(s) of ${item.sku} can still be returned`
+              : `Item ${item.sku} has already been requested for return`);
+          }
+          grossItemValue += lines[0].unitPrice * item.quantity;
+        }
+
+        // Coupon savings belong pro-rata to every line, so the customer-facing estimate should not
+        // promise the pre-discount price. Shipping remains a policy/admin decision and is excluded.
+        const subtotal = Number(order.amounts?.subtotal || 0);
+        const discount = Number(order.amounts?.discount || 0);
+        const paidItemRatio = subtotal > 0 ? Math.max(0, (subtotal - discount) / subtotal) : 1;
+        const refundAmount = req.body.type === 'exchange' ? 0 : Math.round(grossItemValue * paidItemRatio);
+
+        requested = new ReturnRequest({
+          orderId: order._id,
+          customerId: req.user.id,
+          type: req.body.type,
+          items: normalizedItems,
+          refundAmount,
+        });
+        await requested.save({ session });
+
+        order.status = 'return_requested';
+        order.statusHistory.push({ status: 'return_requested', actor: req.user.email, note: requested.returnNumber });
+        await order.save({ session });
+      });
+    } finally {
+      await session.endSession();
+    }
+
     // The shopper hears from us immediately: a submitted return that goes silent is a support ticket.
     await queueEmail({
       to: orderRecipient(order, req.user),

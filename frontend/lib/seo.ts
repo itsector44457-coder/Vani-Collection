@@ -9,6 +9,7 @@
  */
 
 import { API_BASE } from "./api-client";
+import { STORE_PHONE_DISPLAY } from "./site-contact";
 
 export const SITE_NAME = "Vani Collection";
 export const SITE_LEGAL_NAME = "Vani Collection Atelier";
@@ -54,8 +55,8 @@ export const CATEGORIES = [
   { key: "dupattas", label: "Dupattas" },
 ] as const;
 
-/** Store phone number — used in LocalBusiness schema and contact pages. */
-export const STORE_PHONE = "+91 98765-43210";
+/** Store phone number — re-exported from the single site-contact source. */
+export const STORE_PHONE = STORE_PHONE_DISPLAY;
 
 const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(CATEGORIES.map((c) => [c.key, c.label]));
 
@@ -70,8 +71,14 @@ export function categoryLabel(key?: string): string {
     .join(" ");
 }
 
-/** Canonical URL for a category listing. */
-export const categoryUrl = (key: string): string => absoluteUrl(`/products?category=${encodeURIComponent(key)}`);
+/**
+ * Canonical URL for a category.
+ *
+ * Categories live on their clean landing pages (`/collections/<slug>` — guide copy, FAQs and the
+ * catalogue); `/products?category=` remains the faceted shop view and canonicalises to the landing
+ * page, so both URLs work for shoppers while search engines consolidate onto one.
+ */
+export const categoryUrl = (key: string): string => absoluteUrl(`/collections/${encodeURIComponent(key)}`);
 
 /* --------------------------------------------------------------- static pages */
 
@@ -87,6 +94,7 @@ export const STATIC_PAGES: { path: string; changeFrequency: "daily" | "weekly" |
   { path: "/about", changeFrequency: "monthly", priority: 0.8, label: "Our Story" },
   { path: "/contact", changeFrequency: "monthly", priority: 0.8, label: "Contact Us" },
   { path: "/reels", changeFrequency: "weekly", priority: 0.7, label: "Reels" },
+  { path: "/journal", changeFrequency: "weekly", priority: 0.7, label: "Journal" },
   { path: "/size-guide", changeFrequency: "monthly", priority: 0.6, label: "Size Guide" },
   { path: "/shipping", changeFrequency: "monthly", priority: 0.6, label: "Shipping & Delivery" },
   { path: "/returns", changeFrequency: "monthly", priority: 0.6, label: "Returns & Exchanges" },
@@ -168,6 +176,13 @@ export interface SeoProduct {
 export interface SeoCategory {
   name: string;
   slug: string;
+  description?: string;
+  guideContent?: string;
+  bannerImage?: string;
+  navigationGroup?: string;
+  position?: number;
+  seo?: { title?: string; description?: string };
+  faqs?: { question: string; answer: string }[];
   updatedAt?: string;
 }
 
@@ -206,6 +221,12 @@ export async function fetchSeoProducts(limit = 500): Promise<SeoProduct[]> {
 export async function fetchSeoCategories(): Promise<SeoCategory[]> {
   const response = await fetchCatalogue<{ data: SeoCategory[] }>("/api/categories", 3600);
   return response?.data ?? [];
+}
+
+/** One active category with its landing-page copy (guide, SEO fields, FAQs); `null` when unknown/unreachable. */
+export async function fetchSeoCategoryBySlug(slug: string): Promise<SeoCategory | null> {
+  const response = await fetchCatalogue<{ data: SeoCategory }>(`/api/categories/${encodeURIComponent(slug)}`, 600);
+  return response?.data ?? null;
 }
 
 /**

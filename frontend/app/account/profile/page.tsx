@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Badge, ButtonDanger, ButtonGhost, ButtonPrimary, Card, Input, PageHeader, Toggle } from "@/lib/account-ui";
+import { Badge, ButtonDanger, ButtonGhost, ButtonPrimary, Card, Input, PageHeader, Select, Toggle } from "@/lib/account-ui";
 import { useAuth } from "@/context/AuthContext";
 
 export default function ProfilePage() {
@@ -22,6 +22,7 @@ export default function ProfilePage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  const [preferredSize, setPreferredSize] = useState("");
 
   /* Password state */
   const [currentPassword, setCurrentPassword] = useState("");
@@ -50,25 +51,93 @@ export default function ProfilePage() {
   /* Delete account modal */
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
-
-  /* Synchronize local form inputs when user session is loaded */
+  const [syncedUserKey, setSyncedUserKey] = useState("");
+  const deleteDialogRef = useRef<HTMLDivElement | null>(null);
+  const deletingRef = useRef(false);
   useEffect(() => {
-    if (user) {
-      setFirstName(user.firstName || "");
-      setLastName(user.lastName || "");
-      setPhone(user.phone || "");
+    deletingRef.current = deleting;
+  }, [deleting]);
 
-      const prefs = user.preferences;
-      if (prefs) {
-        setNotif({
-          orderUpdates: prefs.orderUpdates ?? true,
-          whatsapp: prefs.whatsapp ?? prefs.whatsappUpdates ?? true,
-          offers: prefs.offers ?? true,
-          newsletter: prefs.newsletter ?? false,
-        });
+  useEffect(() => {
+    if (!showDeleteModal || typeof document === "undefined") return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const frame = window.requestAnimationFrame(() => {
+      const dialog = deleteDialogRef.current;
+      const cancel = dialog?.querySelector<HTMLButtonElement>("button:not([disabled])");
+      (cancel ?? dialog)?.focus({ preventScroll: true });
+    });
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (!deletingRef.current) {
+          event.preventDefault();
+          setShowDeleteModal(false);
+        }
+        return;
       }
+      if (event.key !== "Tab") return;
+      const dialog = deleteDialogRef.current;
+      if (!dialog) return;
+      const buttons = Array.from(dialog.querySelectorAll<HTMLButtonElement>("button:not([disabled])"));
+      if (!buttons.length) {
+        event.preventDefault();
+        dialog.focus({ preventScroll: true });
+        return;
+      }
+      const first = buttons[0];
+      const last = buttons[buttons.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", handleKeyDown, true);
+      document.body.style.overflow = previousOverflow;
+      if (previouslyFocused?.isConnected) previouslyFocused.focus({ preventScroll: true });
+    };
+  }, [showDeleteModal]);
+
+  /*
+   * Synchronize editable fields only when the loaded account identity/values change. This is
+   * React's render-adjustment pattern, so an unrelated session refresh cannot erase typing.
+   */
+  const userSyncKey = user ? [
+    user.id,
+    user.firstName || "",
+    user.lastName || "",
+    user.phone || "",
+    user.preferences?.preferredSize || "",
+    user.preferences?.orderUpdates ?? "",
+    user.preferences?.whatsapp ?? user.preferences?.whatsappUpdates ?? "",
+    user.preferences?.offers ?? "",
+    user.preferences?.newsletter ?? "",
+  ].join("|") : "";
+  if (user && userSyncKey !== syncedUserKey) {
+    setSyncedUserKey(userSyncKey);
+    setFirstName(user.firstName || "");
+    setLastName(user.lastName || "");
+    setPhone(user.phone || "");
+    setPreferredSize(user.preferences?.preferredSize || "");
+    const prefs = user.preferences;
+    if (prefs) {
+      setNotif({
+        orderUpdates: prefs.orderUpdates ?? true,
+        whatsapp: prefs.whatsapp ?? prefs.whatsappUpdates ?? true,
+        offers: prefs.offers ?? true,
+        newsletter: prefs.newsletter ?? false,
+      });
     }
-  }, [user]);
+  }
 
   /* ---------------- Loading State ---------------- */
   if (isLoading) {
@@ -153,6 +222,7 @@ export default function ProfilePage() {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phone: phone.trim() ? phone.replace(/\D/g, "").slice(-10) : "",
+        preferences: { ...(user.preferences ?? {}), preferredSize },
       });
       setNotice("Your profile details have been saved successfully.");
     } catch (cause) {
@@ -166,6 +236,7 @@ export default function ProfilePage() {
     setFirstName(user.firstName || "");
     setLastName(user.lastName || "");
     setPhone(user.phone || "");
+    setPreferredSize(user.preferences?.preferredSize || "");
     setError(null);
   };
 
@@ -274,7 +345,8 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => setNotice(null)}
-            className="text-emerald-700 hover:text-emerald-900 text-sm font-bold ml-3"
+            aria-label="Notice band kare"
+            className="ml-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-emerald-700 hover:bg-emerald-100 hover:text-emerald-900"
           >
             ×
           </button>
@@ -295,7 +367,8 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => setError(null)}
-            className="text-rose-700 hover:text-rose-900 text-sm font-bold ml-3"
+            aria-label="Error band kare"
+            className="ml-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-rose-700 hover:bg-rose-100 hover:text-rose-900"
           >
             ×
           </button>
@@ -324,6 +397,8 @@ export default function ProfilePage() {
           <div className="grid gap-5 sm:grid-cols-2">
             <Input
               label="First name"
+              name="firstName"
+              autoComplete="given-name"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
               placeholder="e.g. Priya"
@@ -331,6 +406,8 @@ export default function ProfilePage() {
             />
             <Input
               label="Last name"
+              name="lastName"
+              autoComplete="family-name"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
               placeholder="e.g. Sharma"
@@ -348,12 +425,34 @@ export default function ProfilePage() {
             </div>
             <Input
               label="Phone number"
+              name="phone"
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              maxLength={10}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, "");
+                setPhone(digits.length > 10 ? digits.slice(-10) : digits.slice(0, 10));
+              }}
               placeholder="10-digit mobile number"
-              hint={<span className="text-[11px] text-stone-400">For delivery & WhatsApp alerts</span>}
+              hint={<span className="text-[11px] text-stone-400">Delivery & WhatsApp alerts ke liye</span>}
             />
+            <div>
+              <Select
+                label="Meri pasandeeda size"
+                name="preferredSize"
+                value={preferredSize}
+                onChange={(e) => setPreferredSize(e.target.value)}
+              >
+                <option value="">Koi pasand nahi</option>
+                {["XS", "S", "M", "L", "XL", "2XL", "3XL", "Free Size"].map((size) => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+                {preferredSize && !["XS", "S", "M", "L", "XL", "2XL", "3XL", "Free Size"].includes(preferredSize) && <option value={preferredSize}>{preferredSize}</option>}
+              </Select>
+              <p className="mt-1 text-[11px] leading-relaxed text-stone-400">Product aur wishlist me uplabdh hone par yeh size pehle chuna jayega.</p>
+            </div>
           </div>
 
           <div className="mt-6 flex items-center gap-3">
@@ -372,7 +471,7 @@ export default function ProfilePage() {
         <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
           {/* Current Password */}
           <div>
-            <label className="block text-[12.5px] font-semibold text-stone-800 mb-1.5">
+            <label htmlFor="profile-current-password" className="block text-[12.5px] font-semibold text-stone-800 mb-1.5">
               Current password
             </label>
             <div className="relative">
@@ -380,13 +479,19 @@ export default function ProfilePage() {
                 type={showCurrentPass ? "text" : "password"}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
+                id="profile-current-password"
+                name="currentPassword"
+                autoComplete="current-password"
                 placeholder="Enter current password"
-                className="w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 pr-10 text-[13.5px] text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15"
+                className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 pr-16 text-[13.5px] text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15"
               />
               <button
                 type="button"
                 onClick={() => setShowCurrentPass(!showCurrentPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs font-medium"
+                aria-label={showCurrentPass ? "Hide current password" : "Show current password"}
+                aria-pressed={showCurrentPass}
+                aria-controls="profile-current-password"
+                className="absolute right-1 top-1/2 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-lg px-2 text-xs font-semibold text-stone-500 hover:text-stone-700"
               >
                 {showCurrentPass ? "Hide" : "Show"}
               </button>
@@ -395,7 +500,7 @@ export default function ProfilePage() {
 
           {/* New Password */}
           <div>
-            <label className="block text-[12.5px] font-semibold text-stone-800 mb-1.5">
+            <label htmlFor="profile-new-password" className="block text-[12.5px] font-semibold text-stone-800 mb-1.5">
               New password
             </label>
             <div className="relative">
@@ -403,14 +508,20 @@ export default function ProfilePage() {
                 type={showNewPass ? "text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
+                id="profile-new-password"
+                name="newPassword"
+                autoComplete="new-password"
                 placeholder="Minimum 8 characters"
                 minLength={8}
-                className="w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 pr-10 text-[13.5px] text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15"
+                className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 pr-16 text-[13.5px] text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15"
               />
               <button
                 type="button"
                 onClick={() => setShowNewPass(!showNewPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs font-medium"
+                aria-label={showNewPass ? "Hide new password" : "Show new password"}
+                aria-pressed={showNewPass}
+                aria-controls="profile-new-password"
+                className="absolute right-1 top-1/2 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-lg px-2 text-xs font-semibold text-stone-500 hover:text-stone-700"
               >
                 {showNewPass ? "Hide" : "Show"}
               </button>
@@ -419,7 +530,7 @@ export default function ProfilePage() {
 
           {/* Confirm New Password */}
           <div>
-            <label className="block text-[12.5px] font-semibold text-stone-800 mb-1.5">
+            <label htmlFor="profile-confirm-password" className="block text-[12.5px] font-semibold text-stone-800 mb-1.5">
               Confirm new password
             </label>
             <div className="relative">
@@ -427,13 +538,19 @@ export default function ProfilePage() {
                 type={showConfirmPass ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                id="profile-confirm-password"
+                name="confirmPassword"
+                autoComplete="new-password"
                 placeholder="Re-enter new password"
-                className="w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 pr-10 text-[13.5px] text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15"
+                className="min-h-12 w-full rounded-lg border border-stone-300 bg-white px-3.5 py-2.5 pr-16 text-[13.5px] text-stone-900 outline-none transition-all placeholder:text-stone-400 focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15"
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPass(!showConfirmPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs font-medium"
+                aria-label={showConfirmPass ? "Hide confirm password" : "Show confirm password"}
+                aria-pressed={showConfirmPass}
+                aria-controls="profile-confirm-password"
+                className="absolute right-1 top-1/2 flex min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-lg px-2 text-xs font-semibold text-stone-500 hover:text-stone-700"
               >
                 {showConfirmPass ? "Hide" : "Show"}
               </button>
@@ -518,8 +635,21 @@ export default function ProfilePage() {
 
       {/* ---------------- Delete Confirmation Modal ---------------- */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-fadeIn">
-          <div className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-fadeIn"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !deleting) setShowDeleteModal(false);
+          }}
+        >
+          <div
+            ref={deleteDialogRef}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="deactivate-dialog-title"
+            aria-describedby="deactivate-dialog-description"
+            tabIndex={-1}
+            className="w-full max-w-md rounded-2xl border border-stone-200 bg-white p-6 shadow-xl outline-none"
+          >
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 text-rose-600">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14" />
@@ -527,10 +657,10 @@ export default function ProfilePage() {
                 <line x1="14" y1="11" x2="14" y2="17" />
               </svg>
             </div>
-            <h3 className="font-serif text-lg font-bold text-stone-900">
+            <h3 id="deactivate-dialog-title" className="font-serif text-lg font-bold text-stone-900">
               Deactivate your account?
             </h3>
-            <p className="mt-2 text-[13px] text-stone-600 leading-relaxed">
+            <p id="deactivate-dialog-description" className="mt-2 text-[13px] text-stone-600 leading-relaxed">
               Are you sure you want to deactivate your Vani Collection account for <strong>{user.email}</strong>? You will be signed out immediately.
             </p>
             <div className="mt-6 flex justify-end gap-3">
@@ -541,7 +671,7 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => void handleConfirmDelete()}
                 disabled={deleting}
-                className="inline-flex items-center justify-center rounded-full bg-rose-600 px-5 py-2.5 text-[12.5px] font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50"
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-rose-600 px-5 py-2.5 text-[12.5px] font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50"
               >
                 {deleting ? "Deactivating…" : "Yes, deactivate account"}
               </button>

@@ -1,18 +1,9 @@
-import Navbar from "../../components/Navbar";
-import Footer from "../../components/Footer";
-import FloatingContactMenu from "../../components/FloatingContactMenu";
+import StorefrontShell from "../../components/StorefrontShell";
 
 export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      <Navbar />
-      <main className="flex-grow pb-16 lg:pb-0">{children}</main>
-      <Footer />
-      <FloatingContactMenu />
-    </>
-  );
+  return <StorefrontShell>{children}</StorefrontShell>;
 }

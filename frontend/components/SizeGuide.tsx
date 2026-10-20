@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { useModalDialog } from "../lib/use-modal-dialog";
 
 interface SizeGuideProps {
   isOpen: boolean;
@@ -10,14 +12,17 @@ interface SizeGuideProps {
 }
 
 export default function SizeGuide({ isOpen, onClose, productName, customGuide }: SizeGuideProps) {
+  const dialogRef = useModalDialog<HTMLDivElement>(isOpen, onClose);
   const productGuide = customGuide?.trim();
+  // Body-size ranges only. Garment length and cut differ by design, so a universal length column
+  // would dress a short kurta and a floor-length Anarkali in the same false promise.
   const sizeChart = [
-    { size: "XS", bust: "32-34", waist: "26-28", hips: "34-36", length: "46" },
-    { size: "S", bust: "34-36", waist: "28-30", hips: "36-38", length: "47" },
-    { size: "M", bust: "36-38", waist: "30-32", hips: "38-40", length: "48" },
-    { size: "L", bust: "38-40", waist: "32-34", hips: "40-42", length: "49" },
-    { size: "XL", bust: "40-42", waist: "34-36", hips: "42-44", length: "50" },
-    { size: "XXL", bust: "42-44", waist: "36-38", hips: "44-46", length: "51" },
+    { size: "XS", bust: "32-34", waist: "26-28", hips: "34-36" },
+    { size: "S", bust: "34-36", waist: "28-30", hips: "36-38" },
+    { size: "M", bust: "36-38", waist: "30-32", hips: "38-40" },
+    { size: "L", bust: "38-40", waist: "32-34", hips: "40-42" },
+    { size: "XL", bust: "40-42", waist: "34-36", hips: "42-44" },
+    { size: "XXL", bust: "42-44", waist: "36-38", hips: "44-46" },
   ];
 
   return (
@@ -31,18 +36,25 @@ export default function SizeGuide({ isOpen, onClose, productName, customGuide }:
           onClick={onClose}
         >
           <motion.div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="size-guide-title"
+            tabIndex={-1}
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto"
+            className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-auto outline-none"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-gray-900">{productName ? `${productName} Size Guide` : "Size Guide"}</h3>
+              <h3 id="size-guide-title" className="text-xl font-semibold text-gray-900">{productName ? `${productName} Size Guide` : "Size Guide"}</h3>
               <button
+                type="button"
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-full transition"
+                aria-label="Size guide band kare"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#881337]"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 6L6 18M6 6l12 12" />
@@ -63,7 +75,7 @@ export default function SizeGuide({ isOpen, onClose, productName, customGuide }:
                   <li><strong>Bust:</strong> Measure around the fullest part of your bust</li>
                   <li><strong>Waist:</strong> Measure around the narrowest part of your waist</li>
                   <li><strong>Hips:</strong> Measure around the fullest part of your hips</li>
-                  <li><strong>Length:</strong> Kurta length from shoulder to hemline</li>
+                  <li><strong>Length:</strong> Garment ki lambai design par nirbhar karti hai — product details me di lambai ko antim maane.</li>
                 </ul>
               </div>
 
@@ -72,11 +84,10 @@ export default function SizeGuide({ isOpen, onClose, productName, customGuide }:
                 <table className="w-full border-collapse border border-gray-200 rounded-lg">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">Size</th>
-                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">Bust (inches)</th>
-                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">Waist (inches)</th>
-                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">Hips (inches)</th>
-                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">Length (inches)</th>
+                      <th scope="col" className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">Size</th>
+                      <th scope="col" className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">Bust (inches)</th>
+                      <th scope="col" className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">Waist (inches)</th>
+                      <th scope="col" className="border border-gray-200 px-4 py-3 text-left font-semibold text-gray-900">Hips (inches)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -86,7 +97,6 @@ export default function SizeGuide({ isOpen, onClose, productName, customGuide }:
                         <td className="border border-gray-200 px-4 py-3 text-gray-700">{row.bust}</td>
                         <td className="border border-gray-200 px-4 py-3 text-gray-700">{row.waist}</td>
                         <td className="border border-gray-200 px-4 py-3 text-gray-700">{row.hips}</td>
-                        <td className="border border-gray-200 px-4 py-3 text-gray-700">{row.length}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -96,20 +106,20 @@ export default function SizeGuide({ isOpen, onClose, productName, customGuide }:
               {/* Additional Notes */}
               <div className="bg-amber-50 p-4 rounded-lg">
                 <h4 className="font-medium text-amber-900 mb-2">Important Notes</h4>
-                <ul className="text-sm text-amber-800 space-y-1">
-                  <li>• All measurements are in inches and may vary by ±1 inch due to handcrafted nature</li>
-                  <li>• For loose fit, choose one size larger than your usual size</li>
-                  <li>• Dupatta length is standard 2.5 meters for all sizes</li>
-                  <li>• For custom alterations, contact our customer support after ordering</li>
+                <ul className="space-y-1.5 text-sm leading-relaxed text-amber-800">
+                  <li>• Yeh aam body-size chart hai; har design ka cut aur lambai alag ho sakta hai.</li>
+                  <li>• Product page par custom size guide ya details di ho to wahi antim maane.</li>
+                  <li>• Do size ke beech ho to order se pehle support se is design ka exact garment naap puche.</li>
+                  <li>• Silai aur haath ke naap me halka antar ho sakta hai.</li>
                 </ul>
               </div>
 
               {/* Contact Support */}
               <div className="text-center">
                 <p className="text-sm text-gray-600 mb-3">Still confused about sizing?</p>
-                <button className="bg-[#881337] text-white px-6 py-2 rounded-lg hover:bg-[#701a35] transition">
+                <Link href="/contact" onClick={onClose} className="inline-flex min-h-11 items-center rounded-lg bg-[#881337] px-6 py-2 text-white transition hover:bg-[#701a35]">
                   Contact Support
-                </button>
+                </Link>
               </div>
                 </>
               )}

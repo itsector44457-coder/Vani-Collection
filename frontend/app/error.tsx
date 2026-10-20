@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { storeWhatsAppUrl } from "../lib/site-contact";
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -112,10 +113,10 @@ export default function Error({ error, reset }: ErrorProps) {
                 <Link href="/products" className="text-[#881337] hover:underline">
                   All Products
                 </Link>
-                <Link href="/products?category=mul-cotton" className="text-[#881337] hover:underline">
+                <Link href="/collections/mul-cotton" className="text-[#881337] hover:underline">
                   Mul Cotton
                 </Link>
-                <Link href="/products?category=festive" className="text-[#881337] hover:underline">
+                <Link href="/collections/festive" className="text-[#881337] hover:underline">
                   Festive Edit
                 </Link>
                 <Link href="/account" className="text-[#881337] hover:underline">
@@ -139,7 +140,7 @@ export default function Error({ error, reset }: ErrorProps) {
                 📧 Report Issue via Email
               </a>
               <a
-                href="https://wa.me/?text=Hi, I encountered an error on the website and need help"
+                href={storeWhatsAppUrl("Hi, I encountered an error on the website and need help")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 text-xs text-[#881337] hover:underline font-medium text-center sm:text-right"

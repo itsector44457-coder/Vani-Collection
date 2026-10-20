@@ -26,7 +26,7 @@ async function main() {
     logger.info({ port: config.PORT }, 'Vani Collection API listening');
     console.log(`🌸 Vani Collection API listening on http://localhost:${config.PORT}`);
   });
-  const stopWorker = startIntegrationWorker({ log: logger });
+  const stopWorker = startIntegrationWorker({ log: logger, pendingPaymentTtlMs: config.PENDING_PAYMENT_TTL_MINUTES * 60_000 });
 
   const { verifyEmailConnection } = require('./src/services/email');
   if (config.EMAIL_ENABLED) {

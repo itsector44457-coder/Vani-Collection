@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { apiFetch } from "@/lib/api-client";
+import { STORE_PHONE_DISPLAY, STORE_PHONE_E164, storeWhatsAppUrl } from "@/lib/site-contact";
 
 export default function ContactView() {
   const [name, setName] = useState("");
@@ -73,10 +74,10 @@ export default function ContactView() {
             </p>
             <p>
               <a
-                href="tel:+919876543210"
+                href={`tel:${STORE_PHONE_E164}`}
                 className="hover:underline transition underline-offset-4"
               >
-                +91 98765-43210
+                {STORE_PHONE_DISPLAY}
               </a>
             </p>
             <p className="text-stone-500 pt-0.5">10 am - 8 pm IST</p>
@@ -106,7 +107,7 @@ export default function ContactView() {
             </p>
             <p>
               <a
-                href="https://wa.me/919876543210?text=Hello%20Vani%20Collection"
+                href={storeWhatsAppUrl("Hello Vani Collection")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 hover:text-[#25D366] transition font-medium"

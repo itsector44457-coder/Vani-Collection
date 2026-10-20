@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, isApiConfigured } from "./api-client";
 import { getMyOrders, getProduct, listProducts } from "./storefront-api";
 import type { Product, StoreOrder } from "./storefront-types";
@@ -15,20 +15,39 @@ interface Resource<T> {
   refresh: () => void;
 }
 
-/** Catalogue for grids and listings; never substitutes bundled sample products. */
-export function useCatalogue(params: { category?: string; q?: string; limit?: number; allPages?: boolean } = {}): Resource<Product[]> {
+/**
+ * Catalogue for grids and listings; never substitutes bundled sample products.
+ *
+ * `initialData` is the SSR/ISR hand-off: products the server already fetched for this exact view
+ * seed the state so the first HTML contains the real grid; the mount fetch is then skipped once
+ * (later param changes and explicit refreshes fetch as before).
+ */
+export function useCatalogue(
+  params: { category?: string; q?: string; limit?: number; allPages?: boolean } = {},
+  options: { initialData?: Product[] } = {}
+): Resource<Product[]> {
   const configured = isApiConfigured();
-  const [state, setState] = useState<{ data: Product[]; source: DataSource; error: string | null }>({
-    data: [],
-    source: "unavailable",
-    error: configured ? null : "The product catalogue is unavailable because the storefront API is not configured.",
-  });
-  const [loading, setLoading] = useState(configured);
+  const initialData = options.initialData;
+  const skipMountFetch = useRef(Boolean(initialData));
+  const [state, setState] = useState<{ data: Product[]; source: DataSource; error: string | null }>(() =>
+    initialData
+      ? { data: initialData, source: "live", error: null }
+      : {
+          data: [],
+          source: "unavailable",
+          error: configured ? null : "The product catalogue is unavailable because the storefront API is not configured.",
+        }
+  );
+  const [loading, setLoading] = useState(configured && !initialData);
   const [nonce, setNonce] = useState(0);
   const { category, q, limit, allPages = false } = params;
 
   useEffect(() => {
     if (!configured) return;
+    if (skipMountFetch.current) {
+      skipMountFetch.current = false;
+      return;
+    }
     const controller = new AbortController();
     let cancelled = false;
     /* State updates start after the first await so they never run synchronously inside the effect. */
@@ -64,19 +83,32 @@ export function useCatalogue(params: { category?: string; q?: string; limit?: nu
   return { ...state, loading, refresh: useCallback(() => setNonce((value) => value + 1), []) };
 }
 
-/** Single product page: resolves products only from the live catalogue API. */
-export function useStoreProduct(slug: string): Resource<Product | null> {
+/**
+ * Single product page: resolves products only from the live catalogue API.
+ * Accepts the server-rendered product as `initialProduct` (SSR/ISR) and skips the mount fetch.
+ */
+export function useStoreProduct(slug: string, options: { initialProduct?: Product | null } = {}): Resource<Product | null> {
   const configured = isApiConfigured();
-  const [state, setState] = useState<{ data: Product | null; source: DataSource; error: string | null }>(() => ({
-    data: null,
-    source: "unavailable",
-    error: configured ? null : "The storefront API is not configured.",
-  }));
-  const [loading, setLoading] = useState(configured);
+  const initialProduct = options.initialProduct ?? null;
+  const skipMountFetch = useRef(Boolean(initialProduct));
+  const [state, setState] = useState<{ data: Product | null; source: DataSource; error: string | null }>(() =>
+    initialProduct
+      ? { data: initialProduct, source: "live", error: null }
+      : {
+          data: null,
+          source: "unavailable",
+          error: configured ? null : "The storefront API is not configured.",
+        }
+  );
+  const [loading, setLoading] = useState(configured && !initialProduct);
   const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     if (!configured) return;
+    if (skipMountFetch.current) {
+      skipMountFetch.current = false;
+      return;
+    }
     const controller = new AbortController();
     let cancelled = false;
     const load = async () => {

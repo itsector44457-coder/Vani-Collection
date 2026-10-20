@@ -4,7 +4,7 @@
  * When NEXT_PUBLIC_API_URL is configured, storefront data is loaded from the backend.
  */
 import { apiFetch, ApiError, isApiConfigured, type Paginated } from "./api-client";
-import type { CartItem, GiftOptions, OrderAddress, Product, StoreOrder, StoreReview, StoreVariant } from "./storefront-types";
+import type { CartItem, GiftOptions, OrderAddress, OrderLine, Product, StoreOrder, StoreReview, StoreVariant } from "./storefront-types";
 
 const CART_TOKEN_KEY = "vani_cart_token";
 const WISHLIST_KEY = "vani_wishlist";
@@ -174,6 +174,9 @@ export function toStoreProduct(apiProduct: ApiProduct): Product {
 export const cartLineToItem = (line: ApiCartLine): CartItem => ({
   id: line.productId,
   productId: line.productId,
+  slug: line.slug,
+  available: line.available,
+  inStock: line.inStock,
   lineId: line.lineId,
   sku: line.sku,
   title: line.title,
@@ -219,9 +222,9 @@ export async function getProduct(slug: string, signal?: AbortSignal): Promise<Pr
   return toStoreProduct(response.data);
 }
 
-export async function searchProducts(term: string, signal?: AbortSignal): Promise<Product[]> {
-  const response = await apiFetch<{ data: ApiProduct[] }>(`/api/search?q=${encodeURIComponent(term)}`, { signal });
-  return response.data.map(toStoreProduct);
+export async function searchProducts(term: string, signal?: AbortSignal, limit = 8): Promise<{ products: Product[]; total: number }> {
+  const response = await apiFetch<{ data: ApiProduct[]; meta?: { total?: number } }>(`/api/search?q=${encodeURIComponent(term)}&limit=${limit}`, { signal });
+  return { products: response.data.map(toStoreProduct), total: response.meta?.total ?? response.data.length };
 }
 
 export async function getProductReviews(productId: string, signal?: AbortSignal): Promise<StoreReview[]> {
@@ -229,8 +232,23 @@ export async function getProductReviews(productId: string, signal?: AbortSignal)
   return response.data;
 }
 
-export async function submitReview(payload: { productId: string; rating: number; title?: string; body: string; images?: string[] }): Promise<void> {
-  await apiFetch("/api/reviews", { method: "POST", body: payload });
+export async function submitReview(payload: { productId: string; orderId?: string; rating: number; title?: string; body: string; images?: string[] }): Promise<StoreReview> {
+  const response = await apiFetch<{ data: StoreReview }>("/api/reviews", { method: "POST", body: payload });
+  return response.data;
+}
+
+export async function getMyReviews(signal?: AbortSignal): Promise<StoreReview[]> {
+  const response = await apiFetch<{ data: StoreReview[] }>("/api/reviews/mine", { signal });
+  return response.data;
+}
+
+export async function updateMyReview(reviewId: string, payload: { rating: number; title?: string; body: string; images?: string[] }): Promise<StoreReview> {
+  const response = await apiFetch<{ data: StoreReview }>(`/api/reviews/mine/${reviewId}`, { method: "PATCH", body: payload });
+  return response.data;
+}
+
+export async function deleteMyReview(reviewId: string): Promise<void> {
+  await apiFetch(`/api/reviews/mine/${reviewId}`, { method: "DELETE" });
 }
 
 /* --------------------------------------------------------------------- cart */
@@ -275,6 +293,7 @@ export interface RazorpayHandoff {
   amount: number;
   currency: string;
   keyId: string;
+  expiresAt?: string;
 }
 
 export async function placeOrder(payload: CheckoutPayload): Promise<{ order: StoreOrder; payment?: RazorpayHandoff }> {
@@ -284,8 +303,67 @@ export async function placeOrder(payload: CheckoutPayload): Promise<{ order: Sto
   }).then((response) => ({ order: response.data, payment: response.payment }));
 }
 
-export async function verifyRazorpayPayment(payload: { orderId: string; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }): Promise<StoreOrder> {
-  const response = await apiFetch<{ data: StoreOrder }>("/api/payments/razorpay/verify", { method: "POST", body: payload });
+/**
+ * This browser's copy of the order it just placed. Guest orders cannot be re-fetched from the
+ * authenticated order API, so checkout keeps the create-order response in sessionStorage and the
+ * confirmation page renders from it (a signed-in shopper's copy is refreshed from the API). It is
+ * session-scoped on purpose: the snapshot carries the delivery address and should not outlive the tab.
+ */
+const LAST_ORDER_KEY = "vani_last_order";
+
+export function saveLastOrderSnapshot(order: StoreOrder): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify(order));
+  } catch {
+    /* private mode / quota — confirmation still works for signed-in shoppers via the API */
+  }
+}
+
+export function readLastOrderSnapshot(orderId: string): StoreOrder | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(LAST_ORDER_KEY) || "null") as StoreOrder | null;
+    return parsed && (parsed._id === orderId || parsed.orderNumber === orderId) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export interface PaymentVerification {
+  _id: string;
+  orderNumber: string;
+  status: string;
+  payment: { status: string };
+}
+
+export async function verifyRazorpayPayment(payload: { orderId: string; razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }): Promise<PaymentVerification> {
+  const response = await apiFetch<{ data: PaymentVerification }>("/api/payments/razorpay/verify", { method: "POST", body: payload });
+  return response.data;
+}
+
+/** Thin, privacy-safe payload returned by guest tracking (`POST /api/orders/track-public`). */
+export interface PublicOrderTracking {
+  orderNumber: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  items: { name: string; image?: string; size?: string; color?: string; quantity: number }[];
+  total?: number;
+  paymentMethod?: string;
+  shipment?: { awb?: string; courier?: string; trackingUrl?: string; status?: string; estimatedDelivery?: string };
+  statusHistory: { status: string; at: string; note?: string }[];
+}
+
+/**
+ * Guest tracking unlocked by order number/AWB + the full order mobile number. The backend answers
+ * one generic 404 for every mismatch, so callers must not try to guess which field was wrong.
+ */
+export async function trackOrderPublic(identifier: string, phone: string): Promise<PublicOrderTracking> {
+  const response = await apiFetch<{ data: PublicOrderTracking }>("/api/orders/track-public", {
+    method: "POST",
+    body: { identifier: identifier.trim(), phone: phone.trim() },
+  });
   return response.data;
 }
 
@@ -296,6 +374,11 @@ export async function getMyOrders(signal?: AbortSignal): Promise<StoreOrder[]> {
 
 export async function getOrder(orderId: string, signal?: AbortSignal): Promise<StoreOrder> {
   const response = await apiFetch<{ data: StoreOrder }>(`/api/orders/${orderId}`, { signal });
+  return response.data;
+}
+
+export async function createOrderPaymentSession(orderId: string): Promise<RazorpayHandoff & { orderNumber: string }> {
+  const response = await apiFetch<{ data: RazorpayHandoff & { orderNumber: string } }>(`/api/orders/${orderId}/payment-session`, { method: "POST", body: {} });
   return response.data;
 }
 
@@ -326,8 +409,28 @@ export async function validateCoupon(code: string, subtotal: number): Promise<{ 
   return response.data;
 }
 
-export async function requestReturn(payload: { orderId: string; type: "return" | "exchange"; items: { sku: string; quantity: number; reason: string }[] }): Promise<void> {
-  await apiFetch("/api/returns", { method: "POST", body: payload });
+export interface MyReturnRequest {
+  _id: string;
+  returnNumber: string;
+  type: "return" | "exchange" | string;
+  status: string;
+  items: { sku: string; quantity: number; reason: string; condition?: string }[];
+  refundAmount?: number;
+  refundId?: string;
+  adminNote?: string;
+  createdAt: string;
+  updatedAt?: string;
+  orderId: string | { _id: string; orderNumber: string; status: string; amounts?: { total: number }; items?: OrderLine[] };
+}
+
+export async function requestReturn(payload: { orderId: string; type: "return" | "exchange"; items: { sku: string; quantity: number; reason: string; condition?: string }[] }): Promise<MyReturnRequest> {
+  const response = await apiFetch<{ data: MyReturnRequest }>("/api/returns", { method: "POST", body: payload });
+  return response.data;
+}
+
+export async function getMyReturns(signal?: AbortSignal): Promise<MyReturnRequest[]> {
+  const response = await apiFetch<{ data: MyReturnRequest[] }>("/api/returns/mine", { signal });
+  return response.data;
 }
 
 /* ----------------------------------------------------------------- customer */
@@ -399,7 +502,7 @@ export async function updateProfile(payload: {
   firstName?: string;
   lastName?: string;
   phone?: string;
-  preferences?: Record<string, boolean>;
+  preferences?: Record<string, boolean | string>;
   avatar?: string;
 }): Promise<void> {
   await apiFetch("/api/customers/profile", { method: "PATCH", body: payload });

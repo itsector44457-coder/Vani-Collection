@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, ButtonGhost, ButtonPrimary, Card } from "@/lib/admin-ui";
 import MediaUploadField from "@/components/admin/MediaUploadField";
+import SeoChecklist from "@/components/admin/SeoChecklist";
 import {
   api,
   ApiError,
@@ -41,10 +42,28 @@ const DEFAULT_NAV_SETTINGS: NavigationSettings = {
   colors: NAV_THEME_PRESETS.atelier,
 };
 
-const blankCategory = () => ({
+interface CategoryFormState {
+  name: string;
+  slug: string;
+  description: string;
+  guideContent: string;
+  seoTitle: string;
+  seoDescription: string;
+  faqs: { question: string; answer: string }[];
+  bannerImage: string;
+  navigationGroup: string;
+  position: number;
+  isActive: boolean;
+}
+
+const blankCategory = (): CategoryFormState => ({
   name: "",
   slug: "",
   description: "",
+  guideContent: "",
+  seoTitle: "",
+  seoDescription: "",
+  faqs: [],
   bannerImage: "",
   navigationGroup: "Collections",
   position: 0,
@@ -111,29 +130,32 @@ export default function CategoriesPage() {
       setError("Enter a category name that can be converted into a URL slug.");
       return;
     }
+    const faqs = form.faqs
+      .map((faq) => ({ question: faq.question.trim(), answer: faq.answer.trim() }))
+      .filter((faq) => faq.question || faq.answer);
+    if (faqs.some((faq) => !faq.question || !faq.answer)) {
+      setError("Har FAQ me sawal aur jawab dono likhe — aadha FAQ hata de ya poora kare.");
+      return;
+    }
+    const shared = {
+      name: form.name.trim(),
+      description: form.description.trim(),
+      guideContent: form.guideContent.trim(),
+      seo: { title: form.seoTitle.trim(), description: form.seoDescription.trim() },
+      faqs,
+      bannerImage: form.bannerImage.trim(),
+      navigationGroup: form.navigationGroup.trim(),
+      position: Number(form.position) || 0,
+      isActive: form.isActive,
+    };
     setSaving(true);
     setError(null);
     setNotice(null);
     try {
       if (editingId) {
-        await api.updateCategory(editingId, {
-          name: form.name.trim(),
-          description: form.description.trim() || undefined,
-          bannerImage: form.bannerImage.trim(),
-          navigationGroup: form.navigationGroup.trim(),
-          position: Number(form.position) || 0,
-          isActive: form.isActive,
-        });
+        await api.updateCategory(editingId, shared);
       } else {
-        await api.createCategory({
-          ...form,
-          name: form.name.trim(),
-          slug: slug!,
-          description: form.description.trim() || undefined,
-          bannerImage: form.bannerImage.trim(),
-          navigationGroup: form.navigationGroup.trim(),
-          position: Number(form.position) || 0,
-        });
+        await api.createCategory({ ...shared, slug: slug! });
       }
       const refreshed = await load();
       setCategories(refreshed.categories);
@@ -155,6 +177,10 @@ export default function CategoriesPage() {
       name: category.name,
       slug: category.slug,
       description: category.description || "",
+      guideContent: category.guideContent || "",
+      seoTitle: category.seo?.title || "",
+      seoDescription: category.seo?.description || "",
+      faqs: category.faqs?.map((faq) => ({ question: faq.question, answer: faq.answer })) || [],
       bannerImage: category.bannerImage || "",
       navigationGroup: category.navigationGroup,
       position: category.position,
@@ -258,7 +284,7 @@ export default function CategoriesPage() {
       {error && <Alert>{error}</Alert>}
       {notice && <p role="status" className="rounded-xl bg-emerald-50 px-3.5 py-2.5 text-[12.5px] text-emerald-700 ring-1 ring-emerald-200">{notice}</p>}
       {loading ? <p className="py-8 text-center text-sm text-stone-500">Loading categories and menus…</p> : activeTab === "categories" ? (
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_480px]">
           <Card title={`Categories (${categories.length})`}>
             <div className="space-y-2">
               {categories.map((category) => (
@@ -270,8 +296,14 @@ export default function CategoriesPage() {
                     </div>
                     <p className="mt-1 text-xs text-stone-500">{category.slug} · {category.navigationGroup}</p>
                     {category.description && <p className="mt-1 text-xs text-stone-400">{category.description}</p>}
+                    <p className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] font-semibold" aria-label="Landing page readiness">
+                      <span className={category.guideContent?.trim() ? "rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700" : "rounded-full bg-amber-50 px-2 py-0.5 text-amber-700"}>{category.guideContent?.trim() ? "Guide ✓" : "Guide: auto"}</span>
+                      <span className={category.seo?.description?.trim() ? "rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700" : "rounded-full bg-amber-50 px-2 py-0.5 text-amber-700"}>{category.seo?.description?.trim() ? "SEO ✓" : "SEO: auto"}</span>
+                      <span className="rounded-full bg-stone-100 px-2 py-0.5 text-stone-600">{category.faqs?.length || 0} FAQs</span>
+                    </p>
                   </div>
                   <div className="flex shrink-0 gap-2">
+                    {category.isActive && <Link href={`/collections/${category.slug}`} target="_blank" className={secondaryClass}>View page ↗</Link>}
                     <button type="button" onClick={() => editCategory(category)} className={secondaryClass}>Edit</button>
                     <button type="button" disabled={saving} onClick={() => void deleteCategory(category)} className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50">Delete</button>
                   </div>
@@ -293,9 +325,49 @@ export default function CategoriesPage() {
               <label className="block text-xs font-semibold text-stone-600">Collections dropdown group
                 <input required maxLength={60} className={`${inputClass} mt-1.5`} value={form.navigationGroup} onChange={(event) => setForm((current) => ({ ...current, navigationGroup: event.target.value }))} placeholder="By Fabric, By Occasion…" />
               </label>
-              <label className="block text-xs font-semibold text-stone-600">Description
-                <textarea rows={3} maxLength={500} className={`${inputClass} mt-1.5 resize-y`} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+              <label className="block text-xs font-semibold text-stone-600">Landing page intro (description)
+                <textarea rows={3} maxLength={500} className={`${inputClass} mt-1.5 resize-y`} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Is collection ki sabse badi khaasiyat 1–2 line me…" />
+                <span className="mt-1 block font-normal text-stone-400">{form.description.trim().length}/500 characters · /collections/{form.slug || "…"} page ke upar dikhega.</span>
               </label>
+              <label className="block text-xs font-semibold text-stone-600">Buying guide (landing page)
+                <textarea rows={8} maxLength={12000} className={`${inputClass} mt-1.5 resize-y`} value={form.guideContent} onChange={(event) => setForm((current) => ({ ...current, guideContent: event.target.value }))} placeholder={"Pehla paragraph: yeh fabric/style kiske liye best hai…\n\nDoosra paragraph: size, fitting aur dekhbhaal ki salah…"} />
+                <span className="mt-1 block font-normal text-stone-400">Blank chhoda to jaani-maani collections ke liye website ki standard guide chalegi. Nayi category ke liye apna guide zaroor likhe. Paragraphs ke beech ek khaali line rakhe.</span>
+              </label>
+
+              <fieldset className="space-y-3 rounded-2xl bg-[#faf7f2] p-3.5">
+                <legend className="px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-stone-600">Google search (SEO)</legend>
+                <label className="block text-xs font-semibold text-stone-600">SEO title (optional)
+                  <input maxLength={120} className={`${inputClass} mt-1.5`} value={form.seoTitle} onChange={(event) => setForm((current) => ({ ...current, seoTitle: event.target.value }))} placeholder="Blank = auto title" />
+                  <span className="mt-1 block font-normal text-stone-400">{form.seoTitle.trim().length}/120 · 70 tak sabse badhiya.</span>
+                </label>
+                <label className="block text-xs font-semibold text-stone-600">SEO description (optional)
+                  <textarea rows={3} maxLength={320} className={`${inputClass} mt-1.5 resize-y`} value={form.seoDescription} onChange={(event) => setForm((current) => ({ ...current, seoDescription: event.target.value }))} placeholder="Blank = intro se auto banega" />
+                  <span className="mt-1 block font-normal text-stone-400">{form.seoDescription.trim().length}/320 · Google me lagbhag 155 characters dikhte hain.</span>
+                </label>
+                <div className="rounded-xl border border-[#e5ded5] bg-white p-3" aria-label="Google result preview">
+                  <p className="truncate text-[11px] text-stone-500">vanicollection.com/collections/{form.slug || "…"}</p>
+                  <p className="mt-0.5 truncate text-[14px] font-medium text-[#1a0dab]">{form.seoTitle.trim() || `${form.name || "Category"} for Women — Buy Online in India | Vani Collection`}</p>
+                  <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-stone-600">{form.seoDescription.trim() || form.description.trim() || "Description yahan dikhegi…"}</p>
+                </div>
+              </fieldset>
+
+              <fieldset className="space-y-3 rounded-2xl border border-[#e5ded5] p-3.5">
+                <legend className="px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-stone-600">Landing page FAQs</legend>
+                {form.faqs.map((faq, index) => (
+                  <div key={index} className="space-y-2 rounded-xl bg-stone-50 p-3">
+                    <div className="flex gap-2">
+                      <input aria-label={`FAQ ${index + 1} question`} maxLength={300} className={inputClass} value={faq.question} onChange={(event) => setForm((current) => ({ ...current, faqs: current.faqs.map((entry, i) => i === index ? { ...entry, question: event.target.value } : entry) }))} placeholder={`Sawal ${index + 1} — jaise: Size kaise choose karu?`} />
+                      <button type="button" className={secondaryClass} onClick={() => setForm((current) => ({ ...current, faqs: current.faqs.filter((_entry, i) => i !== index) }))}>Remove</button>
+                    </div>
+                    <textarea aria-label={`FAQ ${index + 1} answer`} rows={3} maxLength={2000} className={`${inputClass} resize-y`} value={faq.answer} onChange={(event) => setForm((current) => ({ ...current, faqs: current.faqs.map((entry, i) => i === index ? { ...entry, answer: event.target.value } : entry) }))} placeholder="Seedha, sahi jawab likhe…" />
+                  </div>
+                ))}
+                {form.faqs.length < 10 && (
+                  <button type="button" className={secondaryClass} onClick={() => setForm((current) => ({ ...current, faqs: [...current.faqs, { question: "", answer: "" }] }))}>+ Add FAQ</button>
+                )}
+                <p className="text-[11px] text-stone-400">FAQs khaali rakhe to category ke standard sawal-jawab dikhenge. Apne FAQs likhne par wahi page par aur Google data me jayenge — sirf wahi likhe jo sach me page par dikhta hai.</p>
+              </fieldset>
+
               <div className="space-y-2">
                 <label className="block text-xs font-semibold text-stone-600">Collection banner image
                   <input maxLength={2000} className={`${inputClass} mt-1.5`} value={form.bannerImage} onChange={(event) => setForm((current) => ({ ...current, bannerImage: event.target.value }))} placeholder="https://… or /image.jpg" />
@@ -314,6 +386,18 @@ export default function CategoriesPage() {
               <label className="block text-xs font-semibold text-stone-600">Display order
                 <input type="number" min={0} max={10000} className={`${inputClass} mt-1.5`} value={form.position} onChange={(event) => setForm((current) => ({ ...current, position: Number(event.target.value) }))} />
               </label>
+              <SeoChecklist
+                title="Landing page checklist"
+                checks={[
+                  { label: "Category name aur URL slug ready hai", pass: form.name.trim().length >= 2 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(form.slug), hint: "Slug chhota aur saaf rakhe — baad me badalna mushkil hota hai." },
+                  { label: "Landing intro 80–220 characters ka hai", pass: form.description.trim().length >= 80 && form.description.trim().length <= 220, hint: `Abhi ${form.description.trim().length} characters.` },
+                  { label: "Apna buying guide kam se kam 100 shabdon ka hai", pass: form.guideContent.split(/\s+/).filter(Boolean).length >= 100, hint: "Blank par standard guide chalegi, par apna anubhav Google aur customer dono ko zyada madad karta hai." },
+                  { label: "SEO title surakshit length me hai (blank = auto)", pass: form.seoTitle.trim().length <= 70, hint: `Abhi ${form.seoTitle.trim().length} characters.` },
+                  { label: "SEO description 120–160 characters ki hai", pass: (form.seoDescription.trim() || form.description.trim()).length >= 120 && (form.seoDescription.trim() || form.description.trim()).length <= 160, hint: `Abhi ${(form.seoDescription.trim() || form.description.trim()).length} characters.` },
+                  { label: "Kam se kam 2 poore FAQs likhe hai", pass: form.faqs.filter((faq) => faq.question.trim() && faq.answer.trim()).length >= 2, hint: "Asli grahak-sawal likhe — size, delivery, care." },
+                  { label: "Banner photo laga hai", pass: Boolean(form.bannerImage.trim()), hint: "Bina photo ke page chalega, par photo se bharosa badhta hai." },
+                ]}
+              />
               {editingId && <label className="flex items-center gap-2 text-sm text-stone-600"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))} /> Show this category in storefront filters and navigation</label>}
               <div className="flex justify-end gap-2">
                 {editingId && <ButtonGhost type="button" onClick={resetForm}>Cancel</ButtonGhost>}
@@ -355,7 +439,7 @@ export default function CategoriesPage() {
                             {item.categorySlug && !activeCategories.some((category) => category.slug === item.categorySlug) && <option value={`category:${item.categorySlug}`}>Unavailable category: {item.categorySlug}</option>}
                             {activeCategories.map((category) => <option key={category.slug} value={`category:${category.slug}`}>Category: {category.name}</option>)}
                           </select>
-                          {item.categorySlug ? <p className="text-[11px] text-stone-500">Links to /products?category={item.categorySlug}</p> : <input aria-label="Custom storefront URL" className={inputClass} value={item.href || ""} onChange={(event) => updateMenu(menu.key, (current) => ({ ...current, columns: current.columns.map((entry, colIndex) => colIndex === columnIndex ? { ...entry, items: entry.items.map((link, linkIndex) => linkIndex === itemIndex ? { ...link, href: event.target.value } : link) } : entry) }))} placeholder="/products?sort=featured" />}
+                          {item.categorySlug ? <p className="text-[11px] text-stone-500">Links to /collections/{item.categorySlug}</p> : <input aria-label="Custom storefront URL" className={inputClass} value={item.href || ""} onChange={(event) => updateMenu(menu.key, (current) => ({ ...current, columns: current.columns.map((entry, colIndex) => colIndex === columnIndex ? { ...entry, items: entry.items.map((link, linkIndex) => linkIndex === itemIndex ? { ...link, href: event.target.value } : link) } : entry) }))} placeholder="/products?sort=featured" />}
                         </div>
                       ))}
                     </div>

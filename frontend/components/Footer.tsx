@@ -4,7 +4,8 @@ import Image from "next/image";
 import PaymentIcons from "./PaymentIcons";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, isApiConfigured, type StoreCategory } from "../lib/api-client";
+import { api, apiFetch, isApiConfigured, type StoreCategory } from "../lib/api-client";
+import { STORE_PHONE_DISPLAY, STORE_PHONE_E164, storeWhatsAppUrl } from "../lib/site-contact";
 
 const FALLBACK_CATEGORIES = [
   { name: "Mul Cotton", slug: "mul-cotton" },
@@ -18,7 +19,7 @@ const FOOTER_LINKS = {
     { label: "Shipping & delivery", href: "/shipping" },
     { label: "Returns & exchanges", href: "/returns" },
     { label: "Size guide", href: "/size-guide" },
-    { label: "Track your order", href: "/account/track" },
+    { label: "Track your order", href: "/track-order" },
     { label: "Get in touch", href: "/contact" },
   ],
   about: [
@@ -94,6 +95,8 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [alreadySubscribed, setAlreadySubscribed] = useState(false);
+  const [subscribeError, setSubscribeError] = useState("");
   const [subscribing, setSubscribing] = useState(false);
   const [categories, setCategories] = useState<StoreCategory[]>([]);
 
@@ -113,16 +116,32 @@ export default function Footer() {
     return () => controller.abort();
   }, []);
 
-  const handleSubscribe = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubscribe = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!email.trim()) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || subscribing) return;
+    if (!isApiConfigured()) {
+      setSubscribeError("Newsletter abhi uplabdh nahi hai — kripya thodi der baad koshish kare.");
+      return;
+    }
 
     setSubscribing(true);
-    window.setTimeout(() => {
+    setSubscribeError("");
+    setSubscribed(false);
+    setAlreadySubscribed(false);
+    try {
+      const response = await apiFetch<{ data: { subscribed: boolean; alreadySubscribed: boolean } }>("/api/newsletter/subscribe", {
+        method: "POST",
+        body: { email: normalizedEmail, source: "footer" },
+      });
       setSubscribed(true);
-      setSubscribing(false);
+      setAlreadySubscribed(response.data.alreadySubscribed);
       setEmail("");
-    }, 450);
+    } catch (cause) {
+      setSubscribeError((cause as Error)?.message || "Subscription save nahi ho paya — kripya dobara koshish kare.");
+    } finally {
+      setSubscribing(false);
+    }
   };
 
   const scrollToTop = () => {
@@ -231,7 +250,7 @@ export default function Footer() {
             </p>
           </div>
 
-          <form onSubmit={handleSubscribe}>
+          <form onSubmit={(event) => void handleSubscribe(event)} noValidate>
             <label htmlFor="footer-email" className="sr-only">Email address</label>
             <div className="flex flex-col gap-2 sm:flex-row">
               <input
@@ -240,12 +259,16 @@ export default function Footer() {
                 autoComplete="email"
                 required
                 value={email}
+                aria-invalid={Boolean(subscribeError)}
+                aria-describedby="footer-newsletter-status"
                 onChange={(event) => {
                   setEmail(event.target.value);
                   setSubscribed(false);
+                  setAlreadySubscribed(false);
+                  setSubscribeError("");
                 }}
                 placeholder="Your email address"
-                className="min-w-0 flex-1 rounded-full border border-[#d3c4b1] bg-[#fffdf9] px-4 py-3 text-sm text-[#2b211e] placeholder:text-[#8c8075] focus:border-[#8b273e] focus:outline-none focus:ring-2 focus:ring-[#8b273e]/15"
+                className="min-h-12 min-w-0 flex-1 rounded-full border border-[#d3c4b1] bg-[#fffdf9] px-4 py-3 text-sm text-[#2b211e] placeholder:text-[#8c8075] focus:border-[#8b273e] focus:outline-none focus:ring-2 focus:ring-[#8b273e]/15"
               />
               <button
                 type="submit"
@@ -256,8 +279,17 @@ export default function Footer() {
                 <ArrowIcon />
               </button>
             </div>
-            <p aria-live="polite" className={`mt-2 min-h-4 px-2 text-[11px] ${subscribed ? "text-emerald-800" : "text-[#76695d]"}`}>
-              {subscribed ? "Thank you — look out for our next note." : "Only the good stuff. Unsubscribe whenever you like."}
+            <p
+              id="footer-newsletter-status"
+              role={subscribeError ? "alert" : "status"}
+              aria-live="polite"
+              className={`mt-2 min-h-4 px-2 text-xs leading-relaxed ${subscribeError ? "text-rose-800" : subscribed ? "text-emerald-800" : "text-[#76695d]"}`}
+            >
+              {subscribeError || (subscribed
+                ? alreadySubscribed
+                  ? "Aap pehle se Vani letter se jude hue hai."
+                  : "Dhanyavaad — aapki subscription save ho gayi hai."
+                : "Only the good stuff. Unsubscribe whenever you like.")}
             </p>
           </form>
         </div>
@@ -280,16 +312,16 @@ export default function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Vani Collection on Instagram"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#d6c8b7] text-[#781e36] transition hover:border-[#781e36] hover:bg-[#781e36] hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-[#d6c8b7] text-[#781e36] transition hover:border-[#781e36] hover:bg-[#781e36] hover:text-white"
               >
                 <InstagramIcon />
               </a>
               <a
-                href="https://wa.me/919876543210?text=Hi%20Vani%20Collection%2C%20I%20need%20help%20choosing%20an%20outfit."
+                href={storeWhatsAppUrl("Hi Vani Collection, I need help choosing an outfit.")}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Chat with Vani Collection on WhatsApp"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[#d6c8b7] text-[#781e36] transition hover:border-[#781e36] hover:bg-[#781e36] hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-[#d6c8b7] text-[#781e36] transition hover:border-[#781e36] hover:bg-[#781e36] hover:text-white"
               >
                 <WhatsAppIcon />
               </a>
@@ -298,17 +330,17 @@ export default function Footer() {
 
           <nav aria-label="Shop collections" className="lg:col-span-3">
             <h3 className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b273e]">Explore</h3>
-            <ul className="space-y-3">
+            <ul className="space-y-1">
               {shopCategories.map((category) => (
                 <li key={category.slug}>
-                  <Link href={`/products?category=${encodeURIComponent(category.slug)}`} className="group inline-flex items-center gap-2 text-sm text-[#51463e] transition hover:text-[#781e36]">
+                  <Link href={`/collections/${encodeURIComponent(category.slug)}`} className="group inline-flex min-h-11 items-center gap-2 py-1 text-sm text-[#51463e] transition hover:text-[#781e36]">
                     <span className="h-px w-0 bg-[#8b273e] transition-all group-hover:w-3" />
                     {category.name}
                   </Link>
                 </li>
               ))}
               <li className="pt-1">
-                <Link href="/collections" className="group inline-flex items-center gap-2 text-sm font-semibold text-[#781e36]">
+                <Link href="/collections" className="group inline-flex min-h-11 items-center gap-2 py-1 text-sm font-semibold text-[#781e36]">
                   All collections <ArrowIcon />
                 </Link>
               </li>
@@ -317,10 +349,10 @@ export default function Footer() {
 
           <nav aria-label="Customer care and company information" className="lg:col-span-2">
             <h3 className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b273e]">Good to know</h3>
-            <ul className="space-y-3">
-              {[...FOOTER_LINKS.help.slice(0, 4), ...FOOTER_LINKS.about.slice(0, 1)].map((item) => (
+            <ul className="space-y-1">
+              {[...FOOTER_LINKS.help.slice(0, 4), { label: "The Vani Journal", href: "/journal" }, ...FOOTER_LINKS.about.slice(0, 1)].map((item) => (
                 <li key={item.href}>
-                  <Link href={item.href} className="text-sm text-[#51463e] transition hover:text-[#781e36]">{item.label}</Link>
+                  <Link href={item.href} className="inline-flex min-h-11 items-center py-1 text-sm text-[#51463e] transition hover:text-[#781e36]">{item.label}</Link>
                 </li>
               ))}
             </ul>
@@ -328,16 +360,16 @@ export default function Footer() {
 
           <div className="col-span-2 sm:col-span-3 lg:col-span-3">
             <h3 className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b273e]">Come by or say hello</h3>
-            <Link href="/contact" className="group flex items-start gap-3 text-sm leading-relaxed text-[#51463e] transition hover:text-[#781e36]">
+            <Link href="/contact" className="group flex min-h-11 items-start gap-3 py-1 text-sm leading-relaxed text-[#51463e] transition hover:text-[#781e36]">
               <span className="mt-0.5 text-[#8b273e]"><PinIcon /></span>
               <span>Station Road<br />Guna, Madhya Pradesh 473001</span>
             </Link>
-            <div className="mt-4 space-y-3">
-              <a href="tel:+919876543210" className="flex items-center gap-3 text-sm text-[#51463e] transition hover:text-[#781e36]">
+            <div className="mt-3 space-y-1">
+              <a href={`tel:${STORE_PHONE_E164}`} className="flex min-h-11 items-center gap-3 py-1 text-sm text-[#51463e] transition hover:text-[#781e36]">
                 <span className="text-[#8b273e]"><PhoneIcon /></span>
-                <span>+91 98765-43210</span>
+                <span>{STORE_PHONE_DISPLAY}</span>
               </a>
-              <a href="mailto:Vanicollectionguna@gmail.com" className="flex items-center gap-3 break-all text-sm text-[#51463e] transition hover:text-[#781e36]">
+              <a href="mailto:Vanicollectionguna@gmail.com" className="flex min-h-11 items-center gap-3 break-all py-1 text-sm text-[#51463e] transition hover:text-[#781e36]">
                 <span className="text-[#8b273e]"><MailIcon /></span>
                 <span>Vanicollectionguna@gmail.com</span>
               </a>
@@ -356,9 +388,9 @@ export default function Footer() {
           </div>
           <PaymentIcons />
           <div className="flex items-center gap-4 text-[11px]">
-            <Link href="/privacy" className="transition hover:text-[#e6c88f]">Privacy</Link>
-            <Link href="/terms" className="transition hover:text-[#e6c88f]">Terms</Link>
-            <button type="button" onClick={scrollToTop} className="group inline-flex items-center gap-1.5 transition hover:text-[#e6c88f]" aria-label="Back to top of page">
+            <Link href="/privacy" className="inline-flex min-h-11 items-center px-1 transition hover:text-[#e6c88f]">Privacy</Link>
+            <Link href="/terms" className="inline-flex min-h-11 items-center px-1 transition hover:text-[#e6c88f]">Terms</Link>
+            <button type="button" onClick={scrollToTop} className="group inline-flex min-h-11 items-center gap-1.5 px-1 transition hover:text-[#e6c88f]" aria-label="Back to top of page">
               Back to top <ArrowIcon direction="up" />
             </button>
           </div>

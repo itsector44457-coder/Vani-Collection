@@ -1,17 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../../context/CartContext";
+import { useAuth } from "../../../context/AuthContext";
 import { notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import { calculateDiscount, generateBreadcrumbs } from "../../../lib/utils";
 import { useStoreProduct } from "../../../lib/use-storefront";
+import type { Product } from "../../../lib/storefront-types";
 import ProductImageGallery from "../../../components/ProductImageGallery";
 import SizeGuide from "../../../components/SizeGuide";
 import ProductReviews from "../../../components/ProductReviews";
 import RelatedProducts from "../../../components/RelatedProducts";
 import PincodeDeliveryChecker from "../../../components/PincodeDeliveryChecker";
+import { recordRecentlyViewed } from "../../../lib/recently-viewed";
+import { storeWhatsAppUrl } from "../../../lib/site-contact";
 
 type ProductTab = "description" | "details" | "reviews";
 
@@ -53,11 +57,13 @@ const swatchBackground = (color: string) =>
  * Split out of `page.tsx` so that file can be a Server Component and export `generateMetadata` and
  * the JSON-LD markup — neither of which is possible from a `"use client"` module. The slug arrives
  * already resolved; this component owns everything that needs the browser (cart, wishlist, tabs,
- * size guide, toasts) and loads product data from the storefront API.
+ * size guide, toasts). The server passes `initialProduct` for first paint (SSR/ISR); the hook only
+ * fetches in the browser when the server could not reach the catalogue.
  */
-export default function ProductView({ slug }: { slug: string }) {
-  const storeProduct = useStoreProduct(slug);
+export default function ProductView({ slug, initialProduct = null }: { slug: string; initialProduct?: Product | null }) {
+  const storeProduct = useStoreProduct(slug, { initialProduct });
   const { addToCart, toggleWishlist, isInWishlist, error: cartError } = useCart();
+  const { user } = useAuth();
   const router = useRouter();
 
   const product = storeProduct.data;
@@ -68,6 +74,17 @@ export default function ProductView({ slug }: { slug: string }) {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showAddedToast, setShowAddedToast] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const toastTimerRef = useRef<number | null>(null);
+  const viewedProductId = product?.productId ?? product?.id;
+  const viewedProductSlug = product?.slug;
+  useEffect(() => {
+    if (viewedProductId || viewedProductSlug) {
+      recordRecentlyViewed({ id: viewedProductId, slug: viewedProductSlug });
+    }
+  }, [viewedProductId, viewedProductSlug]);
+  useEffect(() => () => {
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+  }, []);
 
   const getWhatsAppShareUrl = () => {
     if (!product) return "#";
@@ -81,7 +98,7 @@ export default function ProductView({ slug }: { slug: string }) {
       (activeVariant?.sku ? `• SKU: ${activeVariant.sku}\n` : "") +
       `• Product Link: ${currentUrl}\n\n` +
       `Could you please assist me with availability, delivery schedule, or custom styling?`;
-    return `https://wa.me/919876543210?text=${encodeURIComponent(text)}`;
+    return storeWhatsAppUrl(text);
   };
 
   const handleCopyLink = async () => {
@@ -101,8 +118,15 @@ export default function ProductView({ slug }: { slug: string }) {
   const activeColor = productColors.includes(selectedColor) ? selectedColor : (productColors[0] ?? "");
   const colorVariants = (product?.variants ?? []).filter((variant) => !activeColor || variant.color === activeColor);
   const colorSizes = Array.from(new Set(colorVariants.map((variant) => variant.size).filter((size): size is string => Boolean(size))));
-  /* The first available size/color pair is the default; the visitor's explicit pick wins. */
-  const activeSize = colorSizes.includes(selectedSize) ? selectedSize : (colorSizes[0] ?? product?.sizes[0] ?? "");
+  /* The visitor's explicit pick wins; otherwise prefer their saved size, then an in-stock size. */
+  const preferredSize = user?.preferences?.preferredSize ?? "";
+  const firstAvailableSize = colorSizes.find((size) => colorVariants.some((variant) => variant.size === size && (variant.available === undefined || variant.available > 0)));
+  const preferredAvailable = preferredSize && colorSizes.includes(preferredSize) && colorVariants.some((variant) => variant.size === preferredSize && (variant.available === undefined || variant.available > 0));
+  const activeSize = colorSizes.includes(selectedSize)
+    ? selectedSize
+    : preferredAvailable
+      ? preferredSize
+      : (firstAvailableSize ?? colorSizes[0] ?? product?.sizes[0] ?? "");
   const activeVariant = colorVariants.find((variant) => variant.size === activeSize);
   const galleryImages = activeVariant?.images?.length
     ? activeVariant.images
@@ -118,9 +142,9 @@ export default function ProductView({ slug }: { slug: string }) {
     }
     if (storeProduct.error) {
       return (
-        <main className="flex min-h-[55vh] flex-col items-center justify-center px-4 text-center">
+        <div className="flex min-h-[55vh] flex-col items-center justify-center px-4 text-center">
           <h1 className="font-serif text-2xl text-stone-900">Product unavailable</h1>
-          <p className="mt-3 max-w-md text-sm text-stone-600">{storeProduct.error}</p>
+          <p className="mt-3 max-w-md text-sm text-stone-600">{"This piece could not be loaded just now. Please try again, or browse the collection while we sort it out."}</p>
           <button
             type="button"
             onClick={storeProduct.refresh}
@@ -131,29 +155,40 @@ export default function ProductView({ slug }: { slug: string }) {
           <Link href="/products" className="mt-3 text-sm font-semibold text-[#881337] hover:underline">
             Browse Products
           </Link>
-        </main>
+        </div>
       );
     }
     notFound();
   }
 
   const isWishlisted = isInWishlist(product.id);
-  const handleAddToCart = async () => {
-    await addToCart(product, activeSize, quantity, activeColor || undefined);
+  const activePrice = activeVariant?.price ?? product.price;
+  const activeMrp = activeVariant?.mrp ?? product.originalPrice;
+  const activeAvailable = activeVariant?.available;
+  const maxQuantity = typeof activeAvailable === "number" ? Math.max(0, activeAvailable) : 99;
+  const effectiveQuantity = maxQuantity > 0 ? Math.min(quantity, maxQuantity) : 1;
+  const isSoldOut = !activeVariant || maxQuantity === 0;
+  const lowStock = typeof activeAvailable === "number" && activeAvailable > 0 && activeAvailable <= 3;
+
+  const handleAddToCart = async (): Promise<boolean> => {
+    if (isSoldOut) return false;
+    const added = await addToCart(product, activeSize, effectiveQuantity, activeColor || undefined);
+    if (!added) return false;
     setShowAddedToast(true);
-    setTimeout(() => setShowAddedToast(false), 3000);
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setShowAddedToast(false), 3000);
+    return true;
   };
 
   const handleBuyNow = async () => {
-    await addToCart(product, activeSize, quantity, activeColor || undefined);
-    router.push("/checkout");
+    if (await handleAddToCart()) router.push("/checkout");
   };
 
   const handleWishlistToggle = () => {
     toggleWishlist(product.id);
   };
 
-  const discountPercentage = calculateDiscount(product.originalPrice, product.price);
+  const discountPercentage = calculateDiscount(activeMrp, activePrice);
   const breadcrumbs = generateBreadcrumbs(product);
 
   return (
@@ -176,7 +211,7 @@ export default function ProductView({ slug }: { slug: string }) {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+      <div className="mx-auto max-w-7xl px-4 pb-28 sm:px-6 lg:px-8 lg:pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* Product Images */}
           <div className="space-y-4">
@@ -203,8 +238,9 @@ export default function ProductView({ slug }: { slug: string }) {
                   {product.badge}
                 </span>
                 <button
+                  type="button"
                   onClick={handleWishlistToggle}
-                  className="p-2 rounded-full hover:bg-gray-100 transition"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition hover:bg-gray-100"
                   aria-label={isWishlisted ? `Remove ${product.title} from wishlist` : `Add ${product.title} to wishlist`}
                   aria-pressed={isWishlisted}
                 >
@@ -229,13 +265,14 @@ export default function ProductView({ slug }: { slug: string }) {
               </h1>
               <div className="flex items-center gap-4 mt-2">
                 <div className="flex items-center gap-1">
-                  <div className="flex">
+                  <div className="flex" role="img" aria-label={product.reviewsCount > 0 ? `Rating ${product.rating} out of 5` : "No reviews yet"}>
                     {[...Array(5)].map((_, i) => (
-                      <svg 
-                        key={i} 
-                        width="16" 
-                        height="16" 
-                        viewBox="0 0 24 24" 
+                      <svg
+                        key={i}
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
                         fill={i < Math.floor(product.rating) ? "#fbbf24" : "#e5e7eb"}
                       >
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
@@ -243,7 +280,7 @@ export default function ProductView({ slug }: { slug: string }) {
                     ))}
                   </div>
                   <span className="text-sm font-medium text-gray-700">
-                    {product.rating} ({product.reviewsCount} reviews)
+                    {product.reviewsCount > 0 ? `${product.rating} (${product.reviewsCount} reviews)` : "No reviews yet"}
                   </span>
                 </div>
               </div>
@@ -258,13 +295,26 @@ export default function ProductView({ slug }: { slug: string }) {
             {/* Pricing */}
             <div className="space-y-1">
               <div className="flex items-center gap-3">
-                <span className="text-3xl font-bold text-gray-900">₹{(activeVariant?.price ?? product.price).toLocaleString()}</span>
-                <span className="text-lg text-gray-500 line-through">₹{(activeVariant?.mrp ?? product.originalPrice).toLocaleString()}</span>
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-semibold">
-                  {discountPercentage}% OFF
-                </span>
+                <span className="text-3xl font-bold text-gray-900">₹{activePrice.toLocaleString("en-IN")}</span>
+                {activeMrp > activePrice && (
+                  <>
+                    <span className="text-lg text-gray-500 line-through">₹{activeMrp.toLocaleString("en-IN")}</span>
+                    <span className="rounded bg-green-100 px-2 py-1 text-sm font-semibold text-green-800">
+                      {discountPercentage}% OFF
+                    </span>
+                  </>
+                )}
               </div>
               <p className="text-sm text-gray-600">Inclusive of all taxes • Free shipping above ₹1,999</p>
+              <p aria-live="polite" className={`text-sm font-medium ${isSoldOut ? "text-rose-700" : lowStock ? "text-amber-700" : "text-emerald-700"}`}>
+                {isSoldOut
+                  ? "Yeh size/colour abhi sold out hai."
+                  : lowStock
+                    ? `Sirf ${activeAvailable} bache hai is size me.`
+                    : activeAvailable !== undefined
+                      ? "In stock — order ke liye taiyaar hai."
+                      : "Stock checkout par final confirm hoga."}
+              </p>
             </div>
 
             {productColors.length > 0 && (
@@ -279,7 +329,7 @@ export default function ProductView({ slug }: { slug: string }) {
                       aria-pressed={activeColor === color}
                       aria-label={`Choose ${color} color`}
                       title={color}
-                      className={`h-9 w-9 rounded-full border border-black/15 transition ${
+                      className={`h-11 w-11 rounded-full border border-black/15 transition ${
                         activeColor === color ? "ring-2 ring-[#881337] ring-offset-2" : "hover:ring-2 hover:ring-stone-300 hover:ring-offset-1"
                       }`}
                       style={{ background: swatchBackground(color) }}
@@ -294,9 +344,10 @@ export default function ProductView({ slug }: { slug: string }) {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-gray-900">Size:</span>
-                <button 
+                <button
+                  type="button"
                   onClick={() => setShowSizeGuide(true)}
-                  className="text-sm text-[#881337] hover:underline font-medium inline-flex items-center gap-1.5"
+                  className="inline-flex min-h-11 items-center gap-1.5 px-2 text-sm font-medium text-[#881337] hover:underline"
                 >
                   <svg className="w-4 h-4 text-[#881337]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21.3 8.7l-6-6a1 1 0 0 0-1.4 0l-11 11a1 1 0 0 0 0 1.4l6 6a1 1 0 0 0 1.4 0l11-11a1 1 0 0 0 0-1.4z" />
@@ -308,7 +359,7 @@ export default function ProductView({ slug }: { slug: string }) {
                   <span>Size Guide</span>
                 </button>
               </div>
-              <div className="grid grid-cols-6 gap-2">
+              <div className="grid grid-cols-3 gap-2 min-[420px]:grid-cols-4 sm:grid-cols-6">
                 {colorSizes.map((size) => {
                   const matchingVariant = colorVariants.find((variant) => variant.size === size);
                   const available = matchingVariant?.available;
@@ -316,10 +367,13 @@ export default function ProductView({ slug }: { slug: string }) {
                   return (
                     <button
                       key={size}
+                      type="button"
                       onClick={() => setSelectedSize(size)}
                       disabled={soldOut}
+                      aria-pressed={activeSize === size}
+                      aria-label={soldOut ? `Size ${size}, sold out` : `Size ${size} chune${available !== undefined ? `, ${available} uplabdh` : ""}`}
                       title={soldOut ? `${size} is sold out` : available !== undefined ? `${available} left in ${size}` : undefined}
-                      className={`relative py-3 px-4 border rounded-lg text-sm font-medium transition ${
+                      className={`relative min-h-12 border px-2 py-3 rounded-lg text-sm font-medium transition ${
                         activeSize === size
                           ? 'border-[#881337] bg-[#881337] text-white'
                           : soldOut
@@ -342,18 +396,21 @@ export default function ProductView({ slug }: { slug: string }) {
               <span className="font-medium text-gray-900">Quantity:</span>
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition"
-                  aria-label="Decrease quantity"
-                  disabled={quantity === 1}
+                  type="button"
+                  onClick={() => setQuantity(Math.max(1, effectiveQuantity - 1))}
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Quantity kam kare"
+                  disabled={effectiveQuantity === 1 || isSoldOut}
                 >
                   −
                 </button>
-                <span className="w-12 text-center font-medium">{quantity}</span>
+                <span className="w-12 text-center font-medium" aria-live="polite" aria-label={`Quantity ${effectiveQuantity}`}>{effectiveQuantity}</span>
                 <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 transition"
-                  aria-label="Increase quantity"
+                  type="button"
+                  onClick={() => setQuantity(Math.min(maxQuantity, effectiveQuantity + 1))}
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-300 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                  aria-label="Quantity badhaye"
+                  disabled={isSoldOut || effectiveQuantity >= maxQuantity}
                 >
                   +
                 </button>
@@ -369,14 +426,18 @@ export default function ProductView({ slug }: { slug: string }) {
             {/* Add to Cart & Buy Now */}
             <div className="grid grid-cols-2 gap-4">
               <button
-                onClick={handleAddToCart}
-                className="py-4 px-6 bg-white border-2 border-[#881337] text-[#881337] font-semibold rounded-xl hover:bg-[#881337] hover:text-white transition shadow-sm text-center"
+                type="button"
+                onClick={() => void handleAddToCart()}
+                disabled={isSoldOut}
+                className="min-h-12 rounded-xl border-2 border-[#881337] bg-white px-6 py-4 text-center font-semibold text-[#881337] shadow-sm transition hover:bg-[#881337] hover:text-white disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-100 disabled:text-stone-500"
               >
-                Add to Cart
+                {isSoldOut ? "Sold Out" : "Add to Cart"}
               </button>
-              <button 
-                onClick={handleBuyNow}
-                className="py-4 px-6 bg-[#881337] text-white font-semibold rounded-xl hover:bg-[#701a35] transition shadow-md shadow-[#881337]/15 text-center"
+              <button
+                type="button"
+                onClick={() => void handleBuyNow()}
+                disabled={isSoldOut}
+                className="min-h-12 rounded-xl bg-[#881337] px-6 py-4 text-center font-semibold text-white shadow-md shadow-[#881337]/15 transition hover:bg-[#701a35] disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600 disabled:shadow-none"
               >
                 Buy Now
               </button>
@@ -425,7 +486,7 @@ export default function ProductView({ slug }: { slug: string }) {
             </div>
 
             {/* Pincode & Delivery Estimator */}
-            <PincodeDeliveryChecker />
+            <PincodeDeliveryChecker subtotal={activePrice * effectiveQuantity} />
 
             {/* Key Features */}
             <div className="border-t border-gray-200 pt-6">
@@ -435,7 +496,7 @@ export default function ProductView({ slug }: { slug: string }) {
                     <circle cx="12" cy="12" r="9" />
                     <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                   </svg>
-                  <span className="font-medium text-stone-900">No Return &amp; Exchange</span>
+                  <span className="font-medium text-stone-900">7-day returns &amp; size exchange</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -444,7 +505,7 @@ export default function ProductView({ slug }: { slug: string }) {
                     <circle cx="5.5" cy="18.5" r="2.5" />
                     <circle cx="18.5" cy="18.5" r="2.5" />
                   </svg>
-                  <span>Free Shipping</span>
+                  <span>Free shipping ₹1,999+</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -458,7 +519,7 @@ export default function ProductView({ slug }: { slug: string }) {
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle cx="12" cy="7" r="4" />
                   </svg>
-                  <span>24/7 Customers Support</span>
+                  <span>Email & WhatsApp support</span>
                 </div>
               </div>
             </div>
@@ -475,10 +536,11 @@ export default function ProductView({ slug }: { slug: string }) {
             ].map((tab) => (
               <button
                 key={tab.key}
+                type="button"
                 onClick={() => setActiveTab(tab.key as ProductTab)}
                 role="tab"
                 aria-selected={activeTab === tab.key}
-                className={`pb-4 text-sm font-medium border-b-2 transition ${
+                className={`min-h-12 border-b-2 pb-4 text-sm font-medium transition ${
                   activeTab === tab.key
                     ? 'border-[#881337] text-[#881337]'
                     : 'border-transparent text-gray-600 hover:text-gray-900'
@@ -519,6 +581,34 @@ export default function ProductView({ slug }: { slug: string }) {
         </div>
       </div>
 
+      {/* Mobile sticky buy bar */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_30px_rgba(28,25,23,0.10)] backdrop-blur lg:hidden">
+        <div className="mx-auto flex max-w-3xl items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-bold leading-tight text-stone-900">₹{activePrice.toLocaleString("en-IN")}</p>
+            <p className="truncate text-[11px] font-medium text-stone-500">
+              {isSoldOut ? "Sold out" : `${activeSize ? `Size ${activeSize}` : "Size uplabdh"}${activeColor ? ` · ${activeColor}` : ""} · Qty ${effectiveQuantity}`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleAddToCart()}
+            disabled={isSoldOut}
+            className="min-h-12 rounded-full border-2 border-[#881337] px-4 text-sm font-semibold text-[#881337] disabled:cursor-not-allowed disabled:border-stone-300 disabled:text-stone-500"
+          >
+            Add
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleBuyNow()}
+            disabled={isSoldOut}
+            className="min-h-12 rounded-full bg-[#881337] px-5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600"
+          >
+            Buy Now
+          </button>
+        </div>
+      </div>
+
       {/* Size Guide Modal */}
       <SizeGuide
         isOpen={showSizeGuide}
@@ -534,7 +624,8 @@ export default function ProductView({ slug }: { slug: string }) {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50"
+            role="status"
+            className="fixed bottom-24 right-4 z-50 rounded-lg bg-green-600 px-6 py-3 text-white shadow-lg lg:bottom-4"
           >
             <div className="flex items-center gap-2">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

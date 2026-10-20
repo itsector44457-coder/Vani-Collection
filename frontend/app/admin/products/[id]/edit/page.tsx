@@ -7,6 +7,7 @@ import { Alert, ButtonGhost, ButtonPrimary, Card, Field, Select, Textarea, TextI
 import { api, apiFetch, ApiError, isApiConfigured, type AdminEditableProduct, type StoreCategory } from "@/lib/api-client";
 import MediaUploadField from "@/components/admin/MediaUploadField";
 import ColorSelect from "@/components/admin/ColorSelect";
+import ProductSeoPanel from "@/components/admin/ProductSeoPanel";
 
 type EditableVariant = AdminEditableProduct["variants"][number];
 type EditableField = "name" | "slug" | "category" | "images" | "videos" | "gstRate" | "variants";
@@ -134,14 +135,17 @@ export default function EditProductPage() {
           shortDescription: product.shortDescription || undefined,
           description: product.description || undefined,
           sizeGuide: product.sizeGuide?.trim() ?? "",
-          images: imageUrls.map((url, position) => ({ url, alt: product.name, position })),
+          images: imageUrls.map((url, position) => {
+            const existingAlt = product.images.find((image) => image.url === url)?.alt?.trim();
+            return { url, alt: existingAlt && existingAlt !== product.name.trim() ? existingAlt : `${product.name.trim()} — photo ${position + 1}`, position };
+          }),
           hoverImage: imageUrls.includes(product.hoverImage || "") ? product.hoverImage : "",
           videos: videoUrls.map((url) => ({ url })),
           tags: product.tags,
           badges: product.badges,
           status: product.status,
           featured: product.featured,
-          seo: product.seo,
+          seo: { title: product.seo?.title?.trim() || undefined, description: product.seo?.description?.trim() || undefined },
           variants: product.variants,
         },
       });
@@ -185,7 +189,7 @@ export default function EditProductPage() {
   const updateColorImages = (color: string, urls: string[]) => {
     setProductField("variants", product.variants.map((variant) =>
       (variant.color || "As shown") === color
-        ? { ...variant, images: urls.map((url, position) => ({ url, alt: `${product.name} ${color}`, position })) }
+        ? { ...variant, images: urls.map((url, position) => ({ url, alt: `${product.name} in ${color} — photo ${position + 1}`, position })) }
         : variant,
     ));
   };
@@ -311,6 +315,22 @@ export default function EditProductPage() {
           ))}
           {fieldErrors.variants && <p data-field="variants" tabIndex={-1} className="text-xs text-rose-700">{fieldErrors.variants}</p>}
         </Card>
+
+        <ProductSeoPanel
+          idPrefix="edit"
+          productName={product.name}
+          slug={slugify(product.slug || product.name)}
+          shortDescription={product.shortDescription || ""}
+          description={product.description || ""}
+          fabric={product.fabric || ""}
+          categorySelected={categories.some((category) => category.slug === product.category && category.isActive)}
+          imageCount={hoverImageChoices.length}
+          hasSellablePrice={product.variants.some((variant) => variant.price > 0)}
+          seoTitle={product.seo?.title || ""}
+          seoDescription={product.seo?.description || ""}
+          onSeoTitleChange={(value) => setProductField("seo", { ...product.seo, title: value })}
+          onSeoDescriptionChange={(value) => setProductField("seo", { ...product.seo, description: value })}
+        />
 
         <Card title="Publishing">
           <div className="flex flex-wrap items-end gap-5">

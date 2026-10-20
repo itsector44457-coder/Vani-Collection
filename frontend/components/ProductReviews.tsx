@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { isApiConfigured } from "@/lib/api-client";
 import { getProductReviews, submitReview } from "@/lib/storefront-api";
@@ -24,6 +27,7 @@ interface Review {
   size: string;
   helpful: number;
   images?: string[];
+  adminReply?: string;
 }
 
 const toReview = (review: StoreReview): Review => ({
@@ -35,13 +39,16 @@ const toReview = (review: StoreReview): Review => ({
   title: review.title ?? "",
   comment: review.body,
   size: "—",
-  helpful: 0,
+  helpful: review.helpfulCount ?? 0,
+  images: review.images,
+  adminReply: review.adminReply,
 });
 
 const OBJECT_ID = /^[0-9a-f]{24}$/i;
 
 export default function ProductReviews({ productId, apiProductId }: ProductReviewsProps) {
-  const { isAuthenticated, user } = useAuth();
+  const pathname = usePathname();
+  const { isAuthenticated } = useAuth();
   const live = isApiConfigured();
   const backendId = apiProductId && OBJECT_ID.test(apiProductId) ? apiProductId : null;
 
@@ -54,6 +61,8 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [loadNonce, setLoadNonce] = useState(0);
 
   useEffect(() => {
     if (!live || !backendId) return;
@@ -65,9 +74,16 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
       setLoading(true);
       try {
         const result = await getProductReviews(backendId, controller.signal);
-        if (!cancelled) setReviews(result.map(toReview));
-      } catch {
-        if (!cancelled) setReviews([]);
+        if (!cancelled) {
+          setReviews(result.map(toReview));
+          setLoadError("");
+        }
+      } catch (cause) {
+        if ((cause as Error)?.name === "AbortError") return;
+        if (!cancelled) {
+          setReviews([]);
+          setLoadError("Reviews load nahi ho paye. Kuch der baad dobara koshish kare.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -77,7 +93,7 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
       cancelled = true;
       controller.abort();
     };
-  }, [live, backendId]);
+  }, [live, backendId, loadNonce]);
 
   const sorted = [...reviews].sort((a, b) => {
     if (sortBy === "newest") return new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -96,7 +112,8 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
 
-  const handleSubmitReview = async () => {
+  const handleSubmitReview = async (event?: React.FormEvent) => {
+    event?.preventDefault();
     setFormError("");
     setNotice("");
     if (!backendId) {
@@ -118,7 +135,7 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
       setReviews(result.map(toReview));
       setWriting(false);
       setDraft({ rating: 5, title: "", body: "" });
-      setNotice("Thank you! Your review is published.");
+      setNotice("Dhanyavaad! Review samiksha ke liye bhej diya gaya hai. Manzoori ke baad hi yahi dikhega; status My Reviews me mil jayega.");
     } catch (cause) {
       setFormError((cause as Error)?.message || "We could not submit your review. Please try again.");
     } finally {
@@ -132,11 +149,11 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div>
           <div className="flex items-center gap-4 mb-4">
-            <div className="text-4xl font-bold text-gray-900">{averageRating.toFixed(1)}</div>
+            <div className="text-4xl font-bold text-gray-900">{total > 0 ? averageRating.toFixed(1) : "—"}</div>
             <div>
-              <div className="flex items-center mb-1">
+              <div className="flex items-center mb-1" role="img" aria-label={total > 0 ? `Average rating ${averageRating.toFixed(1)} out of 5` : "No rating yet"}>
                 {[...Array(5)].map((_, i) => (
-                  <svg key={i} width="20" height="20" viewBox="0 0 24 24" fill={i < Math.round(averageRating) ? "#fbbf24" : "#e5e7eb"}>
+                  <svg key={i} width="20" height="20" viewBox="0 0 24 24" fill={i < Math.round(averageRating) ? "#fbbf24" : "#e5e7eb"} aria-hidden="true">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                   </svg>
                 ))}
@@ -168,8 +185,10 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center pb-4 border-b border-gray-200">
         <div className="flex gap-2 flex-wrap">
           <button
+            type="button"
+            aria-pressed={filterRating === null}
             onClick={() => setFilterRating(null)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
+            className={`min-h-11 rounded-full px-4 py-2 text-sm font-medium transition ${
               filterRating === null ? "bg-[#881337] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
@@ -178,8 +197,11 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
           {[5, 4, 3, 2, 1].map((rating) => (
             <button
               key={rating}
+              type="button"
+              aria-pressed={filterRating === rating}
+              aria-label={`Sirf ${rating} star reviews dikhaye`}
               onClick={() => setFilterRating(rating)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
+              className={`min-h-11 rounded-full px-4 py-2 text-sm font-medium transition ${
                 filterRating === rating ? "bg-[#881337] text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             >
@@ -188,19 +210,31 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
           ))}
         </div>
 
-        <select
-          value={sortBy}
-          onChange={(event) => setSortBy(event.target.value as typeof sortBy)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#881337] focus:border-transparent"
-        >
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+          Sort
+          <select
+            value={sortBy}
+            onChange={(event) => setSortBy(event.target.value as typeof sortBy)}
+            className="min-h-11 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-[#881337]"
+          >
           <option value="newest">Newest First</option>
           <option value="helpful">Most Helpful</option>
-          <option value="rating">Highest Rating</option>
-        </select>
+            <option value="rating">Highest Rating</option>
+          </select>
+        </label>
       </div>
 
       {notice && (
-        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</p>
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-relaxed text-emerald-800">
+          {notice}{" "}
+          <Link href="/account/reviews" className="font-semibold underline underline-offset-2">My Reviews dekhe</Link>
+        </p>
+      )}
+      {loadError && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => setLoadNonce((value) => value + 1)} className="min-h-10 font-semibold underline">Retry</button>
+        </div>
       )}
 
       {/* Reviews List */}
@@ -230,9 +264,9 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <div className="flex">
+                      <div className="flex" role="img" aria-label={`Rating ${review.rating} out of 5`}>
                         {[...Array(5)].map((_, i) => (
-                          <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill={i < review.rating ? "#fbbf24" : "#e5e7eb"}>
+                          <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill={i < review.rating ? "#fbbf24" : "#e5e7eb"} aria-hidden="true">
                             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                           </svg>
                         ))}
@@ -249,34 +283,32 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
               <div className="space-y-3">
                 {review.title && <h4 className="font-medium text-gray-900">{review.title}</h4>}
                 <p className="text-gray-700 leading-relaxed">{review.comment}</p>
-                {review.images && (
-                  <div className="flex gap-2">
+                {review.images && review.images.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
                     {review.images.map((image, imgIndex) => (
-                      // eslint-disable-next-line @next/next/no-img-element -- review photos are customer uploads, not optimised assets
-                      <img
-                        key={imgIndex}
-                        src={image}
-                        alt={`Review ${imgIndex + 1}`}
-                        className="w-20 h-20 object-cover rounded-lg border border-gray-200"
-                      />
+                      <a key={`${image}-${imgIndex}`} href={image} target="_blank" rel="noreferrer" aria-label={`Review photo ${imgIndex + 1} badi karke dekhe`} className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#881337]">
+                        <Image src={image} alt="" width={80} height={80} unoptimized className="h-20 w-20 rounded-lg border border-gray-200 object-cover" />
+                      </a>
                     ))}
+                  </div>
+                )}
+                {review.adminReply && (
+                  <div className="rounded-r-xl border-l-2 border-[#881337] bg-rose-50/60 px-4 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#881337]">Response from Vani Collection</p>
+                    <p className="mt-1 text-sm leading-relaxed text-gray-700">{review.adminReply}</p>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-                <span className="flex items-center gap-2 text-sm text-gray-600">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M7 10v12l4-4 4 4V10M7 10l5-7 5 7M7 10H3" />
-                  </svg>
-                  Helpful ({review.helpful})
-                </span>
-                <span className="text-sm text-gray-400">Report</span>
-              </div>
+              {review.helpful > 0 && (
+                <p className="mt-4 border-t border-gray-100 pt-4 text-sm text-gray-600">
+                  {review.helpful} {review.helpful === 1 ? "person" : "people"} ko yeh review madadgar laga
+                </p>
+              )}
             </motion.div>
           ))}
 
-        {!loading && sorted.length === 0 && (
+        {!loading && !loadError && sorted.length === 0 && (
           <p className="rounded-xl border border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-500">
             No reviews yet — be the first to share your experience.
           </p>
@@ -288,70 +320,99 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
         {!writing ? (
           <div className="text-center">
             <button
+              type="button"
               onClick={() => {
                 setWriting(true);
                 setNotice("");
               }}
-              className="bg-[#881337] text-white px-8 py-3 rounded-xl font-semibold hover:bg-[#701a35] transition"
+              className="min-h-12 rounded-xl bg-[#881337] px-8 py-3 font-semibold text-white transition hover:bg-[#701a35]"
             >
               Write a Review
             </button>
+            <p className="mt-3 text-xs text-gray-500">Review team ki samiksha ke baad publish hota hai.</p>
           </div>
         ) : (
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
+          <form onSubmit={(event) => void handleSubmitReview(event)} noValidate className="rounded-2xl border border-gray-200 bg-white p-6">
             <h4 className="font-serif text-lg text-gray-900">Share your experience</h4>
             {live && !isAuthenticated && (
-              <p className="mt-2 text-sm text-amber-700">
-                You need to sign in before a review can be published.
+              <p className="mt-2 text-sm leading-relaxed text-amber-700">
+                Review bhejne ke liye pehle{" "}
+                <Link href={`/login?redirect=${encodeURIComponent(pathname || "/products")}`} className="font-semibold underline underline-offset-2">sign in</Link>{" "}
+                kare. Delivered khareed ka review My Reviews se verified purchase ke roop me judega.
               </p>
             )}
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Your rating</span>
-              {[1, 2, 3, 4, 5].map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setDraft((current) => ({ ...current, rating: value }))}
-                  aria-label={`${value} star`}
-                  className={`text-2xl leading-none transition ${value <= draft.rating ? "text-amber-400" : "text-gray-300"}`}
-                >
-                  ★
-                </button>
-              ))}
+
+            <fieldset className="mt-4">
+              <legend className="text-sm font-medium text-gray-700">Your rating</legend>
+              <div className="mt-2 flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Star rating chune">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={draft.rating === value}
+                    onClick={() => setDraft((current) => ({ ...current, rating: value }))}
+                    aria-label={`${value} star`}
+                    className={`flex h-11 w-11 items-center justify-center rounded-full text-2xl leading-none transition ${value <= draft.rating ? "bg-amber-50 text-amber-400 ring-1 ring-amber-200" : "text-gray-300 ring-1 ring-gray-200"}`}
+                  >
+                    ★
+                  </button>
+                ))}
+                <span className="ml-2 text-sm font-semibold text-gray-700">{draft.rating}/5</span>
+              </div>
+            </fieldset>
+
+            <div className="mt-4">
+              <label htmlFor="product-review-title" className="block text-sm font-medium text-gray-700">Headline (optional)</label>
+              <input
+                id="product-review-title"
+                name="title"
+                value={draft.title}
+                maxLength={120}
+                onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
+                placeholder="Jaise: Kapda bahut soft hai"
+                className="mt-1.5 min-h-12 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/15"
+              />
             </div>
-            <input
-              value={draft.title}
-              onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-              placeholder="Headline (optional)"
-              className="mt-4 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15 focus:outline-none"
-            />
-            <textarea
-              value={draft.body}
-              onChange={(event) => setDraft((current) => ({ ...current, body: event.target.value }))}
-              rows={4}
-              placeholder={`How did it fit, feel and look? (signed in as ${user?.firstName ?? "guest"})`}
-              className="mt-3 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15 focus:outline-none"
-            />
-            {formError && <p className="mt-3 text-sm text-rose-700">{formError}</p>}
+
+            <div className="mt-4">
+              <label htmlFor="product-review-body" className="block text-sm font-medium text-gray-700">Aapka anubhav</label>
+              <textarea
+                id="product-review-body"
+                name="body"
+                value={draft.body}
+                maxLength={4000}
+                onChange={(event) => setDraft((current) => ({ ...current, body: event.target.value }))}
+                rows={4}
+                aria-describedby="product-review-body-count"
+                placeholder="Fit, fabric aur quality kaisi lagi?"
+                className="mt-1.5 w-full rounded-xl border border-gray-300 px-4 py-3 text-sm leading-relaxed focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/15"
+              />
+              <p id="product-review-body-count" className="mt-1 text-right text-xs text-gray-400">{draft.body.trim().length}/4000 · kam se kam 10 characters</p>
+            </div>
+
+            {formError && <p role="alert" className="mt-3 text-sm text-rose-700">{formError}</p>}
             <div className="mt-4 flex flex-wrap gap-3">
               <button
-                onClick={() => void handleSubmitReview()}
+                type="submit"
                 disabled={submitting}
-                className="rounded-xl bg-[#881337] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#701a35] disabled:cursor-not-allowed disabled:bg-stone-400"
+                className="min-h-12 rounded-xl bg-[#881337] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#701a35] disabled:cursor-not-allowed disabled:bg-stone-400"
               >
-                {submitting ? "Publishing…" : "Publish review"}
+                {submitting ? "Bheja ja raha hai…" : "Review samiksha ke liye bheje"}
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setWriting(false);
                   setFormError("");
                 }}
-                className="rounded-xl border-2 border-gray-200 px-6 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                disabled={submitting}
+                className="min-h-12 rounded-xl border-2 border-gray-200 px-6 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
             </div>
-          </div>
+          </form>
         )}
       </div>
     </div>

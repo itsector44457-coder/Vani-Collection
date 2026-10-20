@@ -35,6 +35,7 @@ export interface Address {
   fullName: string;
   phone: string;
   address: string;
+  line2?: string;
   city: string;
   state: string;
   pincode: string;
@@ -127,7 +128,8 @@ const toUiAddress = (address: ApiAddress): Address => ({
   type: (address.label as Address["type"]) || "home",
   fullName: address.fullName ?? "",
   phone: address.phone ?? "",
-  address: [address.line1, address.line2].filter(Boolean).join(", "),
+  address: address.line1 ?? "",
+  line2: address.line2,
   city: address.city ?? "",
   state: address.state ?? "",
   pincode: address.pincode ?? "",
@@ -140,6 +142,7 @@ const toApiAddress = (address: Partial<Address>) => ({
   fullName: address.fullName ?? "",
   phone: address.phone ?? "",
   line1: address.address ?? "",
+  line2: address.line2 ?? "",
   landmark: address.landmark,
   city: address.city ?? "",
   state: address.state ?? "",
@@ -318,7 +321,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         firstName: data.firstName,
         lastName: data.lastName,
         phone: data.phone,
-        preferences: data.preferences as Record<string, boolean> | undefined,
+        preferences: data.preferences as Record<string, boolean | string> | undefined,
       });
       const nextUser: User = {
         ...user,

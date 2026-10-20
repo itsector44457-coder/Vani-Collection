@@ -12,6 +12,8 @@ import {
 import type { CategoryStory } from "../lib/content";
 import { useCatalogue } from "../lib/use-storefront";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import { useModalDialog } from "../lib/use-modal-dialog";
 
 /* ------------------------------------------------------------------ */
 /*  Story media map                                                    */
@@ -59,13 +61,18 @@ interface StoryReelProps {
 }
 
 function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
-  const { addToCart } = useCart();
+  const { addToCart, setQuickViewProduct } = useCart();
+  const { user } = useAuth();
+  const dialogRef = useModalDialog<HTMLDivElement>(true, onClose);
 
   /* ---------- state ---------- */
   const [isHolding, setIsHolding] = useState(false);
-  const [isManuallyPaused, setIsManuallyPaused] = useState(false);
+  const [isManuallyPaused, setIsManuallyPaused] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
   const [isMuted, setIsMuted] = useState(true);
-  const [showToast, setShowToast] = useState(false);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
   const [videoBroken, setVideoBroken] = useState(!story.video);
 
   const isPaused = isHolding || isManuallyPaused;
@@ -80,7 +87,6 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onCloseRef = useRef(onClose);
@@ -146,29 +152,9 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
     };
   }, []);
 
-  /* ---------- body scroll lock + initial focus ---------- */
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const focusTimer = window.setTimeout(() => {
-      closeBtnRef.current?.focus({ preventScroll: true });
-    }, 60);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.clearTimeout(focusTimer);
-    };
-  }, []);
-
   /* ---------- keyboard shortcuts ---------- */
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onCloseRef.current?.();
-        return;
-      }
       const target = e.target as HTMLElement | null;
       if (
         (e.key === " " || e.key === "k") &&
@@ -220,13 +206,44 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
     []
   );
 
-  const handleAddToCart = useCallback(() => {
-    if (!matchedProduct) return;
-    addToCart(matchedProduct, matchedProduct.sizes[0], 1);
-    setShowToast(true);
+  const availableSizes = matchedProduct
+    ? matchedProduct.sizes.filter((size) => {
+        const variants = (matchedProduct.variants ?? []).filter((variant) => variant.size === size);
+        return variants.length === 0 || variants.some((variant) => variant.available === undefined || variant.available > 0);
+      })
+    : [];
+  const preferredSize = user?.preferences?.preferredSize;
+  const quickAddSize = preferredSize && availableSizes.includes(preferredSize)
+    ? preferredSize
+    : availableSizes.length === 1
+      ? availableSizes[0]
+      : "";
+
+  const showToastMessage = useCallback((message: string, tone: "success" | "error") => {
+    setToast({ message, tone });
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setShowToast(false), 2500);
-  }, [addToCart, matchedProduct]);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2500);
+  }, []);
+
+  const handleAddToCart = useCallback(async () => {
+    if (!matchedProduct || isAdding) return;
+    if (!quickAddSize) {
+      // Never guess the first size. Quick View asks explicitly and shows stock for every option.
+      setQuickViewProduct(matchedProduct);
+      onClose();
+      return;
+    }
+    setIsAdding(true);
+    try {
+      const added = await addToCart(matchedProduct, quickAddSize, 1);
+      showToastMessage(
+        added ? `✓ Size ${quickAddSize} bag me jud gaya!` : "Yeh size bag me nahi jud paya.",
+        added ? "success" : "error",
+      );
+    } finally {
+      setIsAdding(false);
+    }
+  }, [addToCart, isAdding, matchedProduct, onClose, quickAddSize, setQuickViewProduct, showToastMessage]);
 
   const handleExplore = useCallback(() => {
     onSelectCategory(story.filterKey);
@@ -250,10 +267,12 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
       {/* Card wrapper */}
       <div className="pointer-events-none fixed inset-0 z-[121] flex items-center justify-center p-0 sm:p-4">
         <motion.div
+          ref={dialogRef}
           key="story-card"
           role="dialog"
           aria-modal="true"
           aria-label={`${story.name} — story`}
+          tabIndex={-1}
           initial={{ scale: 0.88, opacity: 0, y: 40 }}
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.88, opacity: 0, y: 40 }}
@@ -261,7 +280,7 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
           onPointerDown={handlePointerDown}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className="pointer-events-auto relative flex h-[100dvh] w-full max-h-[100dvh] max-w-none touch-none flex-col overflow-hidden bg-stone-900 shadow-2xl select-none sm:aspect-[9/16] sm:h-auto sm:max-h-[88vh] sm:max-w-sm sm:rounded-2xl sm:border sm:border-white/15"
+          className="pointer-events-auto relative flex h-[100dvh] focus:outline-none w-full max-h-[100dvh] max-w-none touch-none flex-col overflow-hidden bg-stone-900 shadow-2xl select-none sm:aspect-[9/16] sm:h-auto sm:max-h-[88vh] sm:max-w-sm sm:rounded-2xl sm:border sm:border-white/15"
         >
           {/* Poster fallback (always rendered underneath) */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -278,7 +297,7 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
               ref={videoRef}
               src={story.video}
               poster={story.image}
-              autoPlay
+              autoPlay={!isManuallyPaused}
               loop
               muted={isMuted}
               playsInline
@@ -335,7 +354,7 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
                   onClick={() => setIsManuallyPaused((p) => !p)}
                   aria-label={isPaused ? "Play story" : "Pause story"}
                   aria-pressed={isPaused}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 >
                   {isPaused ? (
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
@@ -355,7 +374,7 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
                   onClick={() => setIsMuted((m) => !m)}
                   aria-label={isMuted ? "Unmute video" : "Mute video"}
                   aria-pressed={!isMuted}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 >
                   {isMuted ? (
                     <svg
@@ -392,11 +411,10 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
 
                 {/* Close */}
                 <button
-                  ref={closeBtnRef}
                   type="button"
                   onClick={onClose}
                   aria-label="Close story"
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 >
                   <svg
                     width="11"
@@ -445,15 +463,17 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
                     {matchedProduct.title}
                   </p>
                   <p className="mt-0.5 text-sm font-bold text-[#dfc28c]">
-                    ₹{matchedProduct.price}
+                    ₹{matchedProduct.price.toLocaleString("en-IN")}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={handleAddToCart}
-                  className="shrink-0 whitespace-nowrap rounded-full bg-[#881337] px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-white transition hover:bg-[#b91c1c] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 active:scale-95"
+                  onClick={() => void handleAddToCart()}
+                  disabled={isAdding}
+                  aria-label={quickAddSize ? `${matchedProduct.title}, size ${quickAddSize}, bag me daale` : `${matchedProduct.title} ke liye size chune`}
+                  className="min-h-11 shrink-0 whitespace-nowrap rounded-full bg-[#881337] px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-white transition hover:bg-[#b91c1c] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 active:scale-95 disabled:cursor-wait disabled:opacity-60"
                 >
-                  + Bag
+                  {isAdding ? "Adding…" : quickAddSize ? `+ Bag · ${quickAddSize}` : "Size chune"}
                 </button>
               </div>
             )}
@@ -462,7 +482,7 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
             <button
               type="button"
               onClick={handleExplore}
-              className="flex w-full items-center justify-center gap-2 rounded-full bg-white py-3.5 text-xs font-bold uppercase tracking-widest text-stone-900 shadow-lg transition hover:bg-[#faf7f2] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 active:scale-[0.98]"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-white py-3.5 text-xs font-bold uppercase tracking-widest text-stone-900 shadow-lg transition hover:bg-[#faf7f2] focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 active:scale-[0.98]"
             >
               <span>{story.ctaLabel || "Shop this collection"}</span>
               <span className="text-[#881337]">↑</span>
@@ -471,16 +491,16 @@ function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
 
           {/* Toast */}
           <AnimatePresence>
-            {showToast && (
+            {toast && (
               <motion.div
                 initial={{ opacity: 0, y: -10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                role="status"
+                role={toast.tone === "error" ? "alert" : "status"}
                 aria-live="polite"
-                className="absolute left-1/2 top-14 z-50 -translate-x-1/2 whitespace-nowrap rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-xl"
+                className={`absolute left-1/2 top-20 z-50 -translate-x-1/2 whitespace-nowrap rounded-full px-4 py-2.5 text-xs font-semibold text-white shadow-xl ${toast.tone === "error" ? "bg-rose-700" : "bg-emerald-600"}`}
               >
-                ✓ Added to your bag!
+                {toast.message}
               </motion.div>
             )}
           </AnimatePresence>

@@ -5,7 +5,9 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { isApiConfigured } from "../../lib/api-client";
-import { getOrder } from "../../lib/storefront-api";
+import { getOrder, readLastOrderSnapshot } from "../../lib/storefront-api";
+import { SUPPORT_EMAIL } from "../../lib/seo";
+import { whatsappShareUrl } from "../../lib/site-contact";
 import { orderStatusLabel, type StoreOrder } from "../../lib/storefront-types";
 
 const STEPS = [
@@ -25,15 +27,23 @@ function ConfirmationContent() {
   const [order, setOrder] = useState<StoreOrder | null>(null);
   const [lookupNote, setLookupNote] = useState<string | null>(null);
 
-  /* Real orders are looked up by their Mongo id; demo ids simply skip the lookup. */
+  /*
+   * Guest checkout cannot use the signed-in order API, so the confirmation first renders the
+   * snapshot checkout saved in this browser session. When an account session exists, the API copy
+   * then replaces it with live status; a failed lookup only becomes a note if there is no snapshot.
+   */
   useEffect(() => {
+    const snapshot = readLastOrderSnapshot(orderId);
+    if (snapshot) {
+      void Promise.resolve().then(() => setOrder(snapshot));
+    }
     if (!isApiConfigured() || !OBJECT_ID.test(orderId)) return;
     const controller = new AbortController();
     getOrder(orderId, controller.signal)
       .then(setOrder)
       .catch((cause: unknown) => {
-        if ((cause as Error)?.name === "AbortError") return;
-        setLookupNote("Sign in to see the full details of this order — we have emailed your confirmation too.");
+        if ((cause as Error)?.name === "AbortError" || snapshot) return;
+        setLookupNote("Order ki pushti email par bhej di gayi hai. Kabhi bhi bina login kiye Track Order page par order number + mobile se sthiti dekh sakte hain.");
       });
     return () => controller.abort();
   }, [orderId]);
@@ -41,7 +51,7 @@ function ConfirmationContent() {
   const estimatedDate = order?.shipment?.estimatedDelivery ? new Date(order.shipment.estimatedDelivery) : null;
   const dateStr = estimatedDate
     ? estimatedDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })
-    : "5–7 business days";
+    : "Dispatch: 2–3 working days";
   const reachedIndex = order ? Math.max(0, ORDER_FLOW.indexOf(order.status)) : 0;
   const isCancelled = order?.status === "cancelled" || order?.status === "refunded";
 
@@ -87,7 +97,7 @@ function ConfirmationContent() {
               <p className="text-white font-mono text-lg font-bold mt-0.5">#{order?.orderNumber ?? orderId}</p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-white/50 font-semibold">Estimated Delivery</p>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-white/50 font-semibold">{estimatedDate ? "Estimated Delivery" : "Next step"}</p>
               <p className="text-white text-sm font-medium mt-0.5">{dateStr}</p>
             </div>
           </div>
@@ -176,7 +186,7 @@ function ConfirmationContent() {
                               {order ? orderStatusLabel(order.status) : "Just now — confirmation email sent"}
                             </p>
                           )}
-                          {i === 1 && <p className="text-xs text-gray-400 mt-0.5">Within 24 hours</p>}
+                          {i === 1 && <p className="text-xs text-gray-400 mt-0.5">Quality check aur packing</p>}
                           {i === 2 && <p className="text-xs text-gray-400 mt-0.5">2–3 business days</p>}
                         </div>
                       </div>
@@ -222,10 +232,13 @@ function ConfirmationContent() {
                 <span>📱</span> SMS & WhatsApp tracking updates will be sent
               </p>
               <p className="text-blue-800 flex items-center gap-2">
-                <span>📧</span> Confirmation email dispatched to your inbox
+                <span>📧</span> Confirmation email aapke inbox me bheja gaya hai
               </p>
               <p className="text-blue-800 flex items-center gap-2">
-                <span>🚚</span> Shipped via Blue Dart / Delhivery / DTDC
+                <span>🧾</span> Order number note kar le — tracking ke liye yahi + mobile lagega
+              </p>
+              <p className="text-blue-800 flex items-center gap-2">
+                <span>🚚</span> Courier aur AWB dispatch ke baad bheja jayega
               </p>
             </div>
 
@@ -233,9 +246,9 @@ function ConfirmationContent() {
             <div className="bg-amber-50 rounded-xl p-4 text-sm">
               <p className="font-semibold text-amber-900 text-xs uppercase tracking-wider mb-2">Need Help?</p>
               <p className="text-amber-800 text-xs leading-relaxed">
-                For queries about your order, call us at{" "}
-                <a href="tel:+919001234567" className="font-semibold underline">+91 90012 34567</a>{" "}
-                or WhatsApp us. We&apos;re available Mon–Sat, 10am–7pm IST.
+                Order me koi badlav ya sawaal ho to order number ke saath{" "}
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="font-semibold underline">{SUPPORT_EMAIL}</a>{" "}
+                par likhe, ya <Link href="/contact" className="font-semibold underline">Contact page</Link> se sampark kare. Mon–Sat, 10am–7pm.
               </p>
             </div>
           </div>
@@ -249,7 +262,7 @@ function ConfirmationContent() {
           className="grid grid-cols-1 sm:grid-cols-3 gap-3"
         >
           <Link
-            href="/account"
+            href={`/track-order?order=${encodeURIComponent(order?.orderNumber ?? "")}`}
             className="flex items-center justify-center gap-2 py-3 px-4 bg-[#881337] text-white rounded-xl font-semibold text-sm hover:bg-[#701a35] transition"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -264,7 +277,7 @@ function ConfirmationContent() {
             Continue Shopping
           </Link>
           <a
-            href={`https://wa.me/?text=My%20Vani%20Collection%20order%20%23${order?.orderNumber ?? orderId}%20is%20confirmed!%20Check%20it%20out.`}
+            href={whatsappShareUrl(`My Vani Collection order #${order?.orderNumber ?? orderId} is confirmed! Check it out.`)}
             target="_blank"
             rel="noreferrer"
             className="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition"

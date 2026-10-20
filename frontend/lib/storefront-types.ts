@@ -49,6 +49,10 @@ export interface CartItem {
   image: string;
   color?: string;
   quantity: number;
+  slug?: string;
+  /** Real sellable stock for this SKU when the backend reported it. */
+  available?: number;
+  inStock?: boolean;
   /** Backend identifiers — present when the line came from the real cart. */
   sku?: string;
   lineId?: string;
@@ -58,6 +62,7 @@ export interface CartItem {
 }
 
 export interface OrderLine {
+  productId?: string;
   sku: string;
   name?: string;
   image?: string;
@@ -95,6 +100,7 @@ export interface StoreOrder {
   _id: string;
   orderNumber: string;
   createdAt: string;
+  updatedAt?: string;
   status: string;
   statusHistory?: { status: string; at: string; actor?: string; note?: string }[];
   items: OrderLine[];
@@ -109,12 +115,19 @@ export interface StoreOrder {
 export interface StoreReview {
   _id: string;
   productId: string;
+  orderId?: string;
   customerName: string;
   rating: number;
   title?: string;
   body: string;
+  images?: string[];
   createdAt: string;
+  updatedAt?: string;
   verifiedPurchase?: boolean;
+  status?: "pending" | "published" | "rejected" | string;
+  adminReply?: string;
+  helpfulCount?: number;
+  product?: { _id: string; name: string; slug: string; images?: { url: string; alt?: string }[] };
 }
 
 export const PRODUCT_STATUS_LABELS: Record<string, string> = {

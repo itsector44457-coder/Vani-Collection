@@ -3,8 +3,8 @@
 :root {
   --background: #faf7f2;
   --foreground: #1c1917;
-  --font-playfair: Georgia, "Times New Roman", serif;
-  --font-sans: "Segoe UI", Inter, Arial, sans-serif;
+  /* --font-playfair is provided by next/font (Playfair Display) on <html>; Georgia is the no-JS/no-font fallback used below. */
+  --font-sans: var(--font-jakarta, "Segoe UI", Inter, Arial, sans-serif);
 }
 
 @theme inline {
@@ -26,6 +26,50 @@ body {
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
   touch-action: pan-y;
+}
+
+
+/* Keyboard focus must always be visible (mouse users keep the clean look: :focus-visible only). */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #881337;
+  outline-offset: 2px;
+}
+
+/* Skip link: first tab stop on every shopping page, invisible until focused. */
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 100;
+  transform: translateY(-300%);
+  border-radius: 9999px;
+  background: #881337;
+  color: #fff;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgb(136 19 55 / 0.35);
+  transition: transform 0.2s ease;
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+/* Honour reduced-motion across CSS animations/transitions (JS motion opts out separately). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .font-serif {

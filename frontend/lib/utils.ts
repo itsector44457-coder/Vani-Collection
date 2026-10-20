@@ -56,7 +56,7 @@ export function generateBreadcrumbs(product: { category: string; title: string }
     { label: "Products", href: "/products" },
     {
       label: categoryLabel,
-      href: `/products?category=${encodeURIComponent(product.category)}`,
+      href: `/collections/${encodeURIComponent(product.category)}`,
     },
     { label: product.title, href: "" },
   ];

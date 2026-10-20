@@ -9,11 +9,11 @@ const { AppError, asyncHandler } = require('../lib/errors');
 
 const couponSchema = z.object({ code: z.string().min(3).max(24), type: z.enum(['percentage','fixed']), value: z.number().positive(), minOrderValue: z.number().nonnegative().optional(), maxDiscount: z.number().positive().optional(), startsAt: z.coerce.date().optional(), endsAt: z.coerce.date().optional(), usageLimit: z.number().int().positive().optional(), perCustomerLimit: z.number().int().positive().optional(), active: z.boolean().optional(), applicableCategories: z.array(z.string()).optional(), excludedSkus: z.array(z.string()).optional() });
 
-module.exports = ({ auth }) => {
+module.exports = ({ auth, optionalAuth }) => {
   const router = express.Router();
-  router.post('/validate', validate(z.object({ code: z.string().min(3), subtotal: z.number().nonnegative() })), asyncHandler(async (req, res) => {
+  router.post('/validate', optionalAuth, validate(z.object({ code: z.string().min(3), subtotal: z.number().nonnegative() })), asyncHandler(async (req, res) => {
     const coupon = await Coupon.findOne({ code: req.body.code.toUpperCase(), active: true });
-    const validity = checkCouponValidity(coupon, req.body.subtotal);
+    const validity = checkCouponValidity(coupon, req.body.subtotal, new Date(), { userId: req.user?.id });
     if (!validity.valid) throw new AppError(422, 'INVALID_COUPON', validity.reason);
     res.json({ data: { code: coupon.code, discount: computeDiscount(coupon, req.body.subtotal), type: coupon.type } });
   }));

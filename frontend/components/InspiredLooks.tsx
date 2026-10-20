@@ -40,7 +40,7 @@ export default function InspiredLooks({ products, image, loading = false }: { pr
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={product.image} alt={product.title} loading="lazy" className="h-full w-full object-cover transition duration-500 hover:scale-105" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/product-not-found.jpg"; }} />
                       </button>
-                      <button type="button" onClick={() => toggleWishlist(product.id)} aria-label={`${wished ? "Remove" : "Add"} ${product.title} ${wished ? "from" : "to"} wishlist`} aria-pressed={wished} className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#84354a] shadow-sm">
+                      <button type="button" onClick={() => toggleWishlist(product.id)} aria-label={`${wished ? "Remove" : "Add"} ${product.title} ${wished ? "from" : "to"} wishlist`} aria-pressed={wished} className="absolute right-1.5 top-1.5 flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#84354a] shadow-sm">
                         <svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill={wished ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" /></svg>
                       </button>
                     </div>
@@ -52,8 +52,8 @@ export default function InspiredLooks({ products, image, loading = false }: { pr
                         {discount > 0 && <><del className="text-stone-400">{formatPrice(product.originalPrice)}</del><span className="text-[#8b293f]">{discount}% OFF</span></>}
                       </div>
                       <div className="mt-auto space-y-2 pt-4">
-                        <button type="button" onClick={() => setQuickViewProduct(product)} className="min-h-9 w-full bg-black px-3 py-2 text-[10px] font-medium text-white transition hover:bg-[#84354a]">Select options</button>
-                        <Link href={productHref(product)} className="flex min-h-9 w-full items-center justify-center rounded-md border border-[#d8cec9] px-3 py-2 text-[10px] text-stone-700 transition hover:border-[#84354a] hover:text-[#84354a]">Details</Link>
+                        <button type="button" onClick={() => setQuickViewProduct(product)} className="min-h-11 w-full bg-black px-3 py-2.5 text-[11px] font-medium text-white transition hover:bg-[#84354a]">Select options</button>
+                        <Link href={productHref(product)} className="flex min-h-11 w-full items-center justify-center rounded-md border border-[#d8cec9] px-3 py-2.5 text-[11px] text-stone-700 transition hover:border-[#84354a] hover:text-[#84354a]">Details</Link>
                       </div>
                     </div>
                   </article>

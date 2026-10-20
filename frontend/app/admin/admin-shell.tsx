@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore, type ReactNode, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type ReactElement } from "react";
 import { useAdminSession } from "@/lib/use-admin-session";
+import { useModalDialog } from "@/lib/use-modal-dialog";
 
 const SIDEBAR_STORAGE_KEY = "vani-admin-sidebar-collapsed";
 const SIDEBAR_PREFERENCE_EVENT = "vani-admin-sidebar-preference";
@@ -152,18 +153,6 @@ const SettingsIcon = () => (
   </svg>
 );
 
-const SearchIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" {...sp} strokeWidth={1.8}>
-    <circle cx="11" cy="11" r="7" />
-    <path d="m20 20-3.5-3.5" />
-  </svg>
-);
-const BellIcon = () => (
-  <svg width="17" height="17" viewBox="0 0 24 24" {...sp}>
-    <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-    <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-  </svg>
-);
 const LogoutIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" {...sp}>
     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -186,6 +175,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
     items: [
       { name: "Dashboard", href: "/admin", icon: DashboardIcon },
       { name: "Reports", href: "/admin/reports", icon: ReportsIcon, matchPrefix: true },
+      { name: "SEO health", href: "/admin/seo", icon: ReportsIcon, matchPrefix: true },
     ],
   },
   {
@@ -207,6 +197,8 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
     items: [
       { name: "Reels", href: "/admin/reels", icon: ReelsIcon, matchPrefix: true },
       { name: "Reviews", href: "/admin/reviews", icon: ReviewIcon, matchPrefix: true },
+      { name: "Homepage reviews", href: "/admin/testimonials", icon: ReviewIcon, matchPrefix: true },
+      { name: "Journal / Blog", href: "/admin/journal", icon: ContentIcon, matchPrefix: true },
       { name: "Homepage content", href: "/admin/content", icon: ContentIcon, matchPrefix: true },
       { name: "About Page", href: "/admin/about", icon: ContentIcon, matchPrefix: true },
       { name: "Media library", href: "/admin/media", icon: ContentIcon, matchPrefix: true },
@@ -229,9 +221,13 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [profileOpen, setProfileOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
   const sidebarCollapsed = useSyncExternalStore(subscribeSidebarPreference, getSidebarPreference, () => false);
   const [mobileSidebarPath, setMobileSidebarPath] = useState<string | null>(null);
   const mobileSidebarOpen = mobileSidebarPath === pathname;
+  const closeMobileSidebar = useCallback(() => setMobileSidebarPath(null), []);
+  const mobileSidebarRef = useModalDialog<HTMLElement>(mobileSidebarOpen, closeMobileSidebar);
   const session = useAdminSession();
   const displayName = [session.user?.firstName, session.user?.lastName].filter(Boolean).join(" ") || "Admin Workspace";
   const displayEmail = session.user?.email || "Admin";
@@ -253,12 +249,33 @@ export default function AdminShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!mobileSidebarOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileSidebarPath(null);
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnDesktop = () => {
+      if (desktop.matches) setMobileSidebarPath(null);
     };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    closeOnDesktop();
+    desktop.addEventListener("change", closeOnDesktop);
+    return () => desktop.removeEventListener("change", closeOnDesktop);
   }, [mobileSidebarOpen]);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setProfileOpen(false);
+      profileButtonRef.current?.focus({ preventScroll: true });
+    };
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) setProfileOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    };
+  }, [profileOpen]);
 
   const toggleSidebar = () => {
     window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(!sidebarCollapsed));
@@ -317,18 +334,23 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         <button
           type="button"
           aria-label="Close navigation menu"
-          onClick={() => setMobileSidebarPath(null)}
+          onClick={closeMobileSidebar}
           className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[2px] lg:hidden"
         />
       )}
 
       {/* ============ SIDEBAR ============ */}
       <aside
+        ref={mobileSidebarRef}
         id="admin-sidebar"
+        {...(mobileSidebarOpen
+          ? { role: "dialog", "aria-modal": true, "aria-label": "Admin navigation menu" }
+          : {})}
+        tabIndex={mobileSidebarOpen ? -1 : undefined}
         className={[
-          "fixed left-0 top-0 z-50 flex h-dvh flex-col border-r border-white/[0.06] bg-[#14100f] text-[#f5f1ea] shadow-2xl transition-[width,transform] duration-300 ease-in-out lg:z-40 lg:translate-x-0",
+          "fixed left-0 top-0 z-50 flex h-dvh flex-col border-r border-white/[0.06] bg-[#14100f] text-[#f5f1ea] shadow-2xl transition-[width,transform,visibility] duration-300 ease-in-out focus:outline-none lg:z-40 lg:translate-x-0 lg:visible",
           isSidebarCollapsed ? "w-[280px] lg:w-[76px]" : "w-[280px] lg:w-[248px]",
-          mobileSidebarOpen ? "translate-x-0" : "-translate-x-full",
+          mobileSidebarOpen ? "visible translate-x-0" : "invisible -translate-x-full lg:visible",
         ].join(" ")}
       >
         {/* Brand */}
@@ -355,7 +377,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             onClick={toggleSidebar}
             aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] text-[#f5f1ea]/65 transition hover:border-[#dfc28c]/40 hover:bg-white/[0.06] hover:text-[#dfc28c] lg:inline-flex"
+            className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] text-[#f5f1ea]/65 transition hover:border-[#dfc28c]/40 hover:bg-white/[0.06] hover:text-[#dfc28c] lg:inline-flex"
           >
             <svg className={isSidebarCollapsed ? "rotate-180" : ""} width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="m14 6-6 6 6 6" />
@@ -364,9 +386,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           </button>
           <button
             type="button"
-            onClick={() => setMobileSidebarPath(null)}
+            onClick={closeMobileSidebar}
             aria-label="Close navigation menu"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] text-[#f5f1ea]/65 transition hover:bg-white/[0.06] hover:text-white lg:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.08] text-[#f5f1ea]/65 transition hover:bg-white/[0.06] hover:text-white lg:hidden"
           >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
               <path d="m18 6-12 12M6 6l12 12" />
@@ -396,7 +418,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                       <Link
                         href={item.href}
                         prefetch={false}
-                        onClick={() => setMobileSidebarPath(null)}
+                        onClick={closeMobileSidebar}
                         title={isSidebarCollapsed ? item.name : undefined}
                         aria-label={isSidebarCollapsed ? item.name : undefined}
                         className={[
@@ -475,69 +497,56 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               aria-label="Open admin navigation"
               aria-expanded={mobileSidebarOpen}
               aria-controls="admin-sidebar"
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#ebe6de] bg-white text-stone-600 transition hover:border-[#dfc28c] hover:text-[#881337] lg:hidden"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#ebe6de] bg-white text-stone-600 transition hover:border-[#dfc28c] hover:text-[#881337] lg:hidden"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
                 <path d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            {/* Search */}
-            <div className="flex flex-1 items-center gap-2 rounded-xl border border-[#ebe6de] bg-white px-3 py-2 transition-colors focus-within:border-[#dfc28c] lg:max-w-md">
-              <span className="text-stone-400">
-                <SearchIcon />
-              </span>
-              <input
-                placeholder="Search orders, products, customers…"
-                className="w-full bg-transparent text-[13px] outline-none placeholder:text-stone-400"
-              />
-              <kbd className="hidden rounded border border-[#ebe6de] px-1.5 py-0.5 text-[9.5px] font-semibold text-stone-400 sm:inline">
-                ⌘K
-              </kbd>
-            </div>
-
             <div className="ml-auto flex items-center gap-2">
-              {/* Notifications */}
-              <button className="relative rounded-xl border border-[#ebe6de] bg-white p-2.5 text-stone-600 transition hover:border-[#dfc28c] hover:text-[#881337]">
-                <BellIcon />
-                <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#881337] ring-2 ring-white" />
-              </button>
-
               {/* Profile dropdown */}
-              <div className="relative">
+              <div ref={profileMenuRef} className="relative">
                 <button
+                  ref={profileButtonRef}
+                  type="button"
                   onClick={() => setProfileOpen((v) => !v)}
-                  className="flex items-center gap-2 rounded-xl border border-[#ebe6de] bg-white py-1.5 pl-1.5 pr-3 transition hover:border-[#dfc28c]"
+                  aria-haspopup="true"
+                  aria-expanded={profileOpen}
+                  aria-controls="admin-profile-menu"
+                  aria-label={profileOpen ? "Account menu band kare" : "Account menu khole"}
+                  className="flex min-h-11 items-center gap-2 rounded-xl border border-[#ebe6de] bg-white py-1.5 pl-1.5 pr-3 transition hover:border-[#dfc28c]"
                 >
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#881337] to-[#4c0a1f] text-[11px] font-bold text-white">
                     {initials}
                   </span>
                   <span className="hidden text-[12.5px] font-semibold sm:inline">{displayName.split(" ")[0]}</span>
-                  <svg width="10" height="10" viewBox="0 0 24 24" {...sp}>
+                  <svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" {...sp}>
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 </button>
 
                 {profileOpen && (
-                  <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-[#ebe6de] bg-white shadow-lg">
+                  <div id="admin-profile-menu" aria-label="Account menu" className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-xl border border-[#ebe6de] bg-white shadow-lg">
                     <div className="border-b border-[#f0ebe3] px-4 py-3">
                       <p className="text-[12.5px] font-semibold">{displayName}</p>
                       <p className="text-[11px] text-stone-500">{displayEmail}</p>
                     </div>
                     <ul className="p-1.5 text-[12.5px]">
                       <li>
-                        <Link href="/admin/settings" prefetch={false} className="block rounded-lg px-3 py-2 text-stone-600 hover:bg-[#faf7f2]">
+                        <Link href="/admin/settings" prefetch={false} onClick={() => setProfileOpen(false)} className="flex min-h-11 items-center rounded-lg px-3 py-2 text-stone-600 hover:bg-[#faf7f2]">
                           Account settings
                         </Link>
                       </li>
                       <li>
-                        <Link href="/" className="block rounded-lg px-3 py-2 text-stone-600 hover:bg-[#faf7f2]">
+                        <Link href="/" onClick={() => setProfileOpen(false)} className="flex min-h-11 items-center rounded-lg px-3 py-2 text-stone-600 hover:bg-[#faf7f2]">
                           View storefront
                         </Link>
                       </li>
                       <li className="mt-1 border-t border-[#f0ebe3] pt-1">
                         <button
-                          onClick={() => { void session.signOut().then(() => { if (session.configured) router.push("/admin/login"); }); }}
-                          className="block w-full rounded-lg px-3 py-2 text-left font-medium text-[#881337] hover:bg-rose-50"
+                          type="button"
+                          onClick={() => { setProfileOpen(false); void session.signOut().then(() => { if (session.configured) router.push("/admin/login"); }); }}
+                          className="flex min-h-11 w-full items-center rounded-lg px-3 py-2 text-left font-medium text-[#881337] hover:bg-rose-50"
                         >
                           Sign out
                         </button>
