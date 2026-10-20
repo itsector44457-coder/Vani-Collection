@@ -21,7 +21,7 @@ function VideoCard({
   hasMovedRef: React.RefObject<boolean>;
 }) {
   const image = reel.thumbnailUrl || reel.productId?.images?.[0]?.url || "";
-  const prices = (reel.productId?.variants ?? []).map((variant) => variant.price).filter((value) => Number.isFinite(value) && value > 0);
+  const prices = (reel.productId?.variants ?? []).filter((variant) => variant.active !== false).map((variant) => variant.price).filter((value) => Number.isFinite(value) && value > 0);
   const price = prices.length ? Math.min(...prices) : null;
   const formattedPrice = price ? `${prices.length > 1 && Math.max(...prices) !== price ? "₹" : "₹"}${price.toLocaleString("en-IN")}${prices.length > 1 && Math.max(...prices) !== price ? " se shuru" : ""}` : "Price product page par dekhe";
   const previewFrameRef = useRef<HTMLDivElement>(null);
