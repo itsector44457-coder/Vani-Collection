@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge, ButtonDanger, ButtonGhost, ButtonPrimary, Card, Input, PageHeader, Select, Toggle } from "@/lib/account-ui";
 import { useAuth } from "@/context/AuthContext";
-import { useScrollLock } from "@/components/SmoothScroll";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -51,7 +50,6 @@ export default function ProfilePage() {
 
   /* Delete account modal */
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  useScrollLock(showDeleteModal);
   const [deleting, setDeleting] = useState(false);
   const [syncedUserKey, setSyncedUserKey] = useState("");
   const deleteDialogRef = useRef<HTMLDivElement | null>(null);

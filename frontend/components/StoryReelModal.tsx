@@ -14,7 +14,6 @@ import { useCatalogue } from "../lib/use-storefront";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useModalDialog } from "../lib/use-modal-dialog";
-import { useScrollLock } from "./SmoothScroll";
 
 /* ------------------------------------------------------------------ */
 /*  Story media map                                                    */
@@ -62,7 +61,6 @@ interface StoryReelProps {
 }
 
 function StoryReel({ story, onClose, onSelectCategory }: StoryReelProps) {
-  useScrollLock(true);
   const { addToCart, setQuickViewProduct } = useCart();
   const { user } = useAuth();
   const dialogRef = useModalDialog<HTMLDivElement>(true, onClose);

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useScrollLock } from "./SmoothScroll";
 import { useCart } from "../context/CartContext";
 import SearchOverlay from "./SearchOverlay";
 import { api, isApiConfigured, type NavigationMenu, type NavigationSettings, type StoreCategory } from "../lib/api-client";
@@ -270,9 +269,6 @@ export default function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  /* ---------- Freeze page scroll while the search overlay or mobile menu is open ---------- */
-  useScrollLock(searchOpen || mobileDrawerOpen);
 
   return (
     <>

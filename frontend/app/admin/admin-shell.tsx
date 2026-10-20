@@ -399,7 +399,6 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         {/* Nav */}
         <nav
           aria-label="Admin navigation"
-          data-lenis-prevent-wheel
           className={`flex-1 overflow-y-auto overscroll-y-contain pb-4 ${isSidebarCollapsed ? "px-2" : "px-3"}`}
         >
           {SECTIONS.map((section, si) => (
