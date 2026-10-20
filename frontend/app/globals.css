@@ -105,7 +105,7 @@ textarea:focus-visible,
   display: none;
 }
 
-/* The video rail stays poster-only until opened, keeping mobile video decoders idle. */
+/* Video cards show a muted looping preview only while the card is in view. */
 .shop-video-card {
   width: calc((100vw - 2rem - 0.75rem) / 2);
 }

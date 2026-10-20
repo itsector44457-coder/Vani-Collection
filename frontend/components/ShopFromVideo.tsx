@@ -9,7 +9,7 @@ import type { PublishedReel } from "../lib/content";
 import { STORE_PHONE_DISPLAY, storeWhatsAppUrl } from "../lib/site-contact";
 
 /* ------------------------------------------------------------------ */
-/*  Lightweight, poster-first card: video is fetched only on open       */
+/*  Muted looping previews play only while their card is in view.       */
 /* ------------------------------------------------------------------ */
 function VideoCard({
   reel,
@@ -24,6 +24,45 @@ function VideoCard({
   const prices = (reel.productId?.variants ?? []).map((variant) => variant.price).filter((value) => Number.isFinite(value) && value > 0);
   const price = prices.length ? Math.min(...prices) : null;
   const formattedPrice = price ? `${prices.length > 1 && Math.max(...prices) !== price ? "₹" : "₹"}${price.toLocaleString("en-IN")}${prices.length > 1 && Math.max(...prices) !== price ? " se shuru" : ""}` : "Price product page par dekhe";
+  const previewFrameRef = useRef<HTMLDivElement>(null);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const [previewInView, setPreviewInView] = useState(false);
+  const [failedPreviewUrl, setFailedPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const frame = previewFrameRef.current;
+    if (!frame) return;
+
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+      setPreviewInView(Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.35));
+    }, { rootMargin: "0px 40px", threshold: [0, 0.35, 0.6] });
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const video = previewVideoRef.current;
+    if (!video) return;
+
+    const syncPlayback = () => {
+      if (previewInView && document.visibilityState === "visible") {
+        void video.play().catch(() => {
+          // If autoplay is blocked, the poster remains visible and the full player is still clickable.
+        });
+      } else {
+        video.pause();
+      }
+    };
+
+    syncPlayback();
+    document.addEventListener("visibilitychange", syncPlayback);
+    return () => {
+      document.removeEventListener("visibilitychange", syncPlayback);
+      video.pause();
+    };
+  }, [previewInView, reel.videoUrl]);
 
   return (
     <div
@@ -43,9 +82,23 @@ function VideoCard({
         className="absolute inset-0 z-20 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#881337] sm:rounded-2xl"
       />
 
-      {/* Poster-first portrait card: avoids autoplay, decoder work, and video downloads while scrolling. */}
-      <div className="relative aspect-[9/15] w-full overflow-hidden bg-stone-900">
-        {image ? (
+      {/* Muted looping previews start only while the card is in view; the poster remains the fallback. */}
+      <div ref={previewFrameRef} className="relative aspect-[9/15] w-full overflow-hidden bg-stone-900">
+        {previewInView && failedPreviewUrl !== reel.videoUrl ? (
+          <video
+            ref={previewVideoRef}
+            src={reel.videoUrl}
+            poster={image || undefined}
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="none"
+            aria-hidden="true"
+            onError={() => setFailedPreviewUrl(reel.videoUrl)}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : image ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={image}
@@ -64,7 +117,7 @@ function VideoCard({
 
         <div className="pointer-events-none absolute left-2 right-2 top-2 z-10 flex items-center justify-between sm:left-3 sm:right-3 sm:top-3">
           <span className="rounded-full border border-[#dfc28c]/40 bg-black/75 px-2 py-1 text-[8px] font-bold uppercase tracking-wider text-[#dfc28c] sm:px-2.5 sm:text-[9px]">
-            Tap to Watch
+            Muted loop preview
           </span>
           <span className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-black/75 text-white shadow-xs">
             <svg aria-hidden="true" width="10" height="12" viewBox="0 0 10 12" fill="currentColor">
@@ -263,21 +316,27 @@ export default function ShopFromVideo({
     el.scrollBy({ left: distance, behavior: "smooth" });
   };
 
+  const moveReel = useCallback((direction: -1 | 1) => {
+    setIsPaused(false);
+    setIsMuted(true);
+    setActiveReelIndex((current) => {
+      if (current === null || displayReels.length === 0) return current;
+      return (current + direction + displayReels.length) % displayReels.length;
+    });
+  }, [displayReels.length]);
+
   // Keyboard navigation inside modal
   useEffect(() => {
     if (activeReelIndex === null) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") {
-        setActiveReelIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : displayReels.length - 1));
-      } else if (e.key === "ArrowRight") {
-        setActiveReelIndex((prev) => (prev !== null && prev < displayReels.length - 1 ? prev + 1 : 0));
-      }
+      if (e.key === "ArrowLeft") moveReel(-1);
+      else if (e.key === "ArrowRight") moveReel(1);
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeReelIndex, displayReels.length]);
+  }, [activeReelIndex, moveReel]);
 
   // Play/pause toggle inside modal
   const togglePlayPause = () => {
@@ -526,7 +585,7 @@ export default function ShopFromVideo({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setActiveReelIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : displayReels.length - 1));
+              moveReel(-1);
             }}
             aria-label="Previous reel"
             className="hidden md:flex absolute left-4 lg:left-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/30 text-white items-center justify-center backdrop-blur-md transition-all z-20"
@@ -541,7 +600,7 @@ export default function ShopFromVideo({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setActiveReelIndex((prev) => (prev !== null && prev < displayReels.length - 1 ? prev + 1 : 0));
+              moveReel(1);
             }}
             aria-label="Next reel"
             className="hidden md:flex absolute right-4 lg:right-8 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-white/10 hover:bg-white/30 text-white items-center justify-center backdrop-blur-md transition-all z-20"
@@ -560,7 +619,7 @@ export default function ShopFromVideo({
             <div className="relative w-full max-w-[300px] sm:max-w-[340px] md:max-w-[360px] h-[480px] sm:h-[540px] md:h-[580px] max-h-[72vh] md:max-h-[78vh] rounded-2xl overflow-hidden bg-black shadow-2xl border border-white/15 shrink-0">
               <video
                 ref={modalVideoRef}
-                key={activeReel.videoUrl}
+                key={`${activeReel._id}:${activeReel.videoUrl}`}
                 src={activeReel.videoUrl}
                 poster={activeReel.thumbnailUrl || activeReel.productId?.images?.[0]?.url}
                 autoPlay
