@@ -152,7 +152,7 @@ export default function HomeView({
           </h1>
           <Link
             href="/products"
-            className="mt-6 inline-flex min-h-12 items-center justify-center gap-3 rounded-full bg-[#1c1917]/95 px-8 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-white shadow-lg transition hover:bg-[#881337] sm:mt-8 sm:px-10 sm:py-4 sm:text-sm"
+            className="button-feedback mt-6 inline-flex min-h-12 items-center justify-center gap-3 rounded-full bg-[#1c1917]/95 px-8 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-white shadow-lg transition hover:bg-[#881337] sm:mt-8 sm:px-10 sm:py-4 sm:text-sm"
           >
             Shop Now
             <span aria-hidden="true" className="text-[#dfc28c]">→</span>

@@ -1,6 +1,7 @@
 import Navbar from "./Navbar";
 import Footer from "./Footer";
 import FloatingContactMenu from "./FloatingContactMenu";
+import ScrollFlipObserver from "./ScrollFlipObserver";
 
 /**
  * The one storefront chrome: skip link, navigation, main landmark, footer, floating contact.
@@ -19,6 +20,7 @@ export default function StorefrontShell({ children }: { children: React.ReactNod
       <Navbar />
       <main id="main-content" tabIndex={-1} className="flex-grow pb-16 outline-none lg:pb-0">
         {children}
+        <ScrollFlipObserver />
       </main>
       <Footer />
       <FloatingContactMenu />

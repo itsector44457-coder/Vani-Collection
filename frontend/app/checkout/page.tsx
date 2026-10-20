@@ -115,12 +115,12 @@ const PAYMENT_METHODS: { id: PaymentMethodId; label: string; desc: string }[] = 
   {
     id: "online",
     label: "Online Payment — UPI / Card / Net Banking",
-    desc: "Razorpay ki secure window me GPay, PhonePe, card ya bank chune. Card/UPI details hamare paas save nahi hoti.",
+    desc: "Choose GPay, PhonePe, a card, or net banking in Razorpay's secure window. We never store your card or UPI details.",
   },
   {
     id: "cod",
     label: "Cash on Delivery",
-    desc: "Parcel milne par cash ya UPI se bhugtan kare (chune hue pincodes par).",
+    desc: "Pay by cash or UPI on delivery (available in selected PIN codes).",
   },
 ];
 
@@ -280,7 +280,7 @@ function OrderSummary({
             <span
               className={shipping === 0 ? "text-emerald-600 font-medium" : ""}
             >
-              {shipping === null ? `${SHIPPING_FEE_LABEL} (pincode par)` : shipping === 0 ? "FREE" : formatPrice(shipping)}
+              {shipping === null ? `${SHIPPING_FEE_LABEL} (after PIN code check)` : shipping === 0 ? "FREE" : formatPrice(shipping)}
             </span>
           </div>
           {discount > 0 && (
@@ -305,7 +305,7 @@ function OrderSummary({
             <span>{total === null ? "Estimated total" : "Total"}</span>
             <span>{total === null ? estimatedRange : formatPrice(total)}</span>
           </div>
-          <p className="text-[11px] leading-relaxed text-gray-500">Tax included hai. Final shipping pincode jaanch ke baad pakki hogi — payment se pehle dikhegi.</p>
+          <p className="text-[11px] leading-relaxed text-gray-500">Taxes are included. Final shipping charges will be confirmed after your PIN code is checked and shown before payment.</p>
         </div>
 
         {/* Trust badges */}
@@ -330,7 +330,7 @@ function OrderSummary({
               <circle cx="5.5" cy="18.5" r="2.5" />
               <circle cx="18.5" cy="18.5" r="2.5" />
             </svg>
-            Free shipping ₹1,999+ par
+            Free shipping on orders over ₹1,999
           </span>
           <span className="text-[11px] text-gray-700 flex items-center gap-1.5 font-medium">
             <svg className="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -338,7 +338,7 @@ function OrderSummary({
               <circle cx="12" cy="12" r="2" />
               <path d="M6 12h.01M18 12h.01" />
             </svg>
-            COD chune pincodes par
+            COD available in selected PIN codes
           </span>
         </div>
       </div>
@@ -507,7 +507,7 @@ export default function CheckoutPage() {
     if (!live) {
       setServiceability(null);
       setPincodeStatus("error");
-      setAddressErrors((previous) => ({ ...previous, pincode: "Delivery jaanch abhi uplabdh nahi hai." }));
+      setAddressErrors((previous) => ({ ...previous, pincode: "Delivery availability checking is currently unavailable." }));
       return false;
     }
     const request = ++lookupRequestRef.current;
@@ -527,7 +527,7 @@ export default function CheckoutPage() {
       if (lookupRequestRef.current !== request) return false;
       setServiceability(null);
       setPincodeStatus("error");
-      setAddressErrors((previous) => ({ ...previous, pincode: "Is pincode par delivery abhi confirm nahi ho payi — pincode dobara jaanche." }));
+      setAddressErrors((previous) => ({ ...previous, pincode: "We couldn't confirm delivery for this PIN code. Please check it and try again." }));
       return false;
     }
   }, [live]);
@@ -551,9 +551,9 @@ export default function CheckoutPage() {
           </h2>
           {pendingPayment ? (
             <p className="mx-auto mb-6 max-w-md text-sm leading-relaxed text-gray-600">
-              Order <strong>#{pendingPayment.order.orderNumber}</strong> par payment pending hai. {formatPaymentExpiry(pendingPayment.payment.expiresAt) ? <>Payment <strong>{formatPaymentExpiry(pendingPayment.payment.expiresAt)}</strong> tak pura kare; iske baad reservation khatm ho jayegi. </> : null}Kripya email jaanche ya{" "}
+              Payment is pending for order <strong>#{pendingPayment.order.orderNumber}</strong>. {formatPaymentExpiry(pendingPayment.payment.expiresAt) ? <>Complete payment by <strong>{formatPaymentExpiry(pendingPayment.payment.expiresAt)}</strong> or the reservation will expire. </> : null}Check your email or{" "}
               <Link href={`/track-order?order=${encodeURIComponent(pendingPayment.order.orderNumber)}`} className="font-bold text-[#881337] underline underline-offset-2">Track Order</Link>{" "}
-              par sthiti dekhe — dobara order na kare.
+              for the latest status. Please do not place another order.
             </p>
           ) : (
             <p className="text-gray-500 mb-6">Add some beautiful pieces before checking out</p>
@@ -572,14 +572,14 @@ export default function CheckoutPage() {
   /* ── Address Validation ── */
   const validateAddress = (includeDelivery = true): boolean => {
     const errors: Partial<Address> = {};
-    if (address.fullName.trim().length < 3) errors.fullName = "Poora naam likhe";
-    if (!/^[6-9]\d{9}$/.test(address.phone)) errors.phone = "Sahi 10-digit mobile number likhe";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email.trim())) errors.email = "Sahi email likhe — order updates isi par aayenge";
-    if (!/^[1-9]\d{5}$/.test(address.pincode)) errors.pincode = "Sahi 6-digit pincode likhe";
-    else if (includeDelivery && live && !deliveryForAddress) errors.pincode = "Delivery jaanch adhuri hai — thoda ruke ya pincode dobara likhe";
-    if (address.address.trim().length < 8) errors.address = "Ghar/flat no. aur area sahit poora address likhe";
-    if (address.city.trim().length < 2) errors.city = "Sheher ka naam likhe";
-    if (!address.state) errors.state = "Rajya chune";
+    if (address.fullName.trim().length < 3) errors.fullName = "Enter your full name.";
+    if (!/^[6-9]\d{9}$/.test(address.phone)) errors.phone = "Enter a valid 10-digit mobile number.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email.trim())) errors.email = "Enter a valid email address; order updates will be sent there.";
+    if (!/^[1-9]\d{5}$/.test(address.pincode)) errors.pincode = "Enter a valid 6-digit PIN code.";
+    else if (includeDelivery && live && !deliveryForAddress) errors.pincode = "Delivery availability has not been confirmed. Please wait or check the PIN code again.";
+    if (address.address.trim().length < 8) errors.address = "Enter your full address, including your house or flat number and area.";
+    if (address.city.trim().length < 2) errors.city = "Enter your city.";
+    if (!address.state) errors.state = "Select a state.";
     setAddressErrors(errors);
     const firstError = (Object.keys(errors) as (keyof Address)[]).find((key) => errors[key]);
     if (firstError) {
@@ -609,14 +609,14 @@ export default function CheckoutPage() {
   };
 
   const invalidatePromoForCartChange = () => {
-    if (promoApplied) clearPromo("Bag badalne par coupon hata diya gaya hai — chahe to dobara lagaye.");
+    if (promoApplied) clearPromo("Your bag changed, so the coupon was removed. You can apply it again.");
   };
 
   const handleApplyPromo = async () => {
     const code = promoCode.trim().toUpperCase();
     if (!code || promoChecking) return;
     if (!live) {
-      clearPromo("Promo codes abhi uplabdh nahi hai.");
+      clearPromo("Promo codes are currently unavailable.");
       return;
     }
     setPromoChecking(true);
@@ -628,7 +628,7 @@ export default function CheckoutPage() {
       setPromoApplied(true);
       setPromoError("");
     } catch (cause) {
-      clearPromo((cause as Error)?.message || "Yeh coupon code nahi laga.");
+      clearPromo((cause as Error)?.message || "This coupon code could not be applied.");
     } finally {
       setPromoChecking(false);
     }
@@ -671,7 +671,7 @@ export default function CheckoutPage() {
     const ready = await loadRazorpay();
     if (!ready || !window.Razorpay) {
       setPlacing(false);
-      setPaymentError(`Payment window nahi khul paya. Order #${pending.order.orderNumber} par payment pending hai — neeche button se dobara koshish kare; naya order nahi banega.`);
+      setPaymentError(`The payment window could not be opened. Payment for order #${pending.order.orderNumber} is still pending. Use the button below to try again; no new order will be created.`);
       return;
     }
     const checkout = new window.Razorpay({
@@ -697,7 +697,7 @@ export default function CheckoutPage() {
           await finishSuccessfulOrder(paidOrder);
         } catch {
           setPaymentUncertain(true);
-          setPaymentError(`Payment ho sakta hai, lekin hame abhi pushti nahi mili. Kripya dobara payment NA kare — kuch minute me email ya Track Order par sthiti jaanche. Order #${pending.order.orderNumber}.`);
+          setPaymentError(`Your payment may have gone through, but we haven't received confirmation yet. Do not pay again. Check your email or the Track Order page in a few minutes. Order #${pending.order.orderNumber}.`);
         } finally {
           setPlacing(false);
         }
@@ -705,7 +705,7 @@ export default function CheckoutPage() {
       modal: {
         ondismiss: () => {
           setPlacing(false);
-          setPaymentError(`Payment adhura reh gaya. Order #${pending.order.orderNumber} par payment pending hai — neeche button se isi order ka payment dobara khulega; naya order nahi banega.`);
+          setPaymentError(`Payment was not completed. Payment for order #${pending.order.orderNumber} is still pending. Use the button below to reopen payment for this order; no new order will be created.`);
         },
       },
     });
@@ -716,11 +716,11 @@ export default function CheckoutPage() {
     if (placing) return;
     setPaymentError("");
     if (!live) {
-      setPaymentError("Checkout abhi uplabdh nahi hai.");
+      setPaymentError("Checkout is currently unavailable.");
       return;
     }
     if (paymentUncertain && pendingPayment) {
-      setPaymentError(`Pehle payment ki pushti ka intezaar kare — dobara payment na kare. Order #${pendingPayment.order.orderNumber} ko email ya Track Order par jaanche.`);
+      setPaymentError(`Please wait for payment confirmation before trying again. Do not pay again. Check order #${pendingPayment.order.orderNumber} in your email or on the Track Order page.`);
       return;
     }
     if (!validateAddress()) {
@@ -734,24 +734,24 @@ export default function CheckoutPage() {
       return;
     }
     if (unavailableItems.length > 0) {
-      setPaymentError("Kuch items ab uplabdh nahi hain — pehle bag review me unhe hataye ya quantity ghata de.");
+      setPaymentError("Some items are no longer available. Remove them from your bag or reduce their quantities before continuing.");
       setStep(0);
       return;
     }
     if (hasLocalOnlyItems || cart.some((item) => !item.sku || !item.productId)) {
-      setPaymentError("Bag ke kuch items live catalogue se jude nahi hain. Kripya unhe hata kar product page se dobara jode.");
+      setPaymentError("Some items in your bag are not linked to the live catalogue. Remove them and add them again from their product pages.");
       setStep(0);
       return;
     }
     if (paymentMethod === "cod" && deliveryForAddress && !deliveryForAddress.cod) {
-      setPaymentError("Is pincode par Cash on Delivery uplabdh nahi hai — kripya online payment chune.");
+      setPaymentError("Cash on Delivery is unavailable for this PIN code. Please choose online payment.");
       return;
     }
 
     /* Retry safety: a dismissed/failed gateway window reopens for THE SAME order. */
     if (pendingPayment) {
       if (pendingPayment.fingerprint !== checkoutFingerprint) {
-        setPaymentError(`Order #${pendingPayment.order.orderNumber} par payment pending hai. Details badalne par do order ban sakte hain, isliye pehle usi order ka payment pura kare${isAuthenticated ? ", ya Account > Orders se use cancel kare" : " — madad ke liye order number ke saath hamse sampark kare"}.`);
+        setPaymentError(`Payment is still pending for order #${pendingPayment.order.orderNumber}. Changing these details could create a duplicate order. Complete payment for the existing order${isAuthenticated ? " or cancel it from Account > Orders" : " or contact us with your order number"} before making changes.`);
         return;
       }
       setPlacing(true);
@@ -785,7 +785,7 @@ export default function CheckoutPage() {
         return;
       }
       if (!payment) {
-        setPaymentError(`Order #${order.orderNumber} ban gaya hai, lekin online payment abhi uplabdh nahi hai. Hamari team sampark karegi — kripya dobara order na kare.`);
+        setPaymentError(`Order #${order.orderNumber} was created, but online payment is currently unavailable. Our team will contact you. Please do not place another order.`);
         return;
       }
       const pending = { order, payment, fingerprint: checkoutFingerprint };
@@ -793,7 +793,7 @@ export default function CheckoutPage() {
       paymentWindowOpened = true;
       await openRazorpay(pending);
     } catch (cause) {
-      setPaymentError((cause as Error)?.message || "Order place nahi ho paya. Kripya dobara koshish kare.");
+      setPaymentError((cause as Error)?.message || "We couldn't place your order. Please try again.");
     } finally {
       if (!paymentWindowOpened) setPlacing(false);
     }
@@ -813,19 +813,19 @@ export default function CheckoutPage() {
         )}
         {lastRemoved && (
           <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-stone-900 px-4 py-3 text-sm text-white">
-            <span className="min-w-0 flex-1">“{lastRemoved.title}” bag se hata diya.</span>
-            <button type="button" onClick={undoRemove} className="min-h-10 rounded-full bg-white px-4 font-bold text-[#881337]">Undo</button>
+            <span className="min-w-0 flex-1">“{lastRemoved.title}” was removed from your bag.</span>
+            <button type="button" disabled={isSyncing} onClick={undoRemove} className="min-h-10 rounded-full bg-white px-4 font-bold text-[#881337] disabled:opacity-50">Undo</button>
             <button type="button" onClick={dismissLastRemoved} aria-label="Dismiss removed item message" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-white/10">✕</button>
           </div>
         )}
         {hasLocalOnlyItems && live && (
           <p role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-900">
-            Bag ke kuch items live catalogue se jude nahi hain, isliye unka online order nahi ho sakta. Kripya unhe hata kar product page se dobara jode.
+            Some items in your bag are not linked to the live catalogue and cannot be ordered online. Remove them and add them again from their product pages.
           </p>
         )}
         {unavailableItems.length > 0 && (
           <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-relaxed text-rose-800">
-            Kuch items ab uplabdh nahi hain. Checkout aage badhane se pehle unhe hataye ya quantity ghata de.
+            Some items are unavailable. Remove them or reduce their quantities before continuing to checkout.
           </p>
         )}
       </div>
@@ -837,7 +837,7 @@ export default function CheckoutPage() {
           <article key={`${item.lineId || item.sku || item.id}-${item.size}-${item.color || ""}`} className="flex gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
             <div className="relative h-24 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-stone-100">
               {item.image && <Image src={item.image} alt="" width={80} height={96} unoptimized sizes="80px" className="h-full w-full object-cover object-top" />}
-              {productHref && <Link href={productHref} aria-label={`${item.title} ka product page khole`} className="absolute inset-0" />}
+              {productHref && <Link href={productHref} aria-label={`View ${item.title} product page`} className="absolute inset-0" />}
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="line-clamp-2 text-sm font-medium leading-snug text-gray-900">
@@ -846,18 +846,18 @@ export default function CheckoutPage() {
               <div className="mt-1.5 flex flex-wrap gap-2">
                 {item.size && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Size: {item.size}</span>}
                 {item.color && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{item.color}</span>}
-                {typeof item.available === "number" && item.available > 0 && item.available <= 3 && !unavailable && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">Sirf {item.available} bache hain</span>}
+                {typeof item.available === "number" && item.available > 0 && item.available <= 3 && !unavailable && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">{item.available} left in stock</span>}
               </div>
               {unavailable && (
                 <p role="alert" className="mt-2 rounded-lg bg-rose-50 px-2.5 py-2 text-xs leading-relaxed text-rose-800">
-                  {typeof item.available === "number" && item.available > 0 ? `Ab sirf ${item.available} uplabdh hai — quantity ghata de.` : "Yeh size abhi khatm ho gaya hai — kripya hata de."}
+                  {typeof item.available === "number" && item.available > 0 ? `Only ${item.available} left in this size. Reduce the quantity to continue.` : "This size is out of stock. Please remove it or choose another size."}
                 </p>
               )}
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center overflow-hidden rounded-full border border-gray-300" aria-label={`${item.title} quantity`}>
-                  <button type="button" disabled={isSyncing} onClick={() => { invalidatePromoForCartChange(); updateQuantity(item.id, item.size, item.quantity - 1, item.color); }} className="flex h-11 w-11 items-center justify-center text-base text-gray-700 transition hover:bg-gray-100 disabled:opacity-50" aria-label={`Decrease quantity of ${item.title}`}>−</button>
+                  <button type="button" disabled={isSyncing && item.quantity <= 1} onClick={() => { invalidatePromoForCartChange(); updateQuantity(item.id, item.size, item.quantity - 1, item.color); }} className="flex h-11 w-11 items-center justify-center text-base text-gray-700 transition hover:bg-gray-100 disabled:opacity-50" aria-label={`Decrease quantity of ${item.title}`}>−</button>
                   <span className="min-w-8 text-center text-sm font-bold" aria-live="polite">{item.quantity}</span>
-                  <button type="button" disabled={isSyncing || (typeof item.available === "number" && item.quantity >= item.available)} onClick={() => { invalidatePromoForCartChange(); updateQuantity(item.id, item.size, item.quantity + 1, item.color); }} className="flex h-11 w-11 items-center justify-center text-base text-gray-700 transition hover:bg-gray-100 disabled:opacity-50" aria-label={`Increase quantity of ${item.title}`}>+</button>
+                  <button type="button" disabled={(isSyncing && item.quantity <= 1) || item.quantity >= 10 || (typeof item.available === "number" && item.quantity >= item.available)} onClick={() => { invalidatePromoForCartChange(); updateQuantity(item.id, item.size, item.quantity + 1, item.color); }} className="flex h-11 w-11 items-center justify-center text-base text-gray-700 transition hover:bg-gray-100 disabled:opacity-50" aria-label={`Increase quantity of ${item.title}`}>+</button>
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-[#881337]">{formatPrice(item.price * item.quantity)}</span>
@@ -865,7 +865,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
               <button type="button" disabled={isSyncing} onClick={() => { invalidatePromoForCartChange(); removeFromCart(item.id, item.size, item.color); }} className="mt-1 min-h-10 text-xs font-semibold text-rose-700 hover:underline disabled:opacity-50">
-                Bag se hataiye
+                Remove from bag
               </button>
             </div>
           </article>
@@ -877,7 +877,7 @@ export default function CheckoutPage() {
         <h3 className="mb-3 text-sm font-semibold text-gray-900">Promo Code</h3>
         {promoApplied ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-emerald-50 px-3.5 py-3 text-sm text-emerald-900 ring-1 ring-emerald-200">
-            <span>✓ <strong>{appliedPromoCode}</strong> lag gaya — aapko {formatPrice(discount)} ki bachat hui.</span>
+            <span>✓ <strong>{appliedPromoCode}</strong> applied — you saved {formatPrice(discount)}.</span>
             <button type="button" onClick={() => { clearPromo(); setPromoCode(""); }} className="min-h-10 rounded-full bg-white px-3.5 text-xs font-bold text-emerald-800 ring-1 ring-emerald-300">Remove</button>
           </div>
         ) : (
@@ -888,7 +888,7 @@ export default function CheckoutPage() {
               type="text"
               autoComplete="off"
               autoCapitalize="characters"
-              placeholder="Coupon code likhe"
+              placeholder="Enter coupon code"
               value={promoCode}
               aria-invalid={Boolean(promoError)}
               aria-describedby={promoError ? "promo-error" : undefined}
@@ -896,7 +896,7 @@ export default function CheckoutPage() {
               className="min-h-11 min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm uppercase focus:border-[#881337] focus:outline-none focus:ring-2 focus:ring-[#881337]/20"
             />
             <button type="submit" disabled={promoChecking || !promoCode.trim()} className="min-h-11 shrink-0 rounded-xl bg-[#881337] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#701a35] disabled:opacity-50">
-              {promoChecking ? "Jaanch…" : "Apply"}
+              {promoChecking ? "Checking…" : "Apply"}
             </button>
           </form>
         )}
@@ -910,7 +910,7 @@ export default function CheckoutPage() {
         <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{formatPrice(subtotal)}</span></div>
         <div className="flex justify-between text-gray-600">
           <span>Shipping</span>
-          <span className={shipping === 0 ? "font-medium text-emerald-600" : ""}>{shipping === null ? `${SHIPPING_FEE_LABEL} (pincode par)` : shipping === 0 ? "FREE" : formatPrice(shipping)}</span>
+          <span className={shipping === 0 ? "font-medium text-emerald-600" : ""}>{shipping === null ? `${SHIPPING_FEE_LABEL} (after PIN code check)` : shipping === 0 ? "FREE" : formatPrice(shipping)}</span>
         </div>
         {promoApplied && discount > 0 && (
           <div className="flex justify-between font-medium text-emerald-700"><span>Promo ({appliedPromoCode})</span><span>−{formatPrice(discount)}</span></div>
@@ -922,7 +922,7 @@ export default function CheckoutPage() {
           <span>{shipping === null ? "Estimated total" : "Total Payable"}</span>
           <span>{shipping === null ? `${formatPrice(subtotal - discount + giftFee + SHIPPING_FEE_NEAR)}–${formatPrice(subtotal - discount + giftFee + SHIPPING_FEE_FAR)}` : formatPrice(total)}</span>
         </div>
-        <p className="text-[11px] leading-relaxed text-gray-400">Tax included hai. Shipping pincode se pakki hogi — payment se pehle final kul rakam dikhegi.</p>
+        <p className="text-[11px] leading-relaxed text-gray-400">Taxes are included. Final shipping charges and the total will be confirmed after your PIN code is checked, before payment.</p>
       </div>
 
       <button
@@ -931,9 +931,9 @@ export default function CheckoutPage() {
         disabled={isSyncing || unavailableItems.length > 0 || (live && hasLocalOnlyItems)}
         className="min-h-12 w-full rounded-xl bg-[#881337] py-4 text-base font-bold text-white transition hover:bg-[#701a35] disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isSyncing ? "Bag update ho raha hai…" : "Proceed to Delivery →"}
+        {isSyncing ? "Updating your bag…" : "Proceed to Delivery →"}
       </button>
-      <Link href="/products" className="block min-h-10 text-center text-sm font-semibold text-stone-600 underline-offset-2 hover:text-[#881337] hover:underline">Shopping jaari rakhe</Link>
+      <Link href="/products" className="block min-h-10 text-center text-sm font-semibold text-stone-600 underline-offset-2 hover:text-[#881337] hover:underline">Continue shopping</Link>
     </div>
   );
 
@@ -1035,7 +1035,7 @@ export default function CheckoutPage() {
 
         {!isAuthenticated ? (
           <p className="rounded-2xl border border-[#881337]/15 bg-[#881337]/5 px-4 py-3 text-[13px] leading-relaxed text-stone-700">
-            <strong className="font-semibold">Guest checkout:</strong> account zaroori nahi hai. Order updates is mobile/email par milenge, aur parcel bina login kiye track ho jayega.
+            <strong className="font-semibold">Guest checkout:</strong> No account is required. Order updates will be sent to this mobile number or email, and you can track your parcel without signing in.
           </p>
         ) : user?.addresses?.length ? (
           <section aria-label="Saved addresses" className="space-y-3">
@@ -1071,7 +1071,7 @@ export default function CheckoutPage() {
                     <span className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide text-[#881337]">
                       {saved.type}
                       {saved.isDefault && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">Default</span>}
-                      {selected && <span className="rounded-full bg-[#881337] px-2 py-0.5 text-[10px] font-bold text-white">Chuna gaya</span>}
+                      {selected && <span className="rounded-full bg-[#881337] px-2 py-0.5 text-[10px] font-bold text-white">Selected</span>}
                     </span>
                     <span className="mt-1.5 block text-sm font-semibold text-gray-900">{saved.fullName}</span>
                     <span className="mt-0.5 block text-xs leading-relaxed text-gray-600">{[saved.address, saved.line2].filter(Boolean).join(", ")}, {saved.city}, {saved.state} – {saved.pincode}</span>
@@ -1080,7 +1080,7 @@ export default function CheckoutPage() {
                 );
               })}
             </div>
-            <p className="text-xs text-gray-500">Chune hue address ko neeche form me badla bhi ja sakta hai.</p>
+            <p className="text-xs text-gray-500">You can edit the selected address in the form below.</p>
           </section>
         ) : null}
 
@@ -1088,7 +1088,7 @@ export default function CheckoutPage() {
           {renderField({
             label: "Full Name",
             name: "fullName",
-            placeholder: "Parcel par likha jaane wala naam",
+            placeholder: "Name for the delivery label",
           })}
           {renderField({
             label: "Mobile Number",
@@ -1105,15 +1105,15 @@ export default function CheckoutPage() {
             half: true,
           })}
           {renderField({
-            label: "Pincode",
+            label: "PIN Code",
             name: "pincode",
-            placeholder: "6-digit pincode",
+            placeholder: "6-digit PIN code",
             half: true,
           })}
           {renderField({
             label: "City",
             name: "city",
-            placeholder: "Sheher ka naam",
+            placeholder: "City",
             half: true,
           })}
           <div className="col-span-1 sm:col-span-2">
@@ -1210,10 +1210,10 @@ export default function CheckoutPage() {
         </div>
 
         <div aria-live="polite">
-          {pincodeStatus === "checking" && <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-800 ring-1 ring-sky-100">Delivery jaanch ho rahi hai…</p>}
+          {pincodeStatus === "checking" && <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-800 ring-1 ring-sky-100">Checking delivery availability…</p>}
           {deliveryForAddress && (
             <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm leading-relaxed text-emerald-900 ring-1 ring-emerald-200">
-              ✓ {deliveryForAddress.pincode} par delivery uplabdh hai · lagbhag {deliveryForAddress.etaDays} din me pahunch · shipping {shipping === 0 ? "FREE" : shipping === null ? formatPrice(deliveryForAddress.shippingFee) : formatPrice(shipping)} · {deliveryForAddress.cod ? "Cash on Delivery uplabdh" : "Is pincode par sirf online payment"}
+              ✓ Delivery is available for {deliveryForAddress.pincode} · Estimated arrival in {deliveryForAddress.etaDays} days · Shipping {shipping === 0 ? "FREE" : shipping === null ? formatPrice(deliveryForAddress.shippingFee) : formatPrice(shipping)} · {deliveryForAddress.cod ? "Cash on Delivery available" : "Online payment only for this PIN code"}
             </p>
           )}
         </div>
@@ -1257,7 +1257,7 @@ export default function CheckoutPage() {
           </div>
           <label className="mt-4 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl bg-stone-50 px-3.5 py-2.5 text-sm text-stone-700 ring-1 ring-stone-200">
             <input type="checkbox" checked={saveToAccount} onChange={(event) => setSaveToAccount(event.target.checked)} className="h-5 w-5 shrink-0 accent-[#881337]" />
-            <span>Order safal hone par is address ko mere account me save kare</span>
+            <span>Save this address to my account after the order is placed</span>
           </label>
         </div>
         )}
@@ -1281,7 +1281,7 @@ export default function CheckoutPage() {
             disabled={pincodeStatus === "checking"}
             className="min-h-12 flex-grow py-3 bg-[#881337] text-white rounded-xl font-semibold hover:bg-[#701a35] transition disabled:cursor-wait disabled:opacity-60"
           >
-            {pincodeStatus === "checking" ? "Delivery jaanch ho rahi hai…" : "Continue to Payment →"}
+            {pincodeStatus === "checking" ? "Checking delivery availability…" : "Continue to Payment →"}
           </button>
         </div>
       </div>
@@ -1295,16 +1295,16 @@ export default function CheckoutPage() {
 
       {pendingPayment && paymentUncertain ? (
         <div role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
-          <p><strong>Payment ki pushti baaki hai.</strong> Order #{pendingPayment.order.orderNumber} ke liye dobara payment na kare — kuch minute me email aayega.</p>
-          <Link href={`/track-order?order=${encodeURIComponent(pendingPayment.order.orderNumber)}`} className="mt-2 inline-block min-h-10 font-bold text-[#881337] underline underline-offset-2">Order ki sthiti jaanche →</Link>
+          <p><strong>Payment confirmation is pending.</strong> Do not pay again for order #{pendingPayment.order.orderNumber}. An update will arrive by email in a few minutes.</p>
+          <Link href={`/track-order?order=${encodeURIComponent(pendingPayment.order.orderNumber)}`} className="mt-2 inline-block min-h-10 font-bold text-[#881337] underline underline-offset-2">Check order status →</Link>
         </div>
       ) : pendingPayment && pendingPayment.fingerprint === checkoutFingerprint ? (
         <p className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-relaxed text-sky-950">
-          Order <strong>#{pendingPayment.order.orderNumber}</strong> par payment pending hai. Neeche ka button <strong>isi order</strong> ka payment dobara kholega — naya order nahi banega aur stock dobara reserve nahi hoga.{formatPaymentExpiry(pendingPayment.payment.expiresAt) ? <> Payment <strong>{formatPaymentExpiry(pendingPayment.payment.expiresAt)}</strong> tak pura kare; iske baad stock reservation khatm ho jayegi.</> : null}
+          Payment is pending for order <strong>#{pendingPayment.order.orderNumber}</strong>. The button below will reopen payment for <strong>this order</strong>; it will not create another order or reserve stock again.{formatPaymentExpiry(pendingPayment.payment.expiresAt) ? <> Complete payment by <strong>{formatPaymentExpiry(pendingPayment.payment.expiresAt)}</strong> or the stock reservation will expire.</> : null}
         </p>
       ) : pendingPayment ? (
         <p role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-950">
-          Order <strong>#{pendingPayment.order.orderNumber}</strong> par payment pending hai, lekin bag/address badal gaya hai. Do order rokne ke liye pehle pending order ka payment pura kare{isAuthenticated ? " ya use Account > Orders se cancel kare" : " — badlav ke liye order number ke saath hamse sampark kare"}.{formatPaymentExpiry(pendingPayment.payment.expiresAt) ? <> Payment ki aakhiri samay-seema <strong>{formatPaymentExpiry(pendingPayment.payment.expiresAt)}</strong> hai.</> : null}
+          Payment is pending for order <strong>#{pendingPayment.order.orderNumber}</strong>, but your bag or address has changed. To avoid a duplicate order, complete payment for the pending order{isAuthenticated ? " or cancel it from Account > Orders" : " or contact us with your order number to make changes"}.{formatPaymentExpiry(pendingPayment.payment.expiresAt) ? <> The payment deadline is <strong>{formatPaymentExpiry(pendingPayment.payment.expiresAt)}</strong>.</> : null}
         </p>
       ) : null}
 
@@ -1368,7 +1368,7 @@ export default function CheckoutPage() {
 
       {/* Payment Options — two real choices; the instrument is picked inside Razorpay. */}
       <fieldset className="space-y-3">
-        <legend className="sr-only">Payment method chune</legend>
+        <legend className="sr-only">Choose a payment method</legend>
         {PAYMENT_METHODS.map((method) => {
           const codUnavailable = method.id === "cod" && (!deliveryForAddress || !deliveryForAddress.cod);
           const selected = paymentMethod === method.id;
@@ -1408,12 +1408,12 @@ export default function CheckoutPage() {
                 <p className="mt-0.5 text-xs leading-relaxed text-gray-500">
                   {codUnavailable
                     ? deliveryForAddress
-                      ? "Is pincode par COD uplabdh nahi hai — kripya online payment chune."
-                      : "COD ki uplabdhata pincode jaanch ke baad pata chalegi."
+                      ? "Cash on Delivery is unavailable for this PIN code. Please choose online payment."
+                      : "Cash on Delivery availability will be confirmed after your PIN code is checked."
                     : method.desc}
                 </p>
-                {method.id === "online" && shipping !== null && <p className="mt-1 text-xs font-semibold text-stone-700">Kul {formatPrice(total)} ka surakshit online bhugtan</p>}
-                {method.id === "cod" && !codUnavailable && shipping !== null && <p className="mt-1 text-xs font-semibold text-emerald-700">Delivery par kul {formatPrice(total)} dena hai</p>}
+                {method.id === "online" && shipping !== null && <p className="mt-1 text-xs font-semibold text-stone-700">Secure online payment of {formatPrice(total)}</p>}
+                {method.id === "cod" && !codUnavailable && shipping !== null && <p className="mt-1 text-xs font-semibold text-emerald-700">Total due on delivery: {formatPrice(total)}</p>}
               </div>
             </label>
           );
@@ -1422,7 +1422,7 @@ export default function CheckoutPage() {
 
       {deliveryForAddress && (
         <p className="rounded-2xl bg-sky-50 px-4 py-3 text-[13px] leading-relaxed text-sky-950 ring-1 ring-sky-100">
-          🚚 {address.pincode} par delivery · dispatch 2–3 working days me, pahunch lagbhag {deliveryForAddress.etaDays} din · shipping {shipping === 0 ? "FREE" : shipping === null ? formatPrice(deliveryForAddress.shippingFee) : formatPrice(shipping)} · {deliveryForAddress.cod ? "COD uplabdh hai" : "sirf online payment"}.
+          🚚 Delivery to {address.pincode} · Dispatched within 2–3 working days · Estimated arrival in about {deliveryForAddress.etaDays} days · Shipping {shipping === 0 ? "FREE" : shipping === null ? formatPrice(deliveryForAddress.shippingFee) : formatPrice(shipping)} · {deliveryForAddress.cod ? "Cash on Delivery available" : "Online payment only"}.
         </p>
       )}
 
@@ -1430,15 +1430,15 @@ export default function CheckoutPage() {
         <div className="rounded-2xl border border-[#881337]/20 bg-[#881337]/5 p-4 text-sm text-stone-700">
           <p className="font-semibold text-[#881337]">Secure payment window</p>
           <p className="mt-1 leading-relaxed">
-            UPI, card aur net banking Razorpay ki secure window me honge. Hum aapka card number, CVV ya UPI PIN kabhi nahi dekhte ya save karte.
+            Pay by UPI, card, or net banking in Razorpay’s secure window. We never see or store your card number, CVV, or UPI PIN.
           </p>
         </div>
       )}
 
       {paymentMethod === "cod" && deliveryForAddress?.cod && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-950">
-          <p className="font-semibold">COD ki jaankari</p>
-          <p className="mt-1">Parcel milne par kul {formatPrice(total)} cash ya UPI se de. Delivery ke din phone uplabdh rakhe — courier aapse sampark karega.</p>
+          <p className="font-semibold">Cash on Delivery details</p>
+          <p className="mt-1">Pay {formatPrice(total)} in cash or by UPI when your parcel arrives. Keep your phone available on delivery day so the courier can contact you.</p>
         </div>
       )}
 
@@ -1486,11 +1486,11 @@ export default function CheckoutPage() {
           className="min-h-12 flex-grow py-3 bg-[#881337] text-white rounded-xl font-bold text-base hover:bg-[#701a35] transition disabled:cursor-not-allowed disabled:bg-stone-400"
         >
           {placing
-            ? "Kripya ruke…"
+            ? "Please wait…"
             : paymentUncertain
-              ? "Payment ki pushti baaki hai"
+              ? "Payment confirmation pending"
               : pendingPayment && pendingPayment.fingerprint === checkoutFingerprint
-                ? `Payment dobara kare · ${formatPrice(total)} →`
+                ? `Retry payment · ${formatPrice(total)} →`
                 : paymentMethod === "cod"
                   ? `Place COD Order · ${formatPrice(total)} →`
                   : `Pay ${formatPrice(total)} →`}
@@ -1498,9 +1498,9 @@ export default function CheckoutPage() {
       </div>
 
       <p className="text-xs text-gray-500 text-center leading-relaxed">
-        Order karke aap hamari <Link href="/terms" className="font-semibold text-[#881337] underline underline-offset-2">Terms</Link> aur{" "}
-        <Link href="/privacy" className="font-semibold text-[#881337] underline underline-offset-2">Privacy Policy</Link> se sahmat hote hain.
-        Dispatch aam taur par 2–3 working days me hota hai; delivery samay pincode par nirbhar hai.
+        By placing your order, you agree to our <Link href="/terms" className="font-semibold text-[#881337] underline underline-offset-2">Terms</Link> and{" "}
+        <Link href="/privacy" className="font-semibold text-[#881337] underline underline-offset-2">Privacy Policy</Link>.
+        Orders are usually dispatched within 2–3 working days; delivery time depends on your PIN code.
       </p>
     </div>
   );
@@ -1512,7 +1512,7 @@ export default function CheckoutPage() {
   ) : !isAuthenticated ? (
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#881337]/20 bg-[#881337]/5 px-4 py-3 text-[12.5px] leading-relaxed text-stone-700">
       <span>
-        <strong className="font-semibold">Guest checkout:</strong> bina account order ho jayega aur tracking bina login milegi. Chahe to sign in karke address aur order history save kare.
+        <strong className="font-semibold">Guest checkout:</strong> You can place an order without an account and track it without signing in. Sign in to save your address and order history.
       </span>
       <Link href="/login?redirect=/checkout" className="min-h-10 shrink-0 rounded-xl bg-[#881337] px-3.5 py-2 text-[12px] font-semibold leading-6 text-white hover:bg-[#6b0f2b]">
         Sign in (optional)

@@ -211,7 +211,7 @@ export default function Navbar() {
               </button>
               {openDesktopMenu === "collections" && (
                 <div id="desktop-collections-menu" className="absolute left-0 top-full z-50 mt-1 max-h-[70vh] w-64 overflow-y-auto rounded-xl border border-stone-200 bg-white p-2 shadow-xl">
-                  <Link href="/collections" onClick={closeMenus} className="flex min-h-10 items-center rounded-lg px-3 text-sm font-semibold text-stone-900 transition hover:bg-stone-50" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
+                  <Link href="/collections" onClick={closeMenus} className="nav-snake-link flex min-h-10 items-center rounded-lg px-3 text-sm font-semibold text-stone-900 transition hover:bg-stone-50" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
                     All collections <span className="ml-auto text-[var(--nav-accent)]">→</span>
                   </Link>
                   {categories.map((category) => (
@@ -219,7 +219,7 @@ export default function Navbar() {
                       key={category.slug}
                       href={`/collections/${encodeURIComponent(category.slug)}`}
                       onClick={closeMenus}
-                      className="flex min-h-10 items-center rounded-lg px-3 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-[var(--nav-accent)]"
+                      className="nav-snake-link flex min-h-10 items-center rounded-lg px-3 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-[var(--nav-accent)]"
                       style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}
                     >
                       {category.name}
@@ -234,7 +234,7 @@ export default function Navbar() {
                 key={`${link.label}-${link.href}`}
                 href={link.href}
                 onClick={closeMenus}
-                className="max-w-32 truncate rounded-lg px-2.5 py-2 text-[11px] font-semibold transition hover:bg-black/5 hover:text-[var(--nav-accent)] 2xl:max-w-40 2xl:px-3 2xl:text-xs"
+                className="nav-snake-link max-w-32 truncate rounded-lg px-2.5 py-2 text-[11px] font-semibold transition hover:bg-black/5 hover:text-[var(--nav-accent)] 2xl:max-w-40 2xl:px-3 2xl:text-xs"
                 style={{ color: settings.colors.headerText, "--nav-accent": settings.colors.accent } as React.CSSProperties}
               >
                 {link.label}
@@ -256,7 +256,7 @@ export default function Navbar() {
                 {openDesktopMenu === "more" && (
                   <div id="desktop-more-menu" className="absolute right-0 top-full z-50 mt-1 max-h-[70vh] w-60 overflow-y-auto rounded-xl border border-stone-200 bg-white p-2 shadow-xl">
                     {overflowDesktopLinks.map((link) => (
-                      <Link key={`${link.label}-${link.href}`} href={link.href} onClick={closeMenus} className="flex min-h-10 items-center rounded-lg px-3 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-[var(--nav-accent)]" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
+                      <Link key={`${link.label}-${link.href}`} href={link.href} onClick={closeMenus} className="nav-snake-link flex min-h-10 items-center rounded-lg px-3 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-[var(--nav-accent)]" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
                         {link.label}
                       </Link>
                     ))}
@@ -264,7 +264,7 @@ export default function Navbar() {
                       <section key={menu.key} className="mt-2 border-t border-stone-100 pt-2">
                         <h3 className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400">{menu.label}</h3>
                         {menu.columns.flatMap((column) => column.items.map((item) => (
-                          <Link key={`${menu.key}-${column.title}-${item.label}`} href={getMenuItemHref(item)} onClick={closeMenus} className="flex min-h-9 items-center rounded-lg px-3 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-[var(--nav-accent)]" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
+                          <Link key={`${menu.key}-${column.title}-${item.label}`} href={getMenuItemHref(item)} onClick={closeMenus} className="nav-snake-link flex min-h-9 items-center rounded-lg px-3 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-[var(--nav-accent)]" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
                             {item.label}
                           </Link>
                         )))}
@@ -437,7 +437,7 @@ function IconButton({ label, onClick, children, accent }: { label: string; onCli
 
 function MobileNavLink({ href, onClick, accent, children }: { href: string; onClick: () => void; accent: string; children: React.ReactNode }) {
   return (
-    <Link href={href} onClick={onClick} className="flex min-h-11 items-center justify-between rounded-lg px-3 text-sm font-medium text-stone-700 transition hover:bg-white hover:text-[var(--nav-accent)]" style={{ "--nav-accent": accent } as React.CSSProperties}>
+    <Link href={href} onClick={onClick} className="nav-snake-link nav-snake-link--mobile flex min-h-11 items-center justify-between rounded-lg px-3 text-sm font-medium text-stone-700 transition hover:bg-white hover:text-[var(--nav-accent)]" style={{ "--nav-accent": accent } as React.CSSProperties}>
       {children}
       <span aria-hidden="true" className="ml-2 text-stone-300">→</span>
     </Link>
@@ -446,7 +446,7 @@ function MobileNavLink({ href, onClick, accent, children }: { href: string; onCl
 
 function MobileQuickLink({ href, label, active, accent, children }: { href: string; label: string; active: boolean; accent: string; children: React.ReactNode }) {
   return (
-    <Link href={href} aria-label={label} aria-current={active ? "page" : undefined} className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-[10px] font-medium transition hover:bg-black/5" style={{ color: active ? accent : "#57534e" }}>
+    <Link href={href} aria-label={label} aria-current={active ? "page" : undefined} className="nav-snake-link nav-snake-link--quick flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-[10px] font-medium transition hover:bg-black/5" style={{ color: active ? accent : "#57534e" }}>
       {children}
       <span>{label}</span>
     </Link>

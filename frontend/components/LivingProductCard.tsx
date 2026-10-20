@@ -212,6 +212,7 @@ export default function LivingProductCard({
   return (
     <div
       ref={cardRef}
+      data-scroll-flip
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className="group relative flex flex-col bg-[#faf7f2] rounded-xl overflow-hidden border border-[#e8dfd5] transition-all duration-300 hover:shadow-xl hover:-translate-y-1"
