@@ -9,7 +9,7 @@ const { requireRoles } = require('../middleware/auth');
 const { audit } = require('../middleware/audit');
 const { AppError, asyncHandler } = require('../lib/errors');
 const { ensureCategories } = require('../lib/category-defaults');
-const { mergeNavigationMenus } = require('../lib/navigation-defaults');
+const { mergeNavigationMenus, normalizeNavigationLinks } = require('../lib/navigation-defaults');
 
 const DEFAULT_ANNOUNCEMENTS = [
   '✦ Speciality in Fancy Kurties & Party Wear Dresses',
@@ -17,8 +17,7 @@ const DEFAULT_ANNOUNCEMENTS = [
   '✦ 100% Certified Pure Handcrafted Ensembles · Guna',
 ];
 const DEFAULT_LINKS = [
-  { label: 'Stories', href: '/#stories', isActive: true },
-  { label: 'Reels', href: '/reels', isActive: true },
+  { label: 'Shop From The Video', href: '/#shop-from-video', isActive: true },
   { label: 'Living Looks', href: '/#products', isActive: true },
 ];
 const DEFAULT_SETTINGS = {
@@ -68,7 +67,12 @@ const settingsInput = z.object({
 
 async function getSettings() {
   const saved = await NavigationSettings.findOne({ key: 'storefront' }).lean();
-  return { ...DEFAULT_SETTINGS, ...(saved || {}), colors: { ...DEFAULT_SETTINGS.colors, ...(saved?.colors || {}) } };
+  return {
+    ...DEFAULT_SETTINGS,
+    ...(saved || {}),
+    links: normalizeNavigationLinks(saved?.links ?? DEFAULT_LINKS),
+    colors: { ...DEFAULT_SETTINGS.colors, ...(saved?.colors || {}) },
+  };
 }
 
 const menuInput = z.object({
@@ -101,10 +105,17 @@ module.exports = ({ auth }) => {
   router.put('/manage/settings', auth, requireCatalogRole, validate(settingsInput), audit('navigation.settings.update', 'NavigationSettings'), asyncHandler(async (req, res) => {
     const settings = await NavigationSettings.findOneAndUpdate(
       { key: 'storefront' },
-      { ...req.body, key: 'storefront', updatedBy: req.user.id },
+      { ...req.body, links: normalizeNavigationLinks(req.body.links), key: 'storefront', updatedBy: req.user.id },
       { returnDocument: 'after', upsert: true, runValidators: true, setDefaultsOnInsert: true },
     ).lean();
-    res.json({ data: { ...DEFAULT_SETTINGS, ...settings, colors: { ...DEFAULT_SETTINGS.colors, ...settings.colors } } });
+    res.json({
+      data: {
+        ...DEFAULT_SETTINGS,
+        ...settings,
+        links: normalizeNavigationLinks(settings?.links ?? DEFAULT_LINKS),
+        colors: { ...DEFAULT_SETTINGS.colors, ...(settings?.colors || {}) },
+      },
+    });
   }));
 
   router.put('/manage/:key', auth, requireCatalogRole, validate(menuInput), audit('navigation.update', 'NavigationMenu'), asyncHandler(async (req, res) => {

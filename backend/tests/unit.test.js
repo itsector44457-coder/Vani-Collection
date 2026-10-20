@@ -15,8 +15,27 @@ const { serviceability } = require('../src/services/shipping');
 const { signHmac, verifyHmac } = require('../src/lib/signature');
 const { issueTokens, setAuthCookies } = require('../src/services/tokens');
 const { contentPublicId, countCloudinaryAssets, isDuplicateAssetError, listCloudinaryAssets, uploadOrReuse } = require('../src/lib/media-assets');
+const { normalizeNavigationLinks } = require('../src/lib/navigation-defaults');
 
 const silentLogger = { info() {}, warn() {}, error() {}, debug() {}, child() { return this; } };
+
+test('retired Stories/Reels navigation links are replaced by Shop From The Video', () => {
+  const links = normalizeNavigationLinks([
+    { label: 'Stories', href: '/#stories', isActive: true },
+    { label: 'Reels', href: '/reels', isActive: true },
+    { label: 'Contact', href: '/contact', isActive: true },
+  ]);
+  assert.deepEqual(links, [
+    { label: 'Shop From The Video', href: '/#shop-from-video', isActive: true },
+    { label: 'Contact', href: '/contact', isActive: true },
+  ]);
+
+  const existingVideoLink = normalizeNavigationLinks([
+    { label: 'Video', href: '/#shop-from-video', isActive: true },
+    { label: 'Journal', href: '/journal', isActive: true },
+  ]);
+  assert.equal(existingVideoLink.filter((link) => link.href === '/#shop-from-video').length, 1);
+});
 
 test('config validation rejects missing secrets', () => {
   const saved = { ...process.env };

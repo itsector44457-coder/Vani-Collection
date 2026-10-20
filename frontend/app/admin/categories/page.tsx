@@ -14,6 +14,7 @@ import {
   type NavigationSettings,
   type StoreCategory,
 } from "@/lib/api-client";
+import { normalizeNavigationLinks } from "@/lib/navigation";
 
 const inputClass = "w-full rounded-xl border border-[#e5ded5] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/10";
 const secondaryClass = "rounded-xl border border-[#e5ded5] bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:border-[#881337]/40";
@@ -35,8 +36,7 @@ const DEFAULT_NAV_SETTINGS: NavigationSettings = {
     "✦ 100% Certified Pure Handcrafted Ensembles · Guna",
   ],
   links: [
-    { label: "Stories", href: "/#stories", isActive: true },
-    { label: "Reels", href: "/reels", isActive: true },
+    { label: "Shop From The Video", href: "/#shop-from-video", isActive: true },
     { label: "Living Looks", href: "/#products", isActive: true },
   ],
   colors: NAV_THEME_PRESETS.atelier,
@@ -94,7 +94,11 @@ export default function CategoriesPage() {
       api.navigationMenus(signal),
       api.navigationSettings(signal),
     ]);
-    return { categories: categoryResult.data, menus: menuResult.data, settings: settingsResult.data };
+    return {
+      categories: categoryResult.data,
+      menus: menuResult.data,
+      settings: { ...settingsResult.data, links: normalizeNavigationLinks(settingsResult.data.links) },
+    };
   };
 
   useEffect(() => {
@@ -235,8 +239,8 @@ export default function CategoriesPage() {
     setError(null);
     setNotice(null);
     try {
-      const result = await api.saveNavigationSettings(navSettings);
-      setNavSettings(result.data);
+      const result = await api.saveNavigationSettings({ ...navSettings, links: normalizeNavigationLinks(navSettings.links) });
+      setNavSettings({ ...result.data, links: normalizeNavigationLinks(result.data.links) });
       setNotice("Navbar appearance and content saved.");
     } catch (cause) {
       setError(errorMessage(cause, "Could not save navbar settings."));
@@ -498,7 +502,7 @@ export default function CategoriesPage() {
               {navSettings.links.map((link, index) => (
                 <div key={`nav-link-${index}`} className="grid gap-2 rounded-xl border border-[#eee8df] p-3 sm:grid-cols-[1fr_2fr_auto_auto]">
                   <input aria-label="Navbar link label" className={inputClass} value={link.label} maxLength={60} onChange={(event) => updateNavLink(index, { label: event.target.value })} />
-                  <input aria-label="Navbar link URL" className={inputClass} value={link.href} maxLength={300} onChange={(event) => updateNavLink(index, { href: event.target.value })} placeholder="/reels" />
+                  <input aria-label="Navbar link URL" className={inputClass} value={link.href} maxLength={300} onChange={(event) => updateNavLink(index, { href: event.target.value })} placeholder="/products or /#shop-from-video" />
                   <label className="flex items-center gap-2 text-xs text-stone-600"><input type="checkbox" checked={link.isActive} onChange={(event) => updateNavLink(index, { isActive: event.target.checked })} /> Show</label>
                   <button type="button" className={secondaryClass} onClick={() => setNavSettings((current) => ({ ...current, links: current.links.filter((_item, itemIndex) => itemIndex !== index) }))}>Remove</button>
                 </div>

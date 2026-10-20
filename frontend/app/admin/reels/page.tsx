@@ -1,11 +1,5 @@
-import type { Metadata } from "next";
-import ReelsView from "./reels-view";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Reels",
-  description: "Manage reels content for the Vani Collection storefront.",
-};
-
-export default function ReelsPage() {
-  return <ReelsView />;
+export default function LegacyAdminReelsPage(): never {
+  redirect("/admin/shop-from-video");
 }

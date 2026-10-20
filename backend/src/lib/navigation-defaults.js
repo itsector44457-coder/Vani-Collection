@@ -48,4 +48,25 @@ function mergeNavigationMenus(savedMenus) {
   }));
 }
 
-module.exports = { DEFAULT_NAVIGATION_MENUS, mergeNavigationMenus };
+const DEFAULT_STOREFRONT_LINK = { label: 'Shop From The Video', href: '/#shop-from-video', isActive: true };
+
+function normalizeNavigationLinks(links) {
+  const retained = (Array.isArray(links) ? links : []).filter((link) => {
+    const label = String(link?.label || '').trim().toLowerCase();
+    const href = String(link?.href || '');
+    const [path = ''] = href.split(/[?#]/, 1);
+    const hash = href.match(/#([^?]*)/)?.[1]?.toLowerCase();
+    return !(
+      label === 'stories' ||
+      label === 'story highlights' ||
+      label === 'reels' ||
+      path.toLowerCase() === '/reels' ||
+      path.toLowerCase().startsWith('/reels/') ||
+      hash === 'stories'
+    );
+  });
+  const hasVideoLink = retained.some((link) => String(link.href || '').split('#')[1]?.split('?')[0] === 'shop-from-video');
+  return !hasVideoLink && retained.length < 8 ? [DEFAULT_STOREFRONT_LINK, ...retained] : retained;
+}
+
+module.exports = { DEFAULT_NAVIGATION_MENUS, mergeNavigationMenus, normalizeNavigationLinks };

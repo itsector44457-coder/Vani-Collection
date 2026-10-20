@@ -30,7 +30,7 @@ import {
   type ContentDoc,
   type ContentInput,
 } from "@/lib/api-client";
-import { CONTENT_KINDS, type ContentKind } from "@/lib/content";
+import { CONTENT_EDITOR_KINDS, type ContentEditorKind } from "@/lib/content";
 import { useApiResource } from "@/lib/use-api";
 import { useCatalogue } from "@/lib/use-storefront";
 
@@ -48,7 +48,6 @@ const KIND_HINTS: Record<string, string> = {
   testimonial: "Homepage customer reviews — managed in Admin → Homepage reviews (consent + verified checks)",
   lookbook: "Homepage shoppable lookbook (first published block only)",
   faq: "Homepage FAQ accordion + FAQPage structured data",
-  section: "Homepage category story tiles",
   page: "Standalone page copy",
   policy: "Shipping / returns / privacy policy copy",
   product_collection: "Homepage product selection and display order",
@@ -60,15 +59,14 @@ const KIND_TONES: Record<string, BadgeTone> = {
   testimonial: "info",
   lookbook: "success",
   faq: "warning",
-  section: "neutral",
   page: "neutral",
   policy: "neutral",
   journal: "gold",
   product_collection: "info",
 };
 
-type KindFilter = "all" | ContentKind;
-const KIND_OPTIONS: KindFilter[] = ["all", ...CONTENT_KINDS];
+type KindFilter = "all" | ContentEditorKind;
+const KIND_OPTIONS: KindFilter[] = ["all", ...CONTENT_EDITOR_KINDS];
 
 /** `url | alt | kind`, one per line — friendlier than asking an editor to write JSON for media. */
 const mediaToText = (media?: ContentDoc["media"]): string =>
@@ -107,7 +105,7 @@ interface FormPin {
 
 interface FormState {
   key: string;
-  kind: ContentKind;
+  kind: ContentEditorKind;
   title: string;
   subtitle: string;
   body: string;
@@ -127,9 +125,6 @@ interface FormState {
   testiProduct: string;
   testiDate: string;
   testiImage: string;
-  // Section / Story specific fields
-  sectionFilterKey: string;
-  sectionCount: string;
   // Page SEO fields
   seoTitle: string;
   seoDescription: string;
@@ -163,8 +158,6 @@ const EMPTY_FORM: FormState = {
   testiProduct: "",
   testiDate: "",
   testiImage: "",
-  sectionFilterKey: "",
-  sectionCount: "",
   seoTitle: "",
   seoDescription: "",
   collectionProductIds: "",
@@ -175,7 +168,7 @@ const EMPTY_FORM: FormState = {
   ],
 };
 
-const toForm = (doc: ContentDoc): FormState => {
+const toForm = (doc: ContentDoc & { kind: ContentEditorKind }): FormState => {
   const blocks = doc.blocks && typeof doc.blocks === "object" && !Array.isArray(doc.blocks)
     ? doc.blocks as Record<string, unknown>
     : {};
@@ -215,9 +208,6 @@ const toForm = (doc: ContentDoc): FormState => {
     testiProduct: typeof blocks.product === "string" ? blocks.product : "",
     testiDate: typeof blocks.date === "string" ? blocks.date : "",
     testiImage: typeof blocks.image === "string" ? blocks.image : (typeof blocks.avatar === "string" ? blocks.avatar : (typeof blocks.photo === "string" ? blocks.photo : (doc.media?.[0]?.url ?? ""))),
-    // Section / Story fields
-    sectionFilterKey: typeof blocks.filterKey === "string" ? blocks.filterKey : "",
-    sectionCount: typeof blocks.count === "string" ? blocks.count : "",
     // Page SEO fields
     seoTitle: typeof blocks.seoTitle === "string" ? blocks.seoTitle : "",
     seoDescription: typeof blocks.seoDescription === "string" ? blocks.seoDescription : "",
@@ -243,11 +233,11 @@ export default function ContentPage() {
 
   const content = useApiResource<{ data: ContentDoc[] }>((signal) => api.managedContent(signal), { data: DEMO_CONTENT });
   const catalogue = useCatalogue({ allPages: true });
-  const all = content.data.data;
+  const all = content.data.data.filter((doc): doc is ContentDoc & { kind: ContentEditorKind } => doc.kind !== "section");
 
   const counts = useMemo(() => {
     const byKind: Record<string, number> = { all: all.length };
-    for (const value of CONTENT_KINDS) byKind[value] = all.filter((doc) => doc.kind === value).length;
+    for (const value of CONTENT_EDITOR_KINDS) byKind[value] = all.filter((doc) => doc.kind === value).length;
     return byKind;
   }, [all]);
 
@@ -303,7 +293,7 @@ export default function ContentPage() {
     }));
   };
 
-  const nextKeyForKind = (k: ContentKind) => {
+  const nextKeyForKind = (k: ContentEditorKind) => {
     const prefix = k === "page" ? "page." : k === "policy" ? "policy." : `home.${k}.`;
     const matching = all.filter((doc) => doc.kind === k).map((doc) => doc.key);
     const used = new Set(matching);
@@ -314,7 +304,7 @@ export default function ContentPage() {
 
   // Testimonials and journal articles have dedicated editors with the safety/SEO fields this
   // generic block form cannot express. Route staff there instead of saving them half-configured.
-  const dedicatedPath = (value: ContentKind) => (value === "testimonial" ? "/admin/testimonials" : value === "journal" ? "/admin/journal" : null);
+  const dedicatedPath = (value: ContentEditorKind) => (value === "testimonial" ? "/admin/testimonials" : value === "journal" ? "/admin/journal" : null);
 
   const openCreate = () => {
     const nextKind = kind === "all" ? "banner" : kind;
@@ -346,7 +336,7 @@ export default function ContentPage() {
     setFormOpen(true);
   };
 
-  const onKindChange = (newKind: ContentKind) => {
+  const onKindChange = (newKind: ContentEditorKind) => {
     const dedicated = dedicatedPath(newKind);
     if (!editing && dedicated) {
       setFormOpen(false);
@@ -360,7 +350,7 @@ export default function ContentPage() {
     }));
   };
 
-  const openEdit = (doc: ContentDoc) => {
+  const openEdit = (doc: ContentDoc & { kind: ContentEditorKind }) => {
     const dedicated = dedicatedPath(doc.kind);
     if (dedicated) {
       router.push(dedicated);
@@ -422,17 +412,6 @@ export default function ContentPage() {
       blocks = {
         tag: form.heroTag.trim() || undefined,
         position: form.focalPosition || "object-center",
-      };
-    } else if (form.kind === "section") {
-      if (!form.title.trim()) {
-        setError("Collection / Story name is required.");
-        return;
-      }
-      blocks = {
-        filterKey: form.sectionFilterKey.trim() || undefined,
-        count: form.sectionCount.trim() || undefined,
-        tagline: form.subtitle.trim() || undefined,
-        description: form.body.trim() || undefined,
       };
     } else if (form.kind === "page") {
       if (!form.title.trim()) {
@@ -497,13 +476,13 @@ export default function ContentPage() {
     const payload: ContentInput = {
       kind: form.kind,
       title: form.title.trim() || undefined,
-      subtitle: (form.kind === "banner" || form.kind === "section" || form.kind === "page" || form.kind === "policy" || form.kind === "product_collection" || form.kind === "lookbook")
+      subtitle: (form.kind === "banner" || form.kind === "page" || form.kind === "policy" || form.kind === "product_collection" || form.kind === "lookbook")
         ? (form.subtitle.trim() || undefined)
         : undefined,
-      body: (form.kind === "banner" || form.kind === "faq" || form.kind === "section" || form.kind === "page" || form.kind === "policy" || form.kind === "testimonial")
+      body: (form.kind === "banner" || form.kind === "faq" || form.kind === "page" || form.kind === "policy" || form.kind === "testimonial")
         ? (form.body.trim() || undefined)
         : undefined,
-      ctaLabel: (form.kind === "banner" || form.kind === "section" || form.kind === "page")
+      ctaLabel: (form.kind === "banner" || form.kind === "page")
         ? (form.ctaLabel.trim() || undefined)
         : undefined,
       ctaHref: (form.kind === "banner" || form.kind === "page")
@@ -512,7 +491,7 @@ export default function ContentPage() {
       position,
       status: form.status,
       ...(blocks !== undefined ? { blocks } : {}),
-      ...(form.kind === "banner" || form.kind === "section" || form.kind === "lookbook" || form.kind === "page"
+      ...(form.kind === "banner" || form.kind === "lookbook" || form.kind === "page"
         ? (media.length ? { media } : {})
         : {}),
     };
@@ -580,7 +559,7 @@ export default function ContentPage() {
       {notice && <Alert tone="success">{notice}</Alert>}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Blocks" value={String(stats.total)} hint="Across every kind" />
+        <StatCard label="Blocks" value={String(stats.total)} hint="Editable CMS blocks" />
         <StatCard label="Published" value={String(stats.published)} hint="Live on the storefront" tone="success" />
         <StatCard label="Drafts" value={String(stats.drafts)} hint="Saved but hidden" tone={stats.drafts ? "warning" : undefined} />
         <StatCard label="FAQ entries" value={String(stats.faqs)} hint="Also emitted as FAQPage data" tone="info" />
@@ -588,7 +567,7 @@ export default function ContentPage() {
 
       <Card title="What each kind drives" className="!p-4">
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {CONTENT_KINDS.map((value) => (
+          {CONTENT_EDITOR_KINDS.map((value) => (
             <div key={value} className="flex items-start gap-2 rounded-xl bg-[#faf7f2]/70 px-3 py-2">
               <Badge tone={KIND_TONES[value] ?? "neutral"}>{value}</Badge>
               <span className="text-[11.5px] leading-snug text-stone-600">{KIND_HINTS[value]}</span>
@@ -730,8 +709,8 @@ export default function ContentPage() {
               />
             </Field>
             <Field label="Kind" htmlFor="content-kind">
-              <Select id="content-kind" value={form.kind} onChange={(event) => onKindChange(event.target.value as ContentKind)}>
-                {CONTENT_KINDS.map((value) => (
+              <Select id="content-kind" value={form.kind} onChange={(event) => onKindChange(event.target.value as ContentEditorKind)}>
+                {CONTENT_EDITOR_KINDS.map((value) => (
                   <option key={value} value={value}>{value}</option>
                 ))}
               </Select>
@@ -894,61 +873,6 @@ export default function ContentPage() {
                       <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
                         <video src={item.url} controls muted playsInline preload="metadata" className="h-32 w-full bg-black object-cover" />
                         <p className="truncate px-3 py-1.5 text-[11px] text-stone-500">{item.alt || "Hero video"}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Field>
-            </div>
-          )}
-
-          {/* ================= 4. CATEGORY STORY TILE (SECTION) ================= */}
-          {form.kind === "section" && (
-            <div className="space-y-4">
-              <Field label="Category / Story Name *" htmlFor="content-title" hint="Title on the story tile (e.g. Pure Mul Cotton)">
-                <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Pure Mul Cotton" />
-              </Field>
-
-              <Field label="Tagline" htmlFor="content-subtitle" hint="Short tagline shown below name">
-                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted everyday grace" />
-              </Field>
-
-              <Field label="Description" htmlFor="content-body" hint="Story copy displayed inside the reel modal">
-                <Textarea id="content-body" rows={3} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="Description displayed when story is opened..." />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Category Filter Key *" htmlFor="section-filter-key" hint="Matches category tab (e.g. mul-cotton, festive, anarkali, suits)">
-                  <TextInput id="section-filter-key" value={form.sectionFilterKey} onChange={(e) => set("sectionFilterKey", e.target.value)} placeholder="e.g. mul-cotton" />
-                </Field>
-                <Field label="Badge / Count" htmlFor="section-count" hint="Tag on tile (e.g. 18 Styles or New Arrival)">
-                  <TextInput id="section-count" value={form.sectionCount} onChange={(e) => set("sectionCount", e.target.value)} placeholder="e.g. 18 Styles" />
-                </Field>
-              </div>
-
-              <Field label="CTA Button Label" htmlFor="content-cta-label" hint="Button text inside the story reel">
-                <TextInput id="content-cta-label" value={form.ctaLabel} onChange={(e) => set("ctaLabel", e.target.value)} placeholder="Shop this collection" />
-              </Field>
-
-              <Field label="Story Media (Cover Photo & Optional Video)" htmlFor="content-media" hint="Upload cover photo and optional video (first image is cover).">
-                <Textarea id="content-media" rows={3} value={form.mediaText} onChange={(e) => set("mediaText", e.target.value)} placeholder={"https://cdn.example.com/story.jpg | Story cover | image"} className="font-mono !text-[12px]" />
-                <div className="flex flex-wrap gap-4 mt-2">
-                  <MediaUploadField type="image" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | image`)].filter(Boolean).join("\n"))} disabled={busy} />
-                  <MediaUploadField type="video" onUploaded={(urls) => set("mediaText", [form.mediaText, ...urls.map((url) => `${url} | | video`)].filter(Boolean).join("\n"))} disabled={busy} />
-                </div>
-                {textToMedia(form.mediaText).length > 0 && (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    {textToMedia(form.mediaText).filter((item) => item.kind !== "video").map((item) => (
-                      <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={item.url} alt={item.alt || "Story cover preview"} className="h-32 w-full object-cover" />
-                        <p className="truncate px-3 py-1.5 text-[11px] text-stone-500">{item.alt || "Story cover photo"}</p>
-                      </div>
-                    ))}
-                    {textToMedia(form.mediaText).filter((item) => item.kind === "video").map((item) => (
-                      <div key={item.url} className="overflow-hidden rounded-xl border border-[#ebe6de]">
-                        <video src={item.url} controls muted playsInline preload="metadata" className="h-32 w-full object-cover" />
-                        <p className="truncate px-3 py-1.5 text-[11px] text-stone-500">{item.alt || "Story video"}</p>
                       </div>
                     ))}
                   </div>

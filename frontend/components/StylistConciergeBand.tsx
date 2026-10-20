@@ -1,69 +1,48 @@
-import Link from "next/link";
-import { STORE_PHONE_DISPLAY, storeWhatsAppUrl } from "@/lib/site-contact";
+import { storeWhatsAppUrl } from "@/lib/site-contact";
 
 /**
- * Two high-contrast strips that sit between the product grid and the footer:
- *   1. Live video shopping with stylists on call (WhatsApp video call).
- *   2. Order status — a direct WhatsApp line plus the track-order page.
- *
- * Hours and languages are presentation copy; change them here if the store's schedule differs.
+ * Live video shopping. Hours and language availability are presentation copy;
+ * update them here if the store's schedule changes.
  */
 export const LIVE_SHOPPING_HOURS = "11 AM – 7 PM";
 
 export default function StylistConciergeBand() {
   return (
-    <>
-      <section aria-labelledby="live-shopping-heading" className="bg-[#38131f] text-[#f8efdf] py-12 sm:py-16 px-4 sm:px-8">
-        <div className="max-w-[1100px] mx-auto text-center">
+    <section aria-labelledby="live-shopping-heading" className="relative isolate overflow-hidden bg-[#2b0d18] text-[#f8efdf]">
+      {/* Text-free generated alternative; the supplied Shutterstock image is Editorial Use Only. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-[url('/live-video-shopping-bg.jpg')] bg-cover bg-[position:65%_center] md:bg-center"
+      />
+      <div aria-hidden="true" className="absolute inset-0 bg-black/40 md:hidden" />
+      <div aria-hidden="true" className="absolute inset-0 hidden bg-gradient-to-r from-[#260c16]/95 via-[#260c16]/85 to-[#260c16]/15 md:block" />
+      <div aria-hidden="true" className="absolute inset-0 hidden bg-gradient-to-t from-[#260c16]/25 to-transparent md:block" />
+      <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-b from-[#260c16]/55 via-[#260c16]/45 to-[#260c16]/90 md:hidden" />
+
+      <div className="relative mx-auto flex min-h-[510px] max-w-[1320px] items-center px-5 py-14 sm:px-8 md:min-h-[480px] lg:min-h-[540px]">
+        <div className="mx-auto max-w-[590px] text-center md:mx-0 md:text-left">
           <span className="text-[10px] font-semibold uppercase tracking-[0.35em] text-[#dfc28c]">
             Live Video Shopping
           </span>
-          <h2 id="live-shopping-heading" className="font-serif text-2xl sm:text-4xl mt-2">
+          <h2 id="live-shopping-heading" className="mt-3 font-serif text-3xl leading-tight sm:text-4xl lg:text-5xl">
             Shop from anywhere, anytime
           </h2>
-          <p className="mt-3 text-sm sm:text-base text-[#f8efdf]/80 max-w-xl mx-auto">
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-[#f8efdf]/90 sm:text-base md:mx-0">
             Video call our stylists live from {LIVE_SHOPPING_HOURS} to see fabrics, drape and colours before you order.
           </p>
-          <p className="mt-2 text-xs uppercase tracking-[0.2em] text-[#dfc28c]">Stylists on call · Hindi &amp; English</p>
+          <p className="mt-3 text-xs font-medium uppercase tracking-[0.18em] text-[#f1d69f]">
+            Stylists on call · Hindi &amp; English
+          </p>
           <a
             href={storeWhatsAppUrl("Hi! I would like a live video call with a stylist.")}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-7 inline-flex items-center gap-2 bg-[#dfc28c] hover:bg-[#f0d9a6] text-[#38131f] text-xs font-bold tracking-[0.18em] uppercase px-7 py-4 rounded-full transition shadow-md"
+            className="mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#dfc28c] px-7 py-4 text-xs font-bold uppercase tracking-[0.15em] text-[#38131f] shadow-lg transition hover:bg-[#f0d9a6] sm:w-auto"
           >
             WhatsApp Video Call Now
           </a>
         </div>
-      </section>
-
-      <section aria-labelledby="order-status-heading" className="bg-[#faf7f2] border-y border-[#e8dfd5] py-8 sm:py-10 px-4 sm:px-8">
-        <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-5 text-center sm:text-left">
-          <div>
-            <h2 id="order-status-heading" className="font-serif text-xl sm:text-2xl text-stone-900">
-              Order status? Message us on WhatsApp
-            </h2>
-            <p className="mt-1 text-sm text-stone-600">
-              Share your order ID and we&apos;ll send you the latest update.
-            </p>
-          </div>
-          <div className="flex flex-wrap justify-center gap-3">
-            <a
-              href={storeWhatsAppUrl("Hi! I want to check my order status.")}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center bg-[#1c1917] hover:bg-[#881337] text-white text-xs font-semibold tracking-[0.15em] uppercase px-6 py-3.5 rounded-full transition"
-            >
-              {STORE_PHONE_DISPLAY}
-            </a>
-            <Link
-              href="/track-order"
-              className="inline-flex items-center border border-stone-300 hover:border-stone-500 text-stone-800 text-xs font-semibold tracking-[0.15em] uppercase px-6 py-3.5 rounded-full transition"
-            >
-              Track your order
-            </Link>
-          </div>
-        </div>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }

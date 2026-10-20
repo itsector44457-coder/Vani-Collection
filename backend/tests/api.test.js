@@ -408,6 +408,8 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
   assert.equal(menuDefaults.status, 200);
   assert.ok(menuDefaults.body.data.menus.some((menu) => menu.key === 'lookbook'));
   assert.equal(menuDefaults.body.data.settings.brandName, 'Vani Collection');
+  assert.ok(menuDefaults.body.data.settings.links.some((link) => link.href === '/#shop-from-video'));
+  assert.ok(menuDefaults.body.data.settings.links.every((link) => !['stories', 'reels'].includes(link.label.toLowerCase())));
   assert.equal((await api('/api/navigation/manage/settings')).status, 401);
   const settingsUpdate = await api('/api/navigation/manage/settings', {
     method: 'PUT',
@@ -419,7 +421,11 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
       logoUrl: '',
       collectionLabel: 'Shop collections',
       announcements: ['Free shipping'],
-      links: [{ label: 'New arrivals', href: '/products?sort=new', isActive: true }],
+      links: [
+        { label: 'Stories', href: '/#stories', isActive: true },
+        { label: 'Reels', href: '/reels', isActive: true },
+        { label: 'New arrivals', href: '/products?sort=new', isActive: true },
+      ],
       colors: {
         announcementBg: '#111827',
         announcementText: '#f8fafc',
@@ -433,6 +439,8 @@ maybeTest('content CMS and returns workflow are enforced by role', async () => {
     },
   });
   assert.equal(settingsUpdate.status, 200, JSON.stringify(settingsUpdate.body));
+  assert.ok(settingsUpdate.body.data.links.some((link) => link.href === '/#shop-from-video'));
+  assert.ok(settingsUpdate.body.data.links.every((link) => !['stories', 'reels'].includes(link.label.toLowerCase())));
   assert.equal((await api('/api/navigation')).body.data.settings.brandName, 'Vani Atelier');
   const menuUpdate = await api('/api/navigation/manage/lookbook', {
     method: 'PUT',

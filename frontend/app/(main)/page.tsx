@@ -27,7 +27,6 @@ export default async function HomePage() {
     fetchHomepageContent({
       banners: [],
       lookbook: { title: "", subtitle: "", image: "", pins: [] },
-      stories: [],
     }),
     fetchPublishedReels(),
     // Server-rendered first paint for the shop-the-look grid; `null` (catalogue unreachable) keeps
@@ -46,7 +45,6 @@ export default async function HomePage() {
         testimonials={content.testimonials}
         lookbook={content.lookbook}
         lookbooks={content.lookbooks}
-        stories={content.stories}
         faqs={content.faqs}
         productCollection={content.productCollection}
         fromCms={content.fromCms}

@@ -12,7 +12,7 @@ A luxury Indian ethnic wear destination based in Guna, Madhya Pradesh — specia
   - Bottom sticky navigation with safe-area insets
   - Touch-optimized drawer menus & size selectors
 - **Boutique E-Commerce Suite**:
-  - Category story highlights & reels
+  - Shoppable Shop From The Video section, managed from Admin and shown directly below the hero
   - Curated Bento collections (Mul Cotton, Festive Heirlooms, Co-ord Sets, Under ₹1,999)
   - Interactive Editorial Lookbook with shoppable hotspots
   - Slide-over Cart Drawer with real-time free shipping progress bar & coupon system

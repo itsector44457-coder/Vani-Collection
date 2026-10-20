@@ -59,7 +59,7 @@ const CustomersIcon = () => (
     <path d="M16.5 5.5a3 3 0 0 1 0 6M18 14.7c1.9.4 3.3 1.8 3.9 4.3" />
   </svg>
 );
-const ReelsIcon = () => (
+const VideoIcon = () => (
   <svg width={s} height={s} viewBox="0 0 24 24" {...sp}>
     <rect x="3" y="3" width="18" height="18" rx="3.5" />
     <path d="M3 8.5h18M9 3v5.5" />
@@ -195,7 +195,7 @@ const SECTIONS: { label: string; items: NavItem[] }[] = [
   {
     label: "Content",
     items: [
-      { name: "Reels", href: "/admin/reels", icon: ReelsIcon, matchPrefix: true },
+      { name: "Shop From The Video", href: "/admin/shop-from-video", icon: VideoIcon, matchPrefix: true },
       { name: "Reviews", href: "/admin/reviews", icon: ReviewIcon, matchPrefix: true },
       { name: "Homepage reviews", href: "/admin/testimonials", icon: ReviewIcon, matchPrefix: true },
       { name: "Journal / Blog", href: "/admin/journal", icon: ContentIcon, matchPrefix: true },
