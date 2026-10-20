@@ -441,7 +441,7 @@ export default function ShopFromVideo({
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-stone-600">
             Our latest styling videos will appear here as they are published. Explore the collection in the meantime.
           </p>
-          <Link href="/products" className="mx-auto mt-6 flex min-h-11 w-fit items-center rounded-full bg-[#881337] px-6 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-[#701a35]">
+          <Link href="/products" className="button-feedback mx-auto mt-6 flex min-h-11 w-fit items-center rounded-full bg-[#881337] px-6 py-3 text-xs font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-[#701a35]">
             Browse the collection
           </Link>
         </div>

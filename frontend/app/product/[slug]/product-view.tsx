@@ -328,6 +328,7 @@ export default function ProductView({ slug, initialProduct = null }: { slug: str
                       onClick={() => setSelectedColor(color)}
                       aria-pressed={activeColor === color}
                       aria-label={`Choose ${color} color`}
+                      data-no-red-fill
                       title={color}
                       className={`h-11 w-11 rounded-full border border-black/15 transition ${
                         activeColor === color ? "ring-2 ring-[#881337] ring-offset-2" : "hover:ring-2 hover:ring-stone-300 hover:ring-offset-1"

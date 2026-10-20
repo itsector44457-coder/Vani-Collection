@@ -211,3 +211,168 @@ textarea:focus-visible,
 .animate-fadeIn {
   animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Consistent brand-red feedback for actionable controls. Overlay hit targets keep their backgrounds;
+   colour swatches use a red outline so their sample colours remain visible. */
+:root {
+  --vani-action-red: #881337;
+  --vani-action-red-pressed: #6b102b;
+}
+
+button:not(:disabled):not([aria-disabled="true"]):not([data-no-red-fill]):not([data-no-red-hover]):not(.fixed.inset-0):not(.absolute.inset-0),
+:is(a.button-feedback, a[class~="inline-flex"][class*="rounded-"]:not(.nav-snake-link)):not([aria-disabled="true"]) {
+  transition-property: background-color, border-color, color, box-shadow, scale;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (hover: hover) {
+  button:not(:disabled):not([aria-disabled="true"]):not([data-no-red-fill]):not([data-no-red-hover]):not(.fixed.inset-0):not(.absolute.inset-0):hover,
+  :is(a.button-feedback, a[class~="inline-flex"][class*="rounded-"]:not(.nav-snake-link)):not([aria-disabled="true"]):hover {
+    background-color: var(--vani-action-red) !important;
+    border-color: var(--vani-action-red) !important;
+    color: #fff !important;
+    box-shadow: 0 5px 16px rgb(136 19 55 / 22%) !important;
+  }
+
+  button:not(:disabled):not([aria-disabled="true"]):not([data-no-red-fill]):not([data-no-red-hover]):not(.fixed.inset-0):not(.absolute.inset-0):hover > *,
+  :is(a.button-feedback, a[class~="inline-flex"][class*="rounded-"]:not(.nav-snake-link)):not([aria-disabled="true"]):hover > * {
+    color: #fff !important;
+  }
+
+  button[data-no-red-fill]:not(:disabled):hover {
+    border-color: var(--vani-action-red) !important;
+    box-shadow: 0 0 0 3px rgb(136 19 55 / 22%) !important;
+  }
+}
+
+button:not(:disabled):not([aria-disabled="true"]):not([data-no-red-fill]):not([data-no-red-hover]):not(.fixed.inset-0):not(.absolute.inset-0):active,
+:is(a.button-feedback, a[class~="inline-flex"][class*="rounded-"]:not(.nav-snake-link)):not([aria-disabled="true"]):active {
+  background-color: var(--vani-action-red-pressed) !important;
+  border-color: var(--vani-action-red-pressed) !important;
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgb(107 16 43 / 28%) !important;
+  scale: 0.97;
+}
+
+button[data-no-red-fill]:not(:disabled):active {
+  border-color: var(--vani-action-red) !important;
+  box-shadow: 0 0 0 3px rgb(136 19 55 / 28%) !important;
+  scale: 0.96;
+}
+
+/* The underline is a small moving wave, like a crawling thread, rather than a static border. */
+.nav-snake-link {
+  position: relative;
+}
+
+.nav-snake-link::after {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.24rem;
+  left: 0.7rem;
+  height: 4px;
+  border-radius: 999px;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--nav-accent, var(--vani-action-red)) 12%,
+    #dfc28c 28%,
+    var(--nav-accent, var(--vani-action-red)) 48%,
+    #dfc28c 68%,
+    var(--nav-accent, var(--vani-action-red)) 88%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  clip-path: polygon(0 65%, 8% 20%, 16% 65%, 24% 20%, 32% 65%, 40% 20%, 48% 65%, 56% 20%, 64% 65%, 72% 20%, 80% 65%, 88% 20%, 96% 65%, 100% 42%, 100% 100%, 0 100%);
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transform: scaleX(0.08);
+  transform-origin: left center;
+  transition: opacity 180ms ease, transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (hover: hover) {
+  .nav-snake-link:hover::after {
+    animation: nav-snake-crawl 900ms linear infinite;
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+.nav-snake-link:focus-visible::after {
+  animation: nav-snake-crawl 700ms linear 1;
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+@media (hover: none) {
+  .nav-snake-link:active::after {
+    animation: nav-snake-crawl 450ms linear 1;
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+.nav-snake-link--mobile::after {
+  right: 2.25rem;
+  bottom: 0.16rem;
+  left: 0.75rem;
+}
+
+.nav-snake-link--quick::after {
+  right: 22%;
+  bottom: 0.08rem;
+  left: 22%;
+  height: 3px;
+}
+
+@keyframes nav-snake-crawl {
+  from { background-position: 0 50%; }
+  to { background-position: 220% 50%; }
+}
+
+/* One-shot 3D section/card reveals are driven by IntersectionObserver, never a scroll listener. */
+.scroll-flip-pending {
+  opacity: 0;
+  transform-origin: center top;
+}
+
+.scroll-flip-active {
+  animation: scroll-page-flip 680ms cubic-bezier(0.22, 0.75, 0.25, 1) both;
+  backface-visibility: hidden;
+  transform-origin: center top;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+@keyframes scroll-page-flip {
+  0% {
+    opacity: 0;
+    transform: perspective(1100px) rotateX(8deg) rotateY(-3deg) translateY(24px);
+  }
+  68% {
+    opacity: 1;
+    transform: perspective(1100px) rotateX(-1deg) rotateY(0.5deg) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(1100px) rotateX(0) rotateY(0) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-snake-link::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .scroll-flip-pending,
+  .scroll-flip-active {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    will-change: auto;
+  }
+}
