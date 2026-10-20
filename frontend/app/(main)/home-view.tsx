@@ -377,7 +377,10 @@ export default function HomeView({
       <ShopFromVideo reels={reels} />
       <OrderStatusBand />
 
-      {/* ================= 3. CURATED BENTO COLLECTIONS (Label Amrita Prestige Style) ================= */}
+      {/* ================= 3. LIVE VIDEO SHOPPING ================= */}
+      <StylistConciergeBand />
+
+      {/* ================= 4. CURATED BENTO COLLECTIONS (Label Amrita Prestige Style) ================= */}
       <section className="py-12 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
         <div className="text-center max-w-xl mx-auto mb-10 sm:mb-16">
           <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
@@ -506,7 +509,7 @@ export default function HomeView({
         </div>
       </section>
 
-      {/* ================= 4. RESPONSIVE PRODUCT GRID (2 COLS MOBILE, 3 COLS TABLET, 4 COLS PC) ================= */}
+      {/* ================= 5. RESPONSIVE PRODUCT GRID (2 COLS MOBILE, 3 COLS TABLET, 4 COLS PC) ================= */}
       <section id="products" className="py-12 sm:py-20 bg-white border-y border-[#e8dfd5]">
         <div className="max-w-[1500px] mx-auto px-3 sm:px-6 lg:px-12">
           {/* Header & Category Switcher Tabs */}
@@ -568,7 +571,7 @@ export default function HomeView({
         </div>
       </section>
 
-      {/* ================= 4a. SHOP BY CATEGORIES (tiles with live piece counts) ================= */}
+      {/* ================= 5a. SHOP BY CATEGORIES (tiles with live piece counts) ================= */}
       <ShopByCategory
         items={(categories.length
           ? categories
@@ -589,7 +592,7 @@ export default function HomeView({
         })}
       />
 
-      {/* ================= 5. INTERACTIVE LOOKBOOK (HOTSPOTS BANNER) ================= */}
+      {/* ================= 6. INTERACTIVE LOOKBOOK (HOTSPOTS BANNER) ================= */}
       {currentLookbook?.image && (
         <section id="lookbook" className="py-12 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
           <div className="text-center max-w-xl mx-auto mb-6 sm:mb-8">
@@ -811,7 +814,7 @@ export default function HomeView({
 
       <FounderMessage content={founder} />
 
-      {/* ================= 7b. FAQ (CMS `kind=faq`) ================= */}
+      {/* ================= 8b. FAQ (CMS `kind=faq`) ================= */}
       {/* Only rendered when the CMS has published questions, and every one of them is also marked up
           as FAQPage JSON-LD by app/(main)/page.tsx — markup without visible content is a spam
           signal, so the two are driven by the same array. */}
@@ -869,7 +872,7 @@ export default function HomeView({
         </section>
       )}
 
-      {/* ================= 8. THE GUNA ATELIER & CONCIERGE ================= */}
+      {/* ================= 9. THE GUNA ATELIER & CONCIERGE ================= */}
       <section className="py-16 sm:py-24 bg-white border-t border-[#f0ebe3]">
         <div className="max-w-[1300px] mx-auto px-4 sm:px-8 lg:px-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
@@ -947,9 +950,6 @@ export default function HomeView({
           </div>
         </div>
       </section>
-
-      {/* ================= 9. LIVE VIDEO SHOPPING ================= */}
-      <StylistConciergeBand />
 
     </div>
   );
