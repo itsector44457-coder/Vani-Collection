@@ -2,159 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useCart } from "../context/CartContext";
+import { useCallback, useEffect, useRef, useState } from "react";
 import SearchOverlay from "./SearchOverlay";
+import { useCart } from "../context/CartContext";
 import { api, isApiConfigured, type NavigationMenu, type NavigationSettings, type StoreCategory } from "../lib/api-client";
-import { storeWhatsAppUrl } from "../lib/site-contact";
 import { normalizeNavigationLinks } from "../lib/navigation";
 import { useModalDialog } from "../lib/use-modal-dialog";
 
-// Utility function to convert display names to URL category parameters
-const getCategoryParam = (displayName: string): string => {
-  const categoryMap: Record<string, string> = {
-    "Mul Cotton": "mul-cotton",
-    "Festive Edit": "festive", 
-    "Festive Wear": "festive",
-    "Festive Luxe": "festive",
-    "Co-ord Sets": "coord-sets",
-    "Anarkalis": "anarkalis",
-    "Daily Wear": "all",
-    "Wedding Guest": "festive",
-    "Casual Comfort": "all",
-    "Spring Collection": "all",
-    "Summer Breeze": "all",
-    "Wedding Season": "festive",
-    "Chanderi Silk": "all",
-    "Linen Blends": "all",
-    "Organza": "all",
-    "Banarasi": "all",
-  };
-  return categoryMap[displayName] || "all";
-};
-
-/* =========================================================
-   NAV DATA (Curated for Vani Collection Boutique)
-   ========================================================= */
-const NAV_ITEMS = [
-  {
-    label: "Mul Cotton",
-    featured: {
-      tag: "100-Count Handloom",
-      title: "The Bagru Heritage",
-      cta: "Explore Mul Edit",
-      gradient: "from-[#4a1525] via-[#2d0c16] to-[#701a35]",
-    },
-    columns: [
-      { title: "Pure Mul Suits", links: ["Anarkali Sets", "Straight Kurta Pants", "Angrakha Suits", "Flared Kalidaars", "Short Kurtis"] },
-      { title: "Prints & Craft", links: ["Bagru Handblock", "Dabu Mud Resist", "Kalamkari Floral", "Indigo Natural Dyes", "Ajrakh Weaves"] },
-      { title: "Bottoms & Dupattas", links: ["Mul Straight Pants", "Flared Palazzos", "Kota Doria Dupattas", "Chanderi Dupattas"] },
-      { title: "Occasions", links: ["Daily Workwear", "Summer Breezy", "Festive Minimal", "Travel Comfort"] },
-    ],
-  },
-  {
-    label: "Festive Edit",
-    featured: {
-      tag: "Wedding & Celebrations",
-      title: "Gulmohar Heirlooms",
-      cta: "Shop Royal Edit",
-      gradient: "from-[#881337] via-[#4c0519] to-[#b8935a]",
-    },
-    columns: [
-      { title: "Festive Ensembles", links: ["Silk Chanderi Sets", "Gota Patti Suits", "Sharara Sets", "Gharara & Peplums", "Zari Embroidered"] },
-      { title: "Ceremony Specials", links: ["Haldi & Mehendi", "Sangeet Glam", "Intimate Weddings", "Puja & Rituals"] },
-      { title: "Luxe Fabrics", links: ["Pure Chanderi Silk", "Tissue Organza", "Banarasi Brocade", "Raw Silk Blends"] },
-      { title: "Embellishments", links: ["Marodi Work", "Pita Zari", "Hand Mirror Work", "Scalloped Laces"] },
-    ],
-  },
-  {
-    label: "Co-ord Sets",
-    featured: {
-      tag: "Urban Elegance",
-      title: "Effortless Modern",
-      cta: "Discover Co-ords",
-      gradient: "from-[#1c1917] via-[#292524] to-[#44403c]",
-    },
-    columns: [
-      { title: "Modern Fits", links: ["High-Low Tunics", "Notch Collar Sets", "Floral Shirt Pants", "Cape & Trousers", "Short Kurti Sets"] },
-      { title: "Everyday Comfort", links: ["Airport Chic", "Brunch Outfits", "Work From Anywhere", "Resort Loungewear"] },
-      { title: "Fabrics", links: ["Breathable Cotton", "Slub Rayon", "Linen Blends", "Textured Voile"] },
-    ],
-  },
-  {
-    label: "Anarkalis",
-    featured: {
-      tag: "Regal Flair",
-      title: "Mughal Grandeur",
-      cta: "View Anarkalis",
-      gradient: "from-[#5a4a3a] via-[#3d3229] to-[#8b7355]",
-    },
-    columns: [
-      { title: "Silhouette Drama", links: ["Floor Length Anarkalis", "Tiered Kalidaar", "Angrakha Flared", "Asymmetric Flair"] },
-      { title: "Occasion Sets", links: ["Bridal Guest", "Festive Soiree", "Daytime Elegance", "Classic Red & White"] },
-      { title: "Details", links: ["Deep Back with Latkans", "Churidar Pants", "Heavy Border Dupattas"] },
-    ],
-  },
-  {
-    label: "Under ₹1,999",
-    isNew: true,
-    featured: {
-      tag: "Pocket Luxe",
-      title: "Pure Cotton Budget",
-      cta: "Shop Under 1999",
-      gradient: "from-[#064e3b] via-[#022c22] to-[#047857]",
-    },
-    columns: [
-      { title: "Bestseller Kurtis", links: ["Daily Cotton Kurtis", "Short Tunic Tops", "Printed Kurtas"] },
-      { title: "Value Sets", links: ["Kurta Pant Combos", "Everyday Mul Sets", "Summer Essentials"] },
-      { title: "Mix & Match", links: ["Cotton Pants", "Kota Dupattas", "Palazzos"] },
-    ],
-  },
+const FALLBACK_CATEGORIES: StoreCategory[] = [
+  { name: "Mul Cotton", slug: "mul-cotton", navigationGroup: "By Fabric", position: 0, isActive: true },
+  { name: "Festive Edit", slug: "festive", navigationGroup: "By Occasion", position: 1, isActive: true },
+  { name: "Co-ord Sets", slug: "coord-sets", navigationGroup: "By Style", position: 2, isActive: true },
+  { name: "Anarkalis", slug: "anarkalis", navigationGroup: "By Style", position: 3, isActive: true },
+  { name: "Kurta Sets", slug: "kurta-sets", navigationGroup: "By Style", position: 4, isActive: true },
+  { name: "Sarees", slug: "sarees", navigationGroup: "By Style", position: 5, isActive: true },
+  { name: "Dupattas", slug: "dupattas", navigationGroup: "By Style", position: 6, isActive: true },
 ];
 
-const FALLBACK_DROPDOWN_MENUS: NavigationMenu[] = [
-  {
-    key: "lookbook",
-    label: "Lookbook",
-    position: 1,
-    isActive: true,
-    columns: [
-      { title: "Latest Edits", items: [
-        { label: "Spring Collection", href: "/products?sort=new" },
-        { label: "Summer Breeze", href: "/products" },
-        { label: "Festive Luxe", categorySlug: "festive" },
-        { label: "Wedding Season", categorySlug: "festive" },
-      ] },
-      { title: "Inspiration", items: [
-        { label: "Celebrity Picks", href: "/products?sort=featured" },
-        { label: "Stylist Favorites", href: "/products?sort=featured" },
-        { label: "Best Sellers", href: "/products?sort=featured" },
-        { label: "New Arrivals", href: "/products?sort=new" },
-      ] },
-    ],
-  },
-  {
-    key: "shop-by-price",
-    label: "Shop by Price",
-    position: 2,
-    isActive: true,
-    columns: [
-      { title: "Budget Friendly", items: [
-        { label: "Under ₹1,499", href: "/products?price=Under+%E2%82%B91%2C499" },
-        { label: "₹1,500 – ₹1,999", href: "/products?price=%E2%82%B91%2C500+%E2%80%93+%E2%82%B91%2C999" },
-        { label: "₹2,000 – ₹2,999", href: "/products?price=%E2%82%B92%2C000+%E2%80%93+%E2%82%B92%2C999" },
-      ] },
-      { title: "Premium Range", items: [
-        { label: "₹3,000 - ₹5,000", href: "/products?price=%E2%82%B93%2C000+%26+Above" },
-        { label: "Premium Collection", href: "/products?price=%E2%82%B93%2C000+%26+Above" },
-        { label: "Luxury Collection", href: "/products?sort=price-high" },
-      ] },
-    ],
-  },
-];
-
-const FALLBACK_NAV_SETTINGS: NavigationSettings = {
+const FALLBACK_SETTINGS: NavigationSettings = {
   theme: "atelier",
   brandName: "Vani Collection",
   brandTagline: "Speciality in Fancy Kurties & Party Wear Dresses",
@@ -170,6 +35,7 @@ const FALLBACK_NAV_SETTINGS: NavigationSettings = {
     { label: "Shop From The Video", href: "/#shop-from-video", isActive: true },
     { label: "Journal", href: "/journal", isActive: true },
     { label: "Living Looks", href: "/#products", isActive: true },
+    { label: "Lookbook", href: "/#lookbook", isActive: true },
     { label: "Contact", href: "/contact", isActive: true },
   ],
   colors: {
@@ -184,19 +50,27 @@ const FALLBACK_NAV_SETTINGS: NavigationSettings = {
   },
 };
 
+type DesktopMenu = "collections" | "more" | null;
+
+type ConfiguredMenuItem = NavigationMenu["columns"][number]["items"][number];
+
+function getMenuItemHref(item: ConfiguredMenuItem): string {
+  return item.categorySlug ? `/collections/${encodeURIComponent(item.categorySlug)}` : item.href || "/products";
+}
+
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname() ?? "/";
+  const isProductPage = pathname.startsWith("/product/");
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [expandedMobileCategory, setExpandedMobileCategory] = useState<string | null>("Mul Cotton");
+  const [openDesktopMenu, setOpenDesktopMenu] = useState<DesktopMenu>(null);
+  const [announcementIndex, setAnnouncementIndex] = useState(0);
   const [storeCategories, setStoreCategories] = useState<StoreCategory[]>([]);
-  const [dropdownMenus, setDropdownMenus] = useState<NavigationMenu[]>(FALLBACK_DROPDOWN_MENUS);
-  const [settings, setSettings] = useState<NavigationSettings>(FALLBACK_NAV_SETTINGS);
-  const pathname = usePathname();
-  const isProductPage = pathname?.startsWith("/product/") ?? false;
+  const [navigationMenus, setNavigationMenus] = useState<NavigationMenu[]>([]);
+  const [settings, setSettings] = useState<NavigationSettings>(FALLBACK_SETTINGS);
+  const desktopNavRef = useRef<HTMLElement>(null);
   const closeMobileDrawer = useCallback(() => setMobileDrawerOpen(false), []);
   const mobileDrawerRef = useModalDialog<HTMLDivElement>(mobileDrawerOpen, closeMobileDrawer);
-
   const { cartCount, setIsCartOpen, wishlist } = useCart();
 
   useEffect(() => {
@@ -204,10 +78,9 @@ export default function Navbar() {
     const controller = new AbortController();
     void api.storefrontNavigation(controller.signal)
       .then(({ data }) => {
-        setStoreCategories(data.categories);
-        setDropdownMenus(data.menus);
+        setStoreCategories(data.categories.filter((category) => category.isActive));
+        setNavigationMenus(data.menus.filter((menu) => menu.isActive).sort((a, b) => a.position - b.position));
         setSettings({ ...data.settings, links: normalizeNavigationLinks(data.settings.links) });
-        setExpandedMobileCategory(data.categories[0]?.navigationGroup || null);
       })
       .catch((cause: unknown) => {
         if ((cause as Error)?.name !== "AbortError") console.error("Could not load storefront navigation", cause);
@@ -215,878 +88,454 @@ export default function Navbar() {
     return () => controller.abort();
   }, []);
 
-  const navLinks = normalizeNavigationLinks(settings.links);
-
-  const categories = storeCategories.length
-    ? storeCategories
-    : [
-        { name: "Mul Cotton", slug: "mul-cotton", navigationGroup: "By Fabric", position: 0, isActive: true },
-        { name: "Festive Edit", slug: "festive", navigationGroup: "By Occasion", position: 1, isActive: true },
-        { name: "Co-ord Sets", slug: "coord-sets", navigationGroup: "By Style", position: 2, isActive: true },
-        { name: "Anarkalis", slug: "anarkalis", navigationGroup: "By Style", position: 3, isActive: true },
-        { name: "Kurta Sets", slug: "kurta-sets", navigationGroup: "By Style", position: 4, isActive: true },
-        { name: "Sarees", slug: "sarees", navigationGroup: "By Style", position: 5, isActive: true },
-        { name: "Dupattas", slug: "dupattas", navigationGroup: "By Style", position: 6, isActive: true },
-      ];
-  const collectionColumns = Array.from(
-    categories.reduce((groups, category) => {
-      const items = groups.get(category.navigationGroup) || [];
-      items.push({ label: category.name, href: `/collections/${encodeURIComponent(category.slug)}` });
-      groups.set(category.navigationGroup, items);
-      return groups;
-    }, new Map<string, { label: string; href: string }[]>()),
-    ([title, items]) => ({ title, items }),
-  );
-  const menuColumns = (menu: NavigationMenu | undefined) => (menu?.columns || []).map((column) => ({
-    title: column.title,
-    items: column.items.map((item) => ({
-      label: item.label,
-      href: item.categorySlug ? `/collections/${encodeURIComponent(item.categorySlug)}` : item.href || "/products",
-    })),
-  }));
-  const mobileCollectionGroups = storeCategories.length
-    ? collectionColumns
-    : NAV_ITEMS.map((item) => ({
-        title: item.label,
-        items: item.columns.flatMap((column) => column.links.map((label) => ({
-          label,
-          href: `/collections/${getCategoryParam(label)}`,
-        }))),
-      }));
-  const mobileDropdownGroups = dropdownMenus
-    .filter((menu) => menu.isActive)
-    .flatMap((menu) => menu.columns.map((column) => ({
-      title: `${menu.label}: ${column.title}`,
-      items: column.items.map((item) => ({
-        label: item.label,
-        href: item.categorySlug ? `/collections/${encodeURIComponent(item.categorySlug)}` : item.href || "/products",
-      })),
-    })));
-
-  /* ---------- Scroll shadow ---------- */
+  const announcements = settings.announcements.filter((message) => message.trim());
+  const announcementCount = announcements.length;
   useEffect(() => {
-    const onScroll = () => {
-      setScrolled(window.scrollY > 15);
+    if (announcementCount < 2) return;
+    const interval = window.setInterval(() => {
+      setAnnouncementIndex((current) => (current + 1) % announcementCount);
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [announcementCount]);
+
+  const navLinks = normalizeNavigationLinks(settings.links);
+  const navItems = [
+    ...navLinks.filter((link) => link.isActive),
+    ...(!navLinks.some((link) => link.href === "/journal" || link.label.toLowerCase() === "journal")
+      ? [{ label: "Journal", href: "/journal", isActive: true }]
+      : []),
+    ...(!navLinks.some((link) => link.href === "/about" || link.label.toLowerCase().includes("story") || link.label.toLowerCase().includes("about"))
+      ? [{ label: "Our Story", href: "/about", isActive: true }]
+      : []),
+    ...(!navLinks.some((link) => link.href === "/contact" || link.label.toLowerCase() === "contact")
+      ? [{ label: "Contact", href: "/contact", isActive: true }]
+      : []),
+  ];
+  const primaryDesktopLinks = navItems.slice(0, 4);
+  const overflowDesktopLinks = navItems.slice(4);
+  const hasMoreNavigation = overflowDesktopLinks.length > 0 || navigationMenus.length > 0;
+  const categories = storeCategories.length ? storeCategories : FALLBACK_CATEGORIES;
+
+  useEffect(() => {
+    if (!openDesktopMenu) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!desktopNavRef.current?.contains(event.target as Node)) setOpenDesktopMenu(null);
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenDesktopMenu(null);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [openDesktopMenu]);
+
+  const openSearch = () => {
+    setMobileDrawerOpen(false);
+    setOpenDesktopMenu(null);
+    setSearchOpen(true);
+  };
+  const closeMenus = () => setOpenDesktopMenu(null);
+  const displayedAnnouncement = announcementCount
+    ? announcements[announcementIndex % announcementCount]
+    : "";
 
   return (
     <>
-      {/* ================= SLIDING ANNOUNCEMENT BAR ================= */}
-      <motion.div
-        initial={{ y: -40, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        style={{ backgroundColor: settings.colors.announcementBg, color: settings.colors.announcementText, borderBottom: `1px solid ${settings.colors.announcementBorder}` }}
-        className="relative overflow-hidden py-2 select-none text-[10px] sm:text-[11px]"
-      >
-        <div className="absolute left-0 top-0 bottom-0 w-8 sm:w-16 z-10 pointer-events-none" style={{ background: `linear-gradient(to right, ${settings.colors.announcementBg}, transparent)` }} />
-        <div className="absolute right-0 top-0 bottom-0 w-8 sm:w-16 z-10 pointer-events-none" style={{ background: `linear-gradient(to left, ${settings.colors.announcementBg}, transparent)` }} />
-        <motion.div
-          className="flex whitespace-nowrap"
-          animate={{ x: ["0%", "-50%"] }}
-          transition={{ duration: 28, ease: "linear", repeat: Infinity }}
-        >
-          {[0, 1].map((half) => (
-            <div key={half} className="flex shrink-0">
-              {settings.announcements.map((msg, i) => (
-                <span
-                  key={`${half}-${i}`}
-                  className="mx-6 sm:mx-10 font-medium tracking-[0.22em] uppercase"
-                >
-                  {msg}
-                </span>
-              ))}
-            </div>
-          ))}
-        </motion.div>
-      </motion.div>
-
-      {/* ================= MAIN HEADER ================= */}
-      <header className="sticky top-0 z-50 transition-shadow duration-300">
-        <motion.div
-          initial={false}
-          animate={{
-            backgroundColor: settings.colors.headerBg,
-          }}
-          transition={{ duration: 0.2 }}
+      {displayedAnnouncement && (
+        <div
+          aria-live="polite"
+          className="px-3 py-1.5 text-center text-[9px] font-medium tracking-wide sm:text-[10px]"
           style={{
-            backdropFilter: scrolled ? "blur(16px)" : "blur(0px)",
-            WebkitBackdropFilter: scrolled ? "blur(16px)" : "blur(0px)",
-            borderColor: settings.colors.announcementBorder,
-            color: settings.colors.headerText,
+            backgroundColor: settings.colors.announcementBg,
+            color: settings.colors.announcementText,
+            borderBottom: `1px solid ${settings.colors.announcementBorder}`,
           }}
-          className={`border-b transition-[border-color] duration-300 ${scrolled ? "shadow-sm" : ""}`}
         >
-          <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8 h-[66px] sm:h-[74px] flex items-center gap-2">
-            {/* ============ Left: Mobile Drawer Trigger (UNIQUE) ============ */}
-            <div className="flex items-center gap-2 lg:hidden">
-              <button
-                type="button"
-                onClick={() => setMobileDrawerOpen(true)}
-                aria-label="Mobile menu khole"
-                aria-expanded={mobileDrawerOpen}
-                aria-controls="mobile-navigation-drawer"
-                className="group relative w-11 h-11 -ml-1 rounded-full flex items-center justify-center transition-all duration-300 active:scale-95"
-              >
-                {/* Rotating conic accent ring (brand gradient) */}
-                <span
-                  className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity duration-300"
-                  style={{
-                    background: `conic-gradient(from 0deg, ${settings.colors.announcementText}, ${settings.colors.accent}, ${settings.colors.announcementText})`,
-                    padding: "1.5px",
-                    WebkitMask:
-                      "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-                    WebkitMaskComposite: "xor",
-                    maskComposite: "exclude",
-                  }}
-                />
-                {/* Soft brand glow on tap */}
-                <span className="absolute inset-0 rounded-full opacity-0 group-active:opacity-10 transition-opacity duration-200" style={{ backgroundColor: settings.colors.accent }} />
+          <span className="mx-auto block max-w-7xl truncate">{displayedAnnouncement}</span>
+        </div>
+      )}
 
-                {/* Animated 3-line icon */}
-                <span className="relative flex flex-col items-center justify-center w-[22px] h-[16px]">
-                  {/* Top line */}
-                  <span className="absolute top-0 left-0 h-[2px] w-[18px] rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[22px]" style={{ background: `linear-gradient(to right, ${settings.colors.headerText}, ${settings.colors.accent})` }} />
-                  {/* Middle line (shorter, gold) */}
-                  <span className="absolute top-[7px] left-0 h-[2px] w-[12px] rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[22px]" style={{ backgroundColor: settings.colors.announcementText }} />
-                  {/* Bottom line */}
-                  <span className="absolute bottom-0 left-0 h-[2px] w-[22px] rounded-full transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:w-[14px]" style={{ background: `linear-gradient(to right, ${settings.colors.headerText}, ${settings.colors.accent})` }} />
-
-                  {/* Tiny gold sparkle dot */}
-                  <span className="absolute -top-[3px] -right-[5px] w-[3px] h-[3px] rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100" style={{ backgroundColor: settings.colors.announcementText }} />
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSearchOpen(true)}
-                className="flex h-11 w-11 items-center justify-center rounded-full transition"
-                style={{ color: settings.colors.headerText }}
-                aria-label="Search khole"
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="M21 21l-4.35-4.35" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Center / Brand Logo */}
-            <Link
-              href="/"
-              className="flex flex-col leading-none group text-center lg:text-left shrink-0"
-            >
-              {settings.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={settings.logoUrl} alt={settings.brandName} className="max-h-12 max-w-44 object-contain" />
-              ) : (
-                <>
-                  <span className="font-serif text-[22px] sm:text-[26px] tracking-[0.06em] transition-colors font-normal whitespace-nowrap" style={{ color: settings.colors.headerText }}>
-                    {settings.brandName}
-                  </span>
-                  {settings.brandTagline && <span className="text-[7.5px] sm:text-[8.5px] tracking-[0.45em] uppercase mt-0.5 sm:mt-1 pl-[1px] font-semibold" style={{ color: settings.colors.accent }}>
-                    {settings.brandTagline}
-                  </span>}
-                </>
-              )}
-            </Link>
-
-            {/* Desktop Navigation: Mega Menu Dropdowns */}
-            <nav className="hidden lg:flex items-center gap-0 flex-1 justify-center">
-              {/* Collections Mega Menu */}
-              <MegaMenuItem
-                label={settings.collectionLabel}
-                categories={collectionColumns}
-                footerHref="/collections"
-                accent={settings.colors.accent}
-                textColor={settings.colors.headerText}
-                panelBg={settings.colors.headerBg}
-              />
-
-              {navLinks.filter((link) => link.isActive).map((link) => (
-                <Link key={`${link.label}-${link.href}`} href={link.href} className="group relative px-3 py-2 text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors whitespace-nowrap" style={{ color: settings.colors.headerText }}>
-                  <span>{link.label}</span>
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100" style={{ backgroundColor: settings.colors.accent }} />
-                </Link>
-              ))}
-
-              {!navLinks.some((link) => link.href === "/journal" || link.label.toLowerCase() === "journal") && (
-                <Link href="/journal" className="group relative px-3 py-2 text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors whitespace-nowrap" style={{ color: settings.colors.headerText }}>
-                  <span>Journal</span>
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100" style={{ backgroundColor: settings.colors.accent }} />
-                </Link>
-              )}
-
-              {!navLinks.some((link) => link.href === "/about" || link.label.toLowerCase().includes("story") || link.label.toLowerCase().includes("about")) && (
-                <Link
-                  href="/about"
-                  className="group relative px-4 py-2 text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors"
-                  style={{ color: settings.colors.headerText }}
-                >
-                  <span>Our Story</span>
-                  <span
-                    className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100"
-                    style={{ backgroundColor: settings.colors.accent }}
-                  />
-                </Link>
-              )}
-
-              {!navLinks.some((link) => link.href === "/contact" || link.label.toLowerCase() === "contact") && (
-                <Link
-                  href="/contact"
-                  className="group relative px-4 py-2 text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors"
-                  style={{ color: settings.colors.headerText }}
-                >
-                  <span>Contact</span>
-                  <span
-                    className="absolute bottom-0 left-0 right-0 h-0.5 scale-x-0 transition-transform origin-left group-hover:scale-x-100"
-                    style={{ backgroundColor: settings.colors.accent }}
-                  />
-                </Link>
-              )}
-
-              {/* Lookbook Mega Menu */}
-              {dropdownMenus.filter((menu) => menu.isActive).sort((a, b) => a.position - b.position).map((menu) => {
-                const isLookbook = menu.key === "lookbook" || menu.label.toLowerCase().includes("lookbook");
-                return (
-                  <MegaMenuItem
-                    key={menu.key}
-                    label={menu.label}
-                    triggerHref={isLookbook ? "/#lookbook" : undefined}
-                    categories={menuColumns(menu)}
-                    footerHref={isLookbook ? "/#lookbook" : "/products"}
-                    accent={settings.colors.accent}
-                    textColor={settings.colors.headerText}
-                    panelBg={settings.colors.headerBg}
-                  />
-                );
-              })}
-
-              {/* Shop By Price */}
-            </nav>
-
-            {/* Right Action Icons */}
-            <div className="flex items-center gap-0.5 shrink-0">
-              <div className="hidden lg:block">
-                <IconBtn label="Search" onClick={() => setSearchOpen(true)} accent={settings.colors.accent} textColor={settings.colors.headerText}>
-                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="M21 21l-4.35-4.35" />
-                  </svg>
-                </IconBtn>
-              </div>
-
-              {/* Wishlist Icon → /account wishlist tab */}
-              <Link href="/account" aria-label="Wishlist">
-                <IconBtn label="Wishlist" accent={settings.colors.accent} textColor={settings.colors.headerText}>
-                  <div className="relative">
-                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                      <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-                    </svg>
-                    {wishlist.length > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-rose-600 text-white text-[8px] flex items-center justify-center font-bold">
-                        {wishlist.length}
-                      </span>
-                    )}
-                  </div>
-                </IconBtn>
-              </Link>
-
-              {/* Account icon */}
-              <div className="hidden lg:block">
-                <Link href="/account" aria-label="My Account">
-                  <IconBtn label="Account" accent={settings.colors.accent} textColor={settings.colors.headerText}>
-                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                      <circle cx="12" cy="8" r="4" />
-                      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                    </svg>
-                  </IconBtn>
-                </Link>
-              </div>
-
-              {/* Shopping Bag Trigger */}
-              <button
-                onClick={() => setIsCartOpen(true)}
-                aria-label="Bag"
-                className="relative flex items-center justify-center w-10 h-10 transition-colors hover:text-[var(--nav-accent)]"
-                style={{ color: settings.colors.headerText, "--nav-accent": settings.colors.accent } as React.CSSProperties}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
-                  <path d="M3 6h18" />
-                  <path d="M16 10a4 4 0 01-8 0" />
-                </svg>
-                <AnimatePresence>
-                  {cartCount > 0 && (
-                    <motion.span
-                      key={cartCount}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: [1.3, 1] }}
-                      exit={{ scale: 0 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 18 }}
-                      className="absolute top-1.5 right-0.5 min-w-[16px] h-[16px] px-1 rounded-full bg-[#881337] text-white text-[9px] font-bold flex items-center justify-center shadow"
-                    >
-                      {cartCount}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </button>
-            </div>
-          </div>
-        </motion.div>
-
-      </header>
-
-      {/* ================= FULL MOBILE & TABLET SLIDE-OVER DRAWER ================= */}
-      <AnimatePresence>
-        {mobileDrawerOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setMobileDrawerOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[95] lg:hidden"
-            />
-
-            {/* Left Drawer */}
-            <motion.div
-              ref={mobileDrawerRef}
-              id="mobile-navigation-drawer"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="mobile-navigation-title"
-              tabIndex={-1}
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 28, stiffness: 280 }}
-              className="fixed bottom-0 left-0 top-0 z-[96] flex h-[100dvh] w-[88vw] max-w-[360px] flex-col shadow-2xl focus:outline-none lg:hidden"
-              style={{ background: settings.colors.mobileDrawerBg }}
-            >
-              {/* ── Luxury Branded Header ── */}
-              <div
-                className="relative px-5 pt-6 pb-5 flex items-end justify-between shrink-0"
-                style={{ background: `linear-gradient(135deg, ${settings.colors.announcementBg} 0%, ${settings.colors.headerText} 55%, ${settings.colors.accent} 100%)` }}
-              >
-                <div
-                  className="absolute inset-0 opacity-[0.05] pointer-events-none"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-                    backgroundSize: "150px 150px",
-                  }}
-                />
-                <div className="relative z-10">
-                  <span className="text-[8px] font-bold uppercase tracking-[0.4em] block mb-1" style={{ color: settings.colors.announcementText }}>{settings.brandTagline || "Store navigation"}</span>
-                  <h2 id="mobile-navigation-title" className="font-serif text-2xl font-light leading-none text-white">{settings.brandName}</h2>
-                  {settings.logoUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={settings.logoUrl} alt={settings.brandName} className="mt-2 max-h-9 max-w-36 object-contain" />
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={closeMobileDrawer}
-                  aria-label="Mobile menu band kare"
-                  className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white transition hover:bg-white/20"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              {/* Quick Search inside Drawer */}
-              <div className="px-4 pt-4 pb-3 border-b border-stone-200/80 bg-white/50 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileDrawerOpen(false);
-                    setSearchOpen(true);
-                  }}
-                  className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 text-left text-sm text-stone-500 transition hover:border-stone-400"
-                >
-                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="M21 21l-4.35-4.35" />
-                  </svg>
-                  <span>Search products...</span>
-                </button>
-              </div>
-
-              {/* Quick Links */}
-              <div className="grid grid-cols-2 gap-2 border-b border-stone-200/80 bg-white/30 px-4 py-3 shrink-0">
-                <Link
-                  href="/#shop-from-video"
-                  onClick={() => setMobileDrawerOpen(false)}
-                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-br from-[#881337] to-[#701a35] p-2.5 text-center text-[11px] font-semibold text-white shadow-md"
-                >
-                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="16" rx="3" />
-                    <path d="m10 9 5 3-5 3z" fill="currentColor" stroke="none" />
-                  </svg>
-                  <span>Shop From The Video</span>
-                </Link>
-                <Link
-                  href="/contact"
-                  onClick={() => setMobileDrawerOpen(false)}
-                  className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[#dfc28c]/40 bg-[#dfc28c]/15 p-2.5 text-xs font-semibold text-[#7a5c2b] transition hover:bg-[#dfc28c]/25"
-                >
-                  <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" /></svg>
-                  <span>Contact</span>
-                </Link>
-              </div>
-
-              {/* Collection groups are driven by the active category catalogue. */}
-              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5" style={{ overscrollBehavior: "contain" }}>
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-[9px] uppercase tracking-[0.3em] font-bold text-stone-400">
-                    Collections
-                  </span>
-                  <Link
-                    href="/collections"
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className="inline-flex min-h-11 items-center text-[11px] font-semibold text-[#881337] hover:underline"
-                  >
-                    Browse all collections →
-                  </Link>
-                </div>
-                {[...mobileCollectionGroups, ...mobileDropdownGroups].map((group) => {
-                  const isExpanded = expandedMobileCategory === group.title;
-                  return (
-                    <div
-                      key={group.title}
-                      className="border border-stone-200 rounded-xl overflow-hidden bg-white shadow-sm"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setExpandedMobileCategory(isExpanded ? null : group.title)}
-                        aria-expanded={isExpanded}
-                        aria-controls={`mobile-nav-group-${group.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-                        className="flex min-h-12 w-full items-center justify-between px-4 py-3.5 text-left"
-                      >
-                        <span className="flex items-center gap-2.5">
-                          <span className="font-serif text-base font-semibold text-gray-900">{group.title}</span>
-                        </span>
-                        <svg
-                          aria-hidden="true"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.5"
-                          className={`text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                        >
-                          <path d="M6 9l6 6 6-6" />
-                        </svg>
-                      </button>
-
-                      <AnimatePresence>
-                        {isExpanded && (
-                          <motion.div
-                            id={`mobile-nav-group-${group.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="space-y-4 border-t border-stone-200 bg-stone-50 px-4 py-4"
-                          >
-                            <div className="grid grid-cols-1 gap-2 pl-1">
-                              {group.items.slice(0, 20).map((link) => (
-                                <Link
-                                  key={`${group.title}-${link.label}`}
-                                  href={link.href}
-                                  onClick={() => setMobileDrawerOpen(false)}
-                                  className="group flex min-h-11 items-center gap-2 px-1 py-2 text-sm text-stone-600 transition hover:text-[#881337]"
-                                >
-                                  <span className="w-1 h-1 rounded-full bg-stone-300 group-hover:bg-[#881337] transition" />
-                                  <span>{link.label}</span>
-                                </Link>
-                              ))}
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  );
-                })}
-
-                {/* Additional Quick Links */}
-                <div className="pt-4 border-t border-stone-200 space-y-2 text-xs text-stone-700">
-                  {navLinks.filter((link) => link.isActive).map((link) => (
-                    <Link key={`mobile-${link.label}-${link.href}`} href={link.href} onClick={() => setMobileDrawerOpen(false)} className="flex min-h-11 items-center justify-between rounded-lg px-3 py-2.5 hover:bg-stone-100" style={{ color: settings.colors.headerText }}>
-                      <span>{link.label}</span><span>→</span>
-                    </Link>
-                  ))}
-                  {!navLinks.some((link) => link.href === "/journal") && (
-                    <Link href="/journal" onClick={() => setMobileDrawerOpen(false)} className="flex min-h-11 items-center justify-between rounded-lg px-3 py-2.5 hover:bg-stone-100" style={{ color: settings.colors.headerText }}>
-                      <span>Journal</span><span>→</span>
-                    </Link>
-                  )}
-                  <Link
-                    href="/#lookbook"
-                    onClick={(e) => {
-                      setMobileDrawerOpen(false);
-                      if (window.location.pathname === "/") {
-                        const target = document.getElementById("lookbook");
-                        if (target) {
-                          e.preventDefault();
-                          target.scrollIntoView({ behavior: "smooth" });
-                          window.history.pushState(null, "", "/#lookbook");
-                        }
-                      }
-                    }}
-                    className="flex items-center justify-between p-2.5 rounded-lg hover:bg-stone-100 font-semibold text-[#881337]"
-                  >
-                    <span className="inline-flex items-center gap-1.5">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[#881337]"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
-                      Shop The Lookbook
-                    </span>
-                    <span>→</span>
-                  </Link>
-                  <Link
-                    href="/about"
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className="flex min-h-11 items-center justify-between rounded-lg px-3 py-2.5 font-medium text-stone-800 hover:bg-stone-100"
-                  >
-                    <span className="flex items-center gap-2">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 14.5L5 19m5.5-5.5L19 2M9.5 14.5c1 1 2.5 2 5 .5M5 19c1 1 2.5 1.5 4.5.5"/><circle cx="17" cy="5" r="2"/></svg>
-                      <span>Our Story &amp; Guna Heritage</span>
-                    </span>
-                    <span>→</span>
-                  </Link>
-                  <Link
-                    href="/contact"
-                    onClick={() => setMobileDrawerOpen(false)}
-                    className="flex min-h-11 items-center justify-between rounded-lg border border-[#dfc28c]/40 bg-[#dfc28c]/15 px-3 py-2.5 text-xs font-semibold text-[#7a5c2b]"
-                  >
-                    <span className="flex items-center gap-2">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                      <span>Guna Flagship Atelier &amp; Contact</span>
-                    </span>
-                    <span>→</span>
-                  </Link>
-                  <a
-                    href={storeWhatsAppUrl("Hello Vani Collection Atelier!")}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-2 p-2.5 rounded-lg bg-emerald-50 text-emerald-800 font-medium border border-emerald-200 text-xs"
-                  >
-                    {/* WhatsApp brand SVG */}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                    <span>WhatsApp Styling Help</span>
-                  </a>
-                </div>
-              </div>
-
-              {/* Bottom Drawer Info */}
-              <div className="p-4 border-t text-[11px] text-center" style={{ backgroundColor: settings.colors.announcementBg, borderColor: settings.colors.announcementBorder, color: settings.colors.announcementText }}>
-                <span>{settings.announcements[0] || "Welcome to our store"}</span>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* ================= SEARCH OVERLAY ================= */}
-      <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-
-      {/* PDP renders its own contextual buy bar, so the global app bar is removed there rather
-          than leaving focusable navigation hidden underneath another fixed layer. */}
-      {!isProductPage && (
-      <nav
-        aria-label="Mobile primary navigation"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e8dfd5] bg-[#faf7f2]/98 shadow-lg backdrop-blur-md lg:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: settings.colors.mobileBottomBg, borderColor: settings.colors.announcementBorder }}
+      <header
+        className="sticky top-0 z-50 border-b shadow-sm"
+        style={{ backgroundColor: settings.colors.headerBg, borderColor: settings.colors.announcementBorder, color: settings.colors.headerText }}
       >
-        <div className="flex items-center justify-around px-2 py-1.5">
-          {/* Home */}
+        <div className="mx-auto flex h-14 max-w-[1500px] items-center gap-2 px-3 sm:h-16 sm:px-6 lg:px-8">
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(true)}
+            aria-label="Open navigation menu"
+            aria-expanded={mobileDrawerOpen}
+            aria-controls="mobile-navigation-drawer"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition hover:bg-black/5 xl:hidden"
+          >
+            <svg aria-hidden="true" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </button>
+
           <Link
             href="/"
-            className="flex min-h-11 min-w-11 flex-col items-center justify-center rounded-xl px-3 py-1.5 transition-colors"
-            style={{ color: settings.colors.headerText }}
+            aria-label={settings.brandName}
+            className="flex min-w-0 flex-1 flex-col items-center justify-center leading-none xl:flex-none xl:items-start"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-              <path d="M9 22V12h6v10" />
-            </svg>
-            <span className="mt-0.5 text-[10px] font-medium">Home</span>
-          </Link>
-
-          {/* Shop */}
-          <Link
-            href="/collections"
-            className="flex min-h-11 min-w-11 flex-col items-center justify-center rounded-xl px-3 py-1.5 transition-colors"
-            style={{ color: settings.colors.headerText }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <rect x="3" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="3" width="7" height="7" rx="1" />
-              <rect x="14" y="14" width="7" height="7" rx="1" />
-              <rect x="3" y="14" width="7" height="7" rx="1" />
-            </svg>
-            <span className="mt-0.5 text-[10px] font-medium">Shop</span>
-          </Link>
-
-          {/* Shop From The Video */}
-          <Link
-            href="/#shop-from-video"
-            className="-mt-5 flex min-h-11 min-w-11 flex-col items-center justify-center"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 shadow-lg" style={{ background: `linear-gradient(135deg, ${settings.colors.accent}, ${settings.colors.announcementBg})`, borderColor: settings.colors.announcementText }}>
-              <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <rect x="3" y="4" width="18" height="16" rx="3" />
-                <path d="m10 9 5 3-5 3z" fill="white" stroke="none" />
-              </svg>
-            </div>
-            <span className="mt-1 text-[10px] font-bold tracking-wide" style={{ color: settings.colors.accent }}>Video</span>
-          </Link>
-
-          {/* Wishlist → Account */}
-          <Link
-            href="/account"
-            className="relative flex min-h-11 min-w-11 flex-col items-center justify-center rounded-xl px-3 py-1.5 transition-colors"
-            style={{ color: settings.colors.headerText }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
-            </svg>
-            {wishlist.length > 0 && (
-              <span className="absolute top-0.5 right-1.5 w-3.5 h-3.5 rounded-full text-white text-[8px] flex items-center justify-center font-bold" style={{ backgroundColor: settings.colors.accent }}>
-                {wishlist.length}
+            {settings.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={settings.logoUrl} alt={settings.brandName} className="max-h-10 max-w-36 object-contain sm:max-w-44" />
+            ) : (
+              <span className="max-w-full truncate font-serif text-[17px] font-medium tracking-wide sm:text-xl xl:text-[22px]">
+                {settings.brandName}
               </span>
             )}
-            <span className="mt-0.5 text-[10px] font-medium">Wishlist</span>
+            {settings.brandTagline && (
+              <span className="mt-1 hidden max-w-52 truncate text-[8px] uppercase tracking-[0.16em] text-stone-500 xl:block">
+                {settings.brandTagline}
+              </span>
+            )}
           </Link>
 
-          {/* Bag */}
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="relative flex min-h-11 min-w-11 flex-col items-center justify-center rounded-xl px-3 py-1.5 transition-colors"
-          >
-            <div className="relative" style={{ color: cartCount > 0 ? settings.colors.accent : settings.colors.headerText }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
-                <path d="M3 6h18" />
-                <path d="M16 10a4 4 0 01-8 0" />
-              </svg>
-              {cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 min-w-[16px] h-[16px] px-0.5 rounded-full text-white text-[8px] flex items-center justify-center font-bold shadow" style={{ backgroundColor: settings.colors.accent }}>
-                  {cartCount}
-                </span>
+          <nav ref={desktopNavRef} aria-label="Primary navigation" className="hidden min-w-0 flex-1 items-center justify-center gap-1 xl:flex">
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setOpenDesktopMenu((current) => current === "collections" ? null : "collections")}
+                aria-expanded={openDesktopMenu === "collections"}
+                aria-controls="desktop-collections-menu"
+                className="flex min-h-10 items-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold uppercase tracking-wide transition hover:bg-black/5 2xl:px-3 2xl:text-xs"
+                style={{ color: settings.colors.headerText }}
+              >
+                <span>{settings.collectionLabel || "Collections"}</span>
+                <ChevronIcon open={openDesktopMenu === "collections"} />
+              </button>
+              {openDesktopMenu === "collections" && (
+                <div id="desktop-collections-menu" className="absolute left-0 top-full z-50 mt-1 max-h-[70vh] w-64 overflow-y-auto rounded-xl border border-stone-200 bg-white p-2 shadow-xl">
+                  <Link href="/collections" onClick={closeMenus} className="flex min-h-10 items-center rounded-lg px-3 text-sm font-semibold text-stone-900 transition hover:bg-stone-50" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
+                    All collections <span className="ml-auto text-[var(--nav-accent)]">→</span>
+                  </Link>
+                  {categories.map((category) => (
+                    <Link
+                      key={category.slug}
+                      href={`/collections/${encodeURIComponent(category.slug)}`}
+                      onClick={closeMenus}
+                      className="flex min-h-10 items-center rounded-lg px-3 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-[var(--nav-accent)]"
+                      style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}
+                    >
+                      {category.name}
+                    </Link>
+                  ))}
+                </div>
               )}
             </div>
-            <span className="mt-0.5 text-[10px] font-medium" style={{ color: cartCount > 0 ? settings.colors.accent : settings.colors.headerText }}>Bag</span>
-          </button>
+
+            {primaryDesktopLinks.map((link) => (
+              <Link
+                key={`${link.label}-${link.href}`}
+                href={link.href}
+                onClick={closeMenus}
+                className="max-w-32 truncate rounded-lg px-2.5 py-2 text-[11px] font-semibold transition hover:bg-black/5 hover:text-[var(--nav-accent)] 2xl:max-w-40 2xl:px-3 2xl:text-xs"
+                style={{ color: settings.colors.headerText, "--nav-accent": settings.colors.accent } as React.CSSProperties}
+              >
+                {link.label}
+              </Link>
+            ))}
+
+            {hasMoreNavigation && (
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setOpenDesktopMenu((current) => current === "more" ? null : "more")}
+                  aria-expanded={openDesktopMenu === "more"}
+                  aria-controls="desktop-more-menu"
+                  className="flex min-h-10 items-center gap-1 rounded-lg px-2.5 text-[11px] font-semibold uppercase tracking-wide transition hover:bg-black/5"
+                  style={{ color: settings.colors.headerText }}
+                >
+                  More <ChevronIcon open={openDesktopMenu === "more"} />
+                </button>
+                {openDesktopMenu === "more" && (
+                  <div id="desktop-more-menu" className="absolute right-0 top-full z-50 mt-1 max-h-[70vh] w-60 overflow-y-auto rounded-xl border border-stone-200 bg-white p-2 shadow-xl">
+                    {overflowDesktopLinks.map((link) => (
+                      <Link key={`${link.label}-${link.href}`} href={link.href} onClick={closeMenus} className="flex min-h-10 items-center rounded-lg px-3 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-[var(--nav-accent)]" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
+                        {link.label}
+                      </Link>
+                    ))}
+                    {navigationMenus.map((menu) => (
+                      <section key={menu.key} className="mt-2 border-t border-stone-100 pt-2">
+                        <h3 className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400">{menu.label}</h3>
+                        {menu.columns.flatMap((column) => column.items.map((item) => (
+                          <Link key={`${menu.key}-${column.title}-${item.label}`} href={getMenuItemHref(item)} onClick={closeMenus} className="flex min-h-9 items-center rounded-lg px-3 text-sm text-stone-700 transition hover:bg-stone-50 hover:text-[var(--nav-accent)]" style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}>
+                            {item.label}
+                          </Link>
+                        )))}
+                      </section>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </nav>
+
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+            <IconButton label="Search" onClick={() => setSearchOpen(true)} accent={settings.colors.accent}>
+              <SearchIcon />
+            </IconButton>
+            <Link href="/account" aria-label="My account" title="My account" className="hidden h-10 w-10 items-center justify-center rounded-full transition hover:bg-black/5 hover:text-[var(--nav-accent)] xl:inline-flex" style={{ color: settings.colors.headerText, "--nav-accent": settings.colors.accent } as React.CSSProperties}>
+              <AccountIcon />
+            </Link>
+            <Link href="/account/wishlist" aria-label="Wishlist" title="Wishlist" className="relative hidden h-10 w-10 items-center justify-center rounded-full transition hover:bg-black/5 hover:text-[var(--nav-accent)] xl:inline-flex" style={{ color: settings.colors.headerText, "--nav-accent": settings.colors.accent } as React.CSSProperties}>
+              <HeartIcon />
+              {wishlist.length > 0 && <CountBadge count={wishlist.length} accent={settings.colors.accent} />}
+            </Link>
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              aria-label={`Shopping bag${cartCount ? `, ${cartCount} items` : ""}`}
+              title="Shopping bag"
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-black/5 hover:text-[var(--nav-accent)]"
+              style={{ color: settings.colors.headerText, "--nav-accent": settings.colors.accent } as React.CSSProperties}
+            >
+              <BagIcon />
+              {cartCount > 0 && <CountBadge count={cartCount} accent={settings.colors.accent} />}
+            </button>
+          </div>
         </div>
-      </nav>
+      </header>
+
+      {mobileDrawerOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close navigation menu"
+            onClick={closeMobileDrawer}
+            className="animate-fadeIn fixed inset-0 z-[90] bg-black/35 xl:hidden"
+          />
+          <div
+            ref={mobileDrawerRef}
+            id="mobile-navigation-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-navigation-title"
+            tabIndex={-1}
+            className="animate-fadeIn fixed inset-y-0 left-0 z-[91] flex h-[100dvh] w-[min(88vw,22rem)] flex-col shadow-xl focus:outline-none xl:hidden"
+            style={{ backgroundColor: settings.colors.mobileDrawerBg }}
+          >
+            <div className="flex min-h-16 items-center justify-between border-b border-stone-200 px-4">
+              <button type="button" onClick={closeMobileDrawer} aria-label="Close navigation menu" className="inline-flex h-10 w-10 items-center justify-center rounded-full text-stone-700 transition hover:bg-black/5">
+                <CloseIcon />
+              </button>
+              <h2 id="mobile-navigation-title" className="min-w-0 flex-1 truncate px-2 text-center font-serif text-lg text-stone-900">
+                {settings.brandName}
+              </h2>
+              <span aria-hidden="true" className="h-10 w-10 shrink-0" />
+            </div>
+
+            <div className="border-b border-stone-200 p-4">
+              <button type="button" onClick={openSearch} className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-500 transition hover:border-stone-300">
+                <SearchIcon />
+                <span>Search products</span>
+              </button>
+            </div>
+
+            <nav aria-label="Mobile navigation" className="flex-1 overflow-y-auto px-4 py-3">
+              <p className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">Shop</p>
+              <MobileNavLink href="/products" onClick={closeMobileDrawer} accent={settings.colors.accent}>
+                All products
+              </MobileNavLink>
+              <MobileNavLink href="/collections" onClick={closeMobileDrawer} accent={settings.colors.accent}>
+                All collections
+              </MobileNavLink>
+              {categories.map((category) => (
+                <MobileNavLink key={category.slug} href={`/collections/${encodeURIComponent(category.slug)}`} onClick={closeMobileDrawer} accent={settings.colors.accent}>
+                  {category.name}
+                </MobileNavLink>
+              ))}
+
+              <p className="mt-5 border-t border-stone-200 px-2 pb-2 pt-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">Discover</p>
+              {navItems.map((link) => (
+                <MobileNavLink key={`${link.label}-${link.href}`} href={link.href} onClick={closeMobileDrawer} accent={settings.colors.accent}>
+                  {link.label}
+                </MobileNavLink>
+              ))}
+              {navigationMenus.map((menu) => (
+                <details key={menu.key} className="group mt-2 rounded-lg border border-stone-200 bg-white">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-lg px-3 text-sm font-medium text-stone-700">
+                    {menu.label}
+                    <span aria-hidden="true" className="text-lg leading-none text-stone-400 transition-transform group-open:rotate-180">⌄</span>
+                  </summary>
+                  <div className="border-t border-stone-100 px-2 py-2">
+                    {menu.columns.map((column) => (
+                      <div key={`${menu.key}-${column.title}`} className="py-1">
+                        <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-400">{column.title}</p>
+                        {column.items.map((item) => (
+                          <MobileNavLink key={`${menu.key}-${column.title}-${item.label}`} href={getMenuItemHref(item)} onClick={closeMobileDrawer} accent={settings.colors.accent}>
+                            {item.label}
+                          </MobileNavLink>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              ))}
+
+              <p className="mt-5 border-t border-stone-200 px-2 pb-2 pt-4 text-[10px] font-semibold uppercase tracking-[0.18em] text-stone-400">Your account</p>
+              <MobileNavLink href="/account" onClick={closeMobileDrawer} accent={settings.colors.accent}>My account</MobileNavLink>
+              <MobileNavLink href="/account/wishlist" onClick={closeMobileDrawer} accent={settings.colors.accent}>
+                Wishlist {wishlist.length > 0 && <span className="ml-auto text-xs text-stone-500">{wishlist.length}</span>}
+              </MobileNavLink>
+              <button
+                type="button"
+                onClick={() => {
+                  closeMobileDrawer();
+                  setIsCartOpen(true);
+                }}
+                className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 text-left text-sm font-medium text-stone-700 transition hover:bg-white hover:text-[var(--nav-accent)]"
+                style={{ "--nav-accent": settings.colors.accent } as React.CSSProperties}
+              >
+                <span>Shopping bag</span>
+                {cartCount > 0 && <span className="rounded-full px-2 py-0.5 text-xs text-white" style={{ backgroundColor: settings.colors.accent }}>{cartCount}</span>}
+              </button>
+            </nav>
+
+            {settings.brandTagline && <p className="border-t border-stone-200 px-5 py-3 text-center text-[10px] text-stone-500">{settings.brandTagline}</p>}
+          </div>
+        </>
+      )}
+
+      <SearchOverlay isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {!isProductPage && (
+        <nav
+          aria-label="Mobile quick navigation"
+          className="fixed inset-x-0 bottom-0 z-40 border-t bg-white/95 shadow-sm backdrop-blur xl:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", backgroundColor: settings.colors.mobileBottomBg, borderColor: settings.colors.announcementBorder }}
+        >
+          <div className="mx-auto grid max-w-lg grid-cols-3 px-2 py-1">
+            <MobileQuickLink href="/" label="Home" active={pathname === "/"} accent={settings.colors.accent}>
+              <HomeIcon />
+            </MobileQuickLink>
+            <MobileQuickLink href="/collections" label="Shop" active={pathname.startsWith("/collections") || pathname.startsWith("/products")} accent={settings.colors.accent}>
+              <ShopIcon />
+            </MobileQuickLink>
+            <MobileQuickLink href="/#shop-from-video" label="Video" active={false} accent={settings.colors.accent}>
+              <VideoIcon />
+            </MobileQuickLink>
+          </div>
+        </nav>
       )}
     </>
   );
 }
 
-function IconBtn({
-  label,
-  onClick,
-  children,
-  accent = "#881337",
-  textColor = "#292524",
-}: {
-  label: string;
-  onClick?: () => void;
-  children: React.ReactNode;
-  accent?: string;
-  textColor?: string;
-}) {
+function IconButton({ label, onClick, children, accent }: { label: string; onClick: () => void; children: React.ReactNode; accent: string }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-stone-200/50 hover:text-[var(--nav-accent)]"
-      style={{ color: textColor, "--nav-accent": accent } as React.CSSProperties}
-    >
+    <button type="button" onClick={onClick} aria-label={label} title={label} className="inline-flex h-10 w-10 items-center justify-center rounded-full transition hover:bg-black/5 hover:text-[var(--nav-accent)]" style={{ color: "inherit", "--nav-accent": accent } as React.CSSProperties}>
       {children}
     </button>
   );
 }
 
-
-/* ========================================
-   MEGA MENU ITEM COMPONENT
-   ======================================== */
-function MegaMenuItem({ 
-  label, 
-  triggerHref,
-  categories,
-  footerHref = "/products",
-  accent = "#881337",
-  textColor = "#292524",
-  panelBg = "#faf7f2",
-}: { 
-  label: string;
-  triggerHref?: string;
-  categories: Array<{ title: string; items: Array<{ label: string; href: string }> }>;
-  footerHref?: string;
-  accent?: string;
-  textColor?: string;
-  panelBg?: string;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleMouseEnter = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setIsOpen(true);
-  };
-
-  const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => setIsOpen(false), 150);
-  };
-
+function MobileNavLink({ href, onClick, accent, children }: { href: string; onClick: () => void; accent: string; children: React.ReactNode }) {
   return (
-    <div 
-      className="relative" 
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* Trigger Button */}
-      {triggerHref ? (
-        <Link
-          href={triggerHref}
-          onClick={(e) => {
-            if (triggerHref.includes("#") && window.location.pathname === "/") {
-              const id = triggerHref.split("#")[1];
-              const target = document.getElementById(id);
-              if (target) {
-                e.preventDefault();
-                target.scrollIntoView({ behavior: "smooth" });
-                window.history.pushState(null, "", triggerHref);
-                setIsOpen(false);
-              }
-            }
-          }}
-          className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors px-4 py-2 flex items-center gap-1.5 cursor-pointer"
-          style={{ color: textColor }}
-        >
-          <span>{label}</span>
-          <svg 
-            width="12" 
-            height="12" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2.5"
-            className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-          <span className={`absolute bottom-0 left-0 right-0 h-0.5 transition-transform origin-left ${isOpen ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`} style={{ backgroundColor: accent }} />
-        </Link>
-      ) : (
-        <button className="group relative text-[13px] font-semibold uppercase tracking-[0.15em] transition-colors px-4 py-2 flex items-center gap-1.5" style={{ color: textColor }}>
-          <span>{label}</span>
-          <svg 
-            width="12" 
-            height="12" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2.5"
-            className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-          <span className={`absolute bottom-0 left-0 right-0 h-0.5 transition-transform origin-left ${isOpen ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`} style={{ backgroundColor: accent }} />
-        </button>
-      )}
+    <Link href={href} onClick={onClick} className="flex min-h-11 items-center justify-between rounded-lg px-3 text-sm font-medium text-stone-700 transition hover:bg-white hover:text-[var(--nav-accent)]" style={{ "--nav-accent": accent } as React.CSSProperties}>
+      {children}
+      <span aria-hidden="true" className="ml-2 text-stone-300">→</span>
+    </Link>
+  );
+}
 
-      {/* Mega Dropdown */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute top-full left-1/2 -translate-x-1/2 pt-2 z-50"
-          >
-            <div className="rounded-2xl shadow-2xl border border-gray-100 overflow-hidden min-w-[600px]" style={{ backgroundColor: panelBg }}>
-              {/* Header */}
-              <div className="px-6 py-4 border-b border-gray-100" style={{ backgroundColor: panelBg }}>
-                <h3 className="text-lg font-bold" style={{ color: textColor }}>{label}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">Explore our curated collection</p>
-              </div>
+function MobileQuickLink({ href, label, active, accent, children }: { href: string; label: string; active: boolean; accent: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} aria-label={label} aria-current={active ? "page" : undefined} className="flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg px-2 text-[10px] font-medium transition hover:bg-black/5" style={{ color: active ? accent : "#57534e" }}>
+      {children}
+      <span>{label}</span>
+    </Link>
+  );
+}
 
-              {/* Categories Grid */}
-              <div className="grid grid-cols-2 gap-8 p-6">
-                {categories.map((category, idx) => (
-                  <div key={idx} className="space-y-3">
-                    <h4 className="text-sm font-bold uppercase tracking-wider border-b border-gray-200 pb-2" style={{ color: textColor }}>
-                      {category.title}
-                    </h4>
-                    <ul className="space-y-2">
-                      {category.items.map((item) => (
-                        <li key={`${category.title}-${item.label}`}>
-                          <Link
-                            href={item.href}
-                            className="group flex items-center gap-2 text-sm text-gray-600 transition-colors py-1 hover:text-[var(--nav-accent)]"
-                            style={{ "--nav-accent": accent } as React.CSSProperties}
-                          >
-                            <span className="w-1 h-1 rounded-full bg-gray-300 transition-colors group-hover:bg-[var(--nav-accent)]" />
-                            <span>{item.label}</span>
-                            <svg 
-                              width="14" 
-                              height="14" 
-                              viewBox="0 0 24 24" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              strokeWidth="2"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1 group-hover:translate-x-0"
-                            >
-                              <path d="M5 12h14M12 5l7 7-7 7" />
-                            </svg>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
+function CountBadge({ count, accent }: { count: number; accent: string }) {
+  return (
+    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold text-white" style={{ backgroundColor: accent }}>
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
 
-              {/* Footer CTA */}
-              <div className="px-6 py-4 border-t border-gray-100" style={{ backgroundColor: `${accent}12` }}>
-                <Link 
-                  href={footerHref}
-                  onClick={(e) => {
-                    setIsOpen(false);
-                    if (footerHref.includes("#") && window.location.pathname === "/") {
-                      const id = footerHref.split("#")[1];
-                      const target = document.getElementById(id);
-                      if (target) {
-                        e.preventDefault();
-                        target.scrollIntoView({ behavior: "smooth" });
-                        window.history.pushState(null, "", footerHref);
-                      }
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 text-sm font-semibold transition-colors"
-                  style={{ color: accent }}
-                >
-                  <span>{footerHref.includes("#lookbook") ? "✦ Go to Shoppable Lookbook" : `View All in ${label}`}</span>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${open ? "rotate-180" : ""}`}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-4-4" />
+    </svg>
+  );
+}
+
+function AccountIcon() {
+  return (
+    <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  );
+}
+
+function HeartIcon() {
+  return (
+    <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round">
+      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1 7.8 7.8 7.8-7.8 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" />
+    </svg>
+  );
+}
+
+function BagIcon() {
+  return (
+    <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M5 8h14l1 13H4L5 8Z" />
+      <path d="M9 9V6a3 3 0 0 1 6 0v3" />
+    </svg>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+      <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10Z" />
+    </svg>
+  );
+}
+
+function ShopIcon() {
+  return (
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  );
+}
+
+function VideoIcon() {
+  return (
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m10 9 5 3-5 3z" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="m6 6 12 12M18 6 6 18" />
+    </svg>
   );
 }
