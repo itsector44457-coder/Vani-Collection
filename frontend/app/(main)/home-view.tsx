@@ -6,10 +6,11 @@ import InspiredLooks from "@/components/InspiredLooks";
 import type { FounderMessage as FounderContent } from "@/lib/founder";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
-import type { HeroSlide, Lookbook, Testimonial, PublishedReel } from "../../lib/content";
+import type { Lookbook, Testimonial, PublishedReel } from "../../lib/content";
 import { useCatalogue } from "../../lib/use-storefront";
 import type { Product } from "../../lib/storefront-types";
 import LivingProductCard from "../../components/LivingProductCard";
@@ -22,7 +23,6 @@ import { STORE_PHONE_DISPLAY, storeWhatsAppUrl } from "../../lib/site-contact";
 
 export interface HomeViewProps {
   founder?: FounderContent;
-  banners?: HeroSlide[];
   testimonials?: Testimonial[];
   lookbook?: Lookbook;
   lookbooks?: Lookbook[];
@@ -44,7 +44,6 @@ export interface HomeViewProps {
  */
 export default function HomeView({
   founder,
-  banners = [],
   testimonials = [],
   lookbook = { title: "", subtitle: "", image: "", pins: [] },
   lookbooks = [],
@@ -67,10 +66,6 @@ export default function HomeView({
 
   // Active filter tab
   const [activeTab, setActiveTab] = useState<string>("all");
-  // Active Hero Slide
-  const [heroSlide, setHeroSlide] = useState<number>(0);
-  // Start with the lightweight image experience; video remains an explicit opt-in.
-  const [heroMode, setHeroMode] = useState<"slides" | "video">("slides");
   // Active hotspot pin
   const [activePin, setActivePin] = useState<string | null>("pin-1");
   // Quick size selection per product card
@@ -109,28 +104,10 @@ export default function HomeView({
     return () => controller.abort();
   }, []);
 
-  useEffect(() => {
-    if (heroMode !== "slides" || banners.length < 2) return;
-    const timer = window.setInterval(() => {
-      setHeroSlide((current) => (current + 1) % banners.length);
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, [heroMode, banners.length]);
-
   const fallbackCategorySlugs = ["mul-cotton", "festive", "coord-sets", "anarkalis"];
   const categoryTabs = categories.length
     ? categories.map((category) => ({ key: category.slug, label: category.name }))
     : fallbackCategorySlugs.map((slug) => ({ key: slug, label: slug.replace(/-/g, " ") }));
-  const chooseCategory = (slug: string) => setActiveTab(categoryTabs.some((category) => category.key === slug) ? slug : "all");
-
-
-  /* The CMS may publish one banner where the bundle had two, and `heroSlide` is state that survives
-     a prop change — so clamp the index rather than reading past the end of the array. */
-  const safeSlideIndex = banners.length ? Math.min(heroSlide, banners.length - 1) : 0;
-  const activeSlide: HeroSlide | undefined = banners[safeSlideIndex];
-  const heroVideo = activeSlide?.video ?? banners.find((slide) => slide.video)?.video;
-  const heroImage = activeSlide?.image || catalogueProducts[0]?.image || "";
-  const hasHeroImage = Boolean(heroImage);
 
   const handleSizeChange = (productId: string, size: string) => {
     setSelectedSizes((prev) => ({ ...prev, [productId]: size }));
@@ -143,234 +120,31 @@ export default function HomeView({
       // "is the homepage actually reading my CMS content, or still the bundled copy?"
       data-content-source={fromCms ? "cms" : "empty"}
     >
-      {/* ================= 1. EDITORIAL HERO — DUAL MODE (Video / Slides) ================= */}
-      <section className="relative h-[42svh] min-h-[270px] max-h-[400px] sm:h-[84vh] sm:min-h-[580px] sm:max-h-[860px] w-full overflow-hidden bg-[#faf7f2]">
-
-        {/* ---- MODE TOGGLE PILL (top-right corner) ---- */}
-        {banners.length > 0 && <div className="hidden sm:flex absolute top-3.5 right-3.5 sm:top-6 sm:right-6 z-30 items-center gap-1 bg-black/60 backdrop-blur-xl border border-[#dfc28c]/40 rounded-full p-1 shadow-[0_4px_25px_rgba(0,0,0,0.6)]">
-          <button
-            onClick={() => setHeroMode("slides")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider transition-all duration-300 ${
-              heroMode === "slides"
-                ? "bg-gradient-to-r from-[#b91c1c] to-[#881337] text-white shadow-[0_2px_12px_rgba(185,28,28,0.5)] border border-[#dfc28c]/40"
-                : "text-white/75 hover:text-white"
-            }`}
-            aria-label="Use image slideshow"
-            aria-pressed={heroMode === "slides"}
+      {/* ================= 1. VANI COLLECTION STOREFRONT ================= */}
+      <section className="relative h-[42svh] min-h-[270px] max-h-[400px] w-full overflow-hidden bg-stone-900 sm:h-[84vh] sm:min-h-[580px] sm:max-h-[860px]">
+        <Image
+          src="/vani-store-front.jpg"
+          alt="Vani Collection storefront in Guna"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+          style={{ objectPosition: "center 54%" }}
+        />
+        <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-black/55" />
+        <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center">
+          <h1 className="font-serif text-[clamp(2.35rem,7vw,5.5rem)] font-medium leading-[1.03] text-white drop-shadow-[0_3px_18px_rgba(0,0,0,0.75)]">
+            <span className="block">Vani Collection</span>
+            <span className="block">Guna</span>
+          </h1>
+          <Link
+            href="/products"
+            className="mt-6 inline-flex min-h-12 items-center justify-center gap-3 rounded-full bg-[#1c1917]/95 px-8 py-3 text-[11px] font-bold uppercase tracking-[0.18em] text-white shadow-lg transition hover:bg-[#881337] sm:mt-8 sm:px-10 sm:py-4 sm:text-sm"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M21 15l-5-5L5 21" />
-            </svg>
-            <span className="hidden sm:inline">Slides</span>
-          </button>
-          <button
-            onClick={() => setHeroMode("video")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider transition-all duration-300 ${
-              heroMode === "video"
-                ? "bg-gradient-to-r from-[#b91c1c] to-[#881337] text-white shadow-[0_2px_12px_rgba(185,28,28,0.5)] border border-[#dfc28c]/40"
-                : "text-white/75 hover:text-white"
-            }`}
-            aria-label="Play atelier video"
-            aria-pressed={heroMode === "video"}
-            title={heroVideo ? "Play the uploaded hero video" : "Play the atelier video"}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="M23 7l-7 5 7 5V7z" />
-              <rect x="1" y="5" width="15" height="14" rx="2" />
-            </svg>
-            <span className="hidden sm:inline">Video</span>
-          </button>
-        </div>}
-
-        {/* ---- SLIDES MODE ---- */}
-        <AnimatePresence>
-          {heroMode === "slides" && (
-            <motion.div
-              key="slides-bg"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.6 }}
-              className="absolute inset-0"
-            >
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={heroSlide}
-                  initial={{ opacity: 0, scale: 1.05 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute inset-0"
-                >
-                  {activeSlide?.video ? (
-                    <>
-                      {/* Mobile browsers may block autoplay; show the banner image instead of a black video frame. */}
-                      {heroImage && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={heroImage} alt={activeSlide.title} className={`h-full w-full object-cover brightness-[0.96] sm:hidden ${activeSlide.position || "object-center"}`} />
-                      )}
-                      <video
-                        key={activeSlide.video}
-                        src={activeSlide.video}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        preload="metadata"
-                        poster={heroImage || undefined}
-                        className={`hidden sm:block w-full h-full object-cover filter brightness-[0.92] ${activeSlide.position || "object-center"}`}
-                      />
-                    </>
-                  ) : (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={heroImage || undefined}
-                      alt={activeSlide?.title ?? ""}
-                      className={`w-full h-full object-cover filter brightness-[0.96] sm:brightness-[0.92] ${activeSlide?.position || "object-center"}`}
-                    />
-                  )}
-                  {/* Clean light overlays so the luxury photography is bright & crystal clear */}
-                  {hasHeroImage && <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 sm:from-black/75 sm:to-black/20" />}
-                  {hasHeroImage && <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-transparent sm:from-black/35" />}
-                </motion.div>
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ---- VIDEO MODE ---- */}
-        <AnimatePresence>
-          {heroMode === "video" && (
-            <motion.div
-              key="video-bg"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8 }}
-              className="absolute inset-0"
-            >
-              {/* ---- FULLSCREEN BACKGROUND VIDEO ---- */}
-              {heroImage && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={heroImage} alt={activeSlide?.title || "Vani Collection"} className="absolute inset-0 h-full w-full object-cover brightness-[0.96] sm:hidden" />
-              )}
-              <video
-                key={heroVideo ?? "atelier-default-video"}
-                src={heroVideo}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                className="absolute inset-0 hidden sm:block w-full h-full object-cover object-center filter brightness-[0.88]"
-                poster={heroImage || undefined}
-              >
-                {!heroVideo && (
-                  <>
-                    <source src="/videos/hero-video.mp4" type="video/mp4" />
-                    <source src="/videos/hero-video.webm" type="video/webm" />
-                    <source src="https://videos.pexels.com/video-files/8534828/8534828-hd_1920_1080_25fps.mp4" type="video/mp4" />
-                    <source src="https://videos.pexels.com/video-files/6069268/6069268-hd_1280_720_25fps.mp4" type="video/mp4" />
-                  </>
-                )}
-              </video>
-              {/* Clean minimal overlays (video stays bright & clear, button stands out) */}
-              {hasHeroImage && <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 sm:from-black/75 sm:to-black/20" />}
-              {hasHeroImage && <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-transparent sm:from-black/35" />}
-              <div className="hidden sm:block absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(136,19,55,0.15),transparent_50%)] pointer-events-none" />
-
-              {/* Subtle animated noise grain for cinematic feel */}
-              <div
-                className="hidden sm:block absolute inset-0 opacity-[0.035] pointer-events-none"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-                  backgroundSize: "200px 200px",
-                }}
-              />
-              {/* LIVE badge for video mode */}
-              <div className="hidden sm:flex absolute top-3.5 left-3.5 sm:top-6 sm:left-6 items-center gap-2 bg-black/60 backdrop-blur-md border border-[#dfc28c]/40 px-3 py-1.5 rounded-full z-20 shadow-lg">
-                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                <span className="text-[#dfc28c] text-[10px] font-bold uppercase tracking-[0.2em]">Atelier Live</span>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ---- SHARED HERO CONTENT OVERLAY ---- */}
-        <div
-          className="relative z-10 mx-auto flex h-full max-w-[1440px] flex-col justify-end px-5 pb-14 sm:px-8 sm:pb-16 lg:px-14 lg:pb-20"
-        >
-          <motion.div
-            initial={{ y: 16, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.55 }}
-            className={`mb-3 max-w-xl sm:mb-7 ${hasHeroImage ? "text-white" : "text-stone-900"}`}
-          >
-            {(activeSlide?.tag || !activeSlide) && (
-              <p className={`mb-1.5 text-[9px] font-semibold uppercase tracking-[0.22em] sm:mb-3 sm:text-xs ${hasHeroImage ? "text-[#dfc28c]" : "text-[#881337]"}`}>
-                {activeSlide?.tag || "Handcrafted in Guna"}
-              </p>
-            )}
-            <h1 className="font-serif text-3xl font-medium leading-[1.08] sm:text-5xl lg:text-6xl">
-              {activeSlide?.title ?? banners[0]?.title ?? "Vani Collection"}
-            </h1>
-            {(activeSlide?.subtitle || !activeSlide) && (
-              <p className={`mt-1 text-[10px] font-medium uppercase tracking-[0.16em] sm:mt-2 sm:text-sm ${hasHeroImage ? "text-white/75" : "text-stone-600"}`}>
-                {activeSlide?.subtitle || "Speciality in Fancy Kurties & Party Wear Dresses"}
-              </p>
-            )}
-            {(activeSlide?.desc || !activeSlide) && (
-              <p className={`mt-1.5 max-w-lg text-[11px] leading-relaxed sm:mt-3 sm:text-base ${hasHeroImage ? "text-white/85" : "text-stone-700"}`}>
-                {activeSlide?.desc || "Explore our handcrafted collection of elegant Indian wear."}
-              </p>
-            )}
-          </motion.div>
-
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.6 }}
-            className="w-full sm:w-auto flex flex-col items-stretch sm:items-start"
-          >
-            {/* Single Attractive Explore Collection Button */}
-            <a
-              href={activeSlide?.ctaLink || "#products"}
-              className="group relative inline-flex items-center justify-center gap-3 overflow-hidden rounded-full bg-gradient-to-r from-[#b91c1c] via-[#881337] to-[#701a35] px-6 py-2.5 sm:px-10 sm:py-4 text-[10px] sm:text-sm font-bold uppercase tracking-[0.2em] sm:tracking-[0.25em] text-white shadow-[0_4px_30px_rgba(185,28,28,0.55)] border border-[#dfc28c]/60 transition-all duration-300 hover:shadow-[0_6px_35px_rgba(223,194,140,0.5),0_4px_25px_rgba(136,19,55,0.7)] hover:border-[#dfc28c] hover:-translate-y-0.5 active:scale-95 text-center w-full sm:w-auto"
-            >
-              <span className="relative z-10">{activeSlide?.ctaText || "Explore Products"}</span>
-              <span className="relative z-10 text-[#dfc28c] text-base transition-transform duration-300 group-hover:translate-x-1.5">→</span>
-              <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent transition-all" />
-            </a>
-          </motion.div>
-
-          {/* Slide indicators — only in slides mode */}
-          <AnimatePresence>
-            {heroMode === "slides" && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="hidden sm:flex absolute right-5 sm:right-10 bottom-14 sm:bottom-12 items-center gap-2.5"
-              >
-                {banners.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setHeroSlide(i)}
-                    className={`transition-all duration-300 rounded-full ${
-                      safeSlideIndex === i
-                        ? "w-7 sm:w-8 h-2 bg-[#dfc28c]"
-                        : "w-2 h-2 bg-white/50 hover:bg-white"
-                    }`}
-                    aria-label={`Slide ${i + 1}`}
-                  />
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
+            Shop Now
+            <span aria-hidden="true" className="text-[#dfc28c]">→</span>
+          </Link>
         </div>
-
       </section>
 
       {/* ================= 2. SHOP FROM THE VIDEO ================= */}
@@ -380,136 +154,7 @@ export default function HomeView({
       {/* ================= 3. LIVE VIDEO SHOPPING ================= */}
       <StylistConciergeBand />
 
-      {/* ================= 4. CURATED BENTO COLLECTIONS (Label Amrita Prestige Style) ================= */}
-      <section className="py-12 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
-        <div className="text-center max-w-xl mx-auto mb-10 sm:mb-16">
-          <span className="text-[9.5px] sm:text-[10px] font-semibold uppercase tracking-[0.35em] text-[#b8935a]">
-            Curated For The Modern Woman
-          </span>
-          <h2 className="font-serif text-2xl sm:text-4xl lg:text-5xl text-stone-900 mt-1 sm:mt-2 font-normal">
-            Signature Ensembles
-          </h2>
-          <div className="w-12 sm:w-16 h-[1.5px] bg-[#881337] mx-auto mt-3 sm:mt-4" />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 sm:gap-5 lg:gap-8">
-          {/* Card 1: Large Featured Mul Cotton */}
-          <div
-            onClick={() => chooseCategory("mul-cotton")}
-            className="sm:col-span-2 md:col-span-7 relative h-[300px] sm:h-[420px] lg:h-[500px] rounded-2xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=1200&q=85"
-              alt="The Mul Cotton Sanctuary"
-              className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
-            <div className="absolute bottom-0 inset-x-0 p-6 sm:p-8 lg:p-10 text-white flex flex-col justify-end">
-              <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.28em] text-[#dfc28c] mb-1.5 sm:mb-2">
-                Everyday Featherlight Luxury
-              </span>
-              <h3 className="font-serif text-xl sm:text-3xl lg:text-4xl font-light mb-1.5 sm:mb-2">
-                The Pure Mul Cotton Sanctuary
-              </h3>
-              <p className="text-xs sm:text-sm text-stone-200/90 max-w-md font-light mb-3 sm:mb-4 line-clamp-2 sm:line-clamp-none">
-                100-count breathable handloom voile with authentic Guna &amp; Bagru prints and gossamer Kota Doria dupattas.
-              </p>
-              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-semibold text-[#dfc28c] group-hover:text-white transition">
-                <span>Explore Mul Cotton Edit</span>
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 2: Festive Edit */}
-          <div
-            onClick={() => chooseCategory("festive")}
-            className="sm:col-span-1 md:col-span-5 relative h-[300px] sm:h-[420px] lg:h-[500px] rounded-2xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&w=1000&q=85"
-              alt="Gulmohar Festive Atelier"
-              className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
-            <div className="absolute bottom-0 inset-x-0 p-6 sm:p-8 lg:p-10 text-white flex flex-col justify-end">
-              <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.28em] text-[#dfc28c] mb-1.5 sm:mb-2">
-                Royal Ceremonies
-              </span>
-              <h3 className="font-serif text-xl sm:text-2xl lg:text-3xl font-light mb-1.5 sm:mb-2">
-                Gulmohar Festive Heirlooms
-              </h3>
-              <p className="text-xs text-stone-200/90 font-light mb-3 sm:mb-4 line-clamp-2 sm:line-clamp-none">
-                Silk Chanderi ensembles accented with handcrafted gota patti, marodi, and pita zari stitches.
-              </p>
-              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-semibold text-[#dfc28c] group-hover:text-white transition">
-                <span>Shop Festive Edit</span>
-                <span className="group-hover:translate-x-1 transition-transform">→</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Indo-Western Co-ords */}
-          <div
-            onClick={() => chooseCategory("coord-sets")}
-            className="sm:col-span-1 md:col-span-6 relative h-[260px] sm:h-[360px] lg:h-[420px] rounded-2xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=1000&q=85"
-              alt="Indo-Western Co-ords"
-              className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-            <div className="absolute bottom-0 inset-x-0 p-6 sm:p-8 text-white">
-              <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.28em] text-[#dfc28c] mb-1.5 block">
-                Contemporary Chic
-              </span>
-              <h3 className="font-serif text-lg sm:text-2xl font-light mb-1">
-                Modern Indo-Western Co-ords
-              </h3>
-              <p className="text-xs text-stone-200/90 font-light mb-2.5 line-clamp-2">
-                Effortless high-low tunics and cigarette trousers for airport & brunch comfort.
-              </p>
-              <span className="text-xs uppercase tracking-[0.2em] font-semibold text-[#dfc28c]">
-                Shop Co-ord Sets →
-              </span>
-            </div>
-          </div>
-
-          {/* Card 4: Royal Anarkalis */}
-          <div
-            onClick={() => setActiveTab("all")}
-            className="sm:col-span-1 md:col-span-6 relative h-[260px] sm:h-[360px] lg:h-[420px] rounded-2xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&w=1000&q=85"
-              alt="Royal Kalidaar Anarkalis"
-              className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-            <div className="absolute bottom-0 inset-x-0 p-6 sm:p-8 text-white">
-              <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.28em] text-[#dfc28c] mb-1.5 block">
-                Regal Silhouette
-              </span>
-              <h3 className="font-serif text-lg sm:text-2xl font-light mb-1">
-                Kalidaar & Angrakha Suites
-              </h3>
-              <p className="text-xs text-stone-200/90 font-light mb-2.5 line-clamp-2">
-                Dramatic 5-meter royal flare with authentic hand-tied fabric latkans and scalloped trims.
-              </p>
-              <span className="text-xs uppercase tracking-[0.2em] font-semibold text-[#dfc28c]">
-                View Anarkali Sets →
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ================= 5. RESPONSIVE PRODUCT GRID (2 COLS MOBILE, 3 COLS TABLET, 4 COLS PC) ================= */}
+      {/* ================= 4. RESPONSIVE PRODUCT GRID (2 COLS MOBILE, 3 COLS TABLET, 4 COLS PC) ================= */}
       <section id="products" className="py-12 sm:py-20 bg-white border-y border-[#e8dfd5]">
         <div className="max-w-[1500px] mx-auto px-3 sm:px-6 lg:px-12">
           {/* Header & Category Switcher Tabs */}
@@ -571,7 +216,7 @@ export default function HomeView({
         </div>
       </section>
 
-      {/* ================= 5a. SHOP BY CATEGORIES (tiles with live piece counts) ================= */}
+      {/* ================= 4a. SHOP BY CATEGORIES (tiles with live piece counts) ================= */}
       <ShopByCategory
         items={(categories.length
           ? categories
@@ -592,7 +237,7 @@ export default function HomeView({
         })}
       />
 
-      {/* ================= 6. INTERACTIVE LOOKBOOK (HOTSPOTS BANNER) ================= */}
+      {/* ================= 5. INTERACTIVE LOOKBOOK (HOTSPOTS BANNER) ================= */}
       {currentLookbook?.image && (
         <section id="lookbook" className="py-12 sm:py-20 max-w-[1500px] mx-auto px-4 sm:px-8 lg:px-12">
           <div className="text-center max-w-xl mx-auto mb-6 sm:mb-8">
@@ -814,7 +459,7 @@ export default function HomeView({
 
       <FounderMessage content={founder} />
 
-      {/* ================= 8b. FAQ (CMS `kind=faq`) ================= */}
+      {/* ================= 7b. FAQ (CMS `kind=faq`) ================= */}
       {/* Only rendered when the CMS has published questions, and every one of them is also marked up
           as FAQPage JSON-LD by app/(main)/page.tsx — markup without visible content is a spam
           signal, so the two are driven by the same array. */}
@@ -872,7 +517,7 @@ export default function HomeView({
         </section>
       )}
 
-      {/* ================= 9. THE GUNA ATELIER & CONCIERGE ================= */}
+      {/* ================= 8. THE GUNA ATELIER & CONCIERGE ================= */}
       <section className="py-16 sm:py-24 bg-white border-t border-[#f0ebe3]">
         <div className="max-w-[1300px] mx-auto px-4 sm:px-8 lg:px-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">

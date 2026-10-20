@@ -95,10 +95,13 @@ exception, since satori rasterises the Open Graph card itself and `next/image` d
 
 ## Homepage CMS
 
-The hero banners, customer testimonials, shoppable lookbook, product selection and FAQ are editable
-content blocks (`/admin/content` → `PUT /api/content/:key`). Shop From The Video is managed separately
-in `/admin/shop-from-video` and shares its published video records with the homepage section directly
-below the hero. `lib/content.ts` maps loosely-shaped CMS documents onto the structures the homepage renders.
+The homepage hero is a fixed local photo of the Vani Collection storefront in Guna, with the heading
+“Vani Collection Guna” and a Shop Now link to `/products`. Legacy banner records remain in the CMS for
+compatibility, but do not replace that hero. Customer testimonials, the shoppable lookbook, product
+selection and FAQ are editable content blocks (`/admin/content` → `PUT /api/content/:key`). Shop From
+The Video is managed separately in `/admin/shop-from-video` and shares its published video records
+with the homepage section directly below the hero. `lib/content.ts` maps loosely-shaped CMS documents
+to the structures the homepage renders.
 
 `app/(main)/page.tsx` is a Server Component: it fetches homepage CMS content, published Shop From The
 Video clips and the initial product catalogue, mounts the `FAQPage` JSON-LD and declares the homepage
@@ -109,8 +112,7 @@ The fallback contract is **per kind and per field**, not all-or-nothing:
 
 - No backend, or an empty `contents` collection → the site renders exactly as it did before the CMS
   existed. `data-content-source="bundled"` on the root element says so.
-- Banners published but no testimonials → live banners over bundled reviews.
-- An editor sets only a new headline → the bundled image and CTA for that position are kept.
+- Legacy banner blocks remain mapped with per-field fallbacks for compatibility, but do not affect the fixed storefront hero.
 - A block missing what its section cannot render without (a banner with no image, a FAQ with a
   question but no answer) is dropped rather than half-rendered.
 - `draft` blocks never reach the storefront — the API filters on `status: "published"`.

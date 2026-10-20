@@ -2,10 +2,10 @@ import { FOUNDER_KEY, toFounderMessage, type FounderMessage } from "./founder";
 /**
  * CMS content bridge.
  *
- * The homepage's banners, testimonials, lookbook and FAQ are editable through `PUT /api/content/:key`
- * (kind `banner` | `testimonial` | `lookbook` | `faq`). This module turns those loosely-shaped
- * Content documents into the exact structures the homepage already renders, so wiring the CMS up does
- * not mean rewriting the design.
+ * Homepage testimonials, lookbook and FAQ are editable through `PUT /api/content/:key`. Legacy banner
+ * documents still map to HeroSlide records for CMS compatibility, but the storefront hero is now a
+ * fixed Vani Collection photo. This module turns loosely-shaped Content documents into structures the
+ * homepage and Admin can consume.
  *
  * Only published CMS content is rendered; an empty CMS produces empty homepage content.
  */
@@ -415,9 +415,9 @@ export interface HomepageContent<TBanners, TTestimonials, TLookbook> {
 /**
  * One pass over the CMS for the whole homepage.
  *
- * Homepage blocks are fetched in one pass. Each mapper independently falls back, so a partially
- * populated CMS (say, banners but no testimonials) renders a mix of live and bundled content rather
- * than all-or-nothing.
+ * Homepage blocks are fetched in one pass. Each visible section independently falls back, so a
+ * partially populated CMS (say, a lookbook but no testimonials) renders a mix of live and bundled
+ * content rather than all-or-nothing. Legacy banner records remain mapped but do not control the hero.
  */
 export async function fetchHomepageContent(fallbacks: {
   banners: HeroSlide[];
@@ -453,7 +453,7 @@ export async function fetchHomepageContent(fallbacks: {
       subtitle: str(productCollection.subtitle),
       productIds,
     } : null,
-    fromCms: Boolean(published.some((item) => item.key === FOUNDER_KEY) || banners.length || testimonials.length || lookbookList.length || faqs.length || productCollection),
+    fromCms: Boolean(published.some((item) => item.key === FOUNDER_KEY) || testimonials.length || lookbookList.length || faqs.length || productCollection),
   };
 }
 
