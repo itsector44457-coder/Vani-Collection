@@ -66,10 +66,10 @@ export default function ContactView() {
           <div className="space-y-1">
             <p>
               <a
-                href="mailto:Vanicollectionguna@gmail.com"
+                href="mailto:demo@example.com"
                 className="hover:underline transition underline-offset-4"
               >
-                Vanicollectionguna@gmail.com
+                demo@example.com
               </a>
             </p>
             <p>
@@ -86,15 +86,15 @@ export default function ContactView() {
           {/* Column 2: Atelier Address */}
           <div className="space-y-1">
             <p className="font-medium text-[#1c1917]">Vani Collection Flagship Atelier</p>
-            <p>Station Road</p>
-            <p className="text-stone-500">473001 Guna, Madhya Pradesh</p>
+            <p>Demo Street</p>
+            <p className="text-stone-500">Demo City, India - 000000</p>
           </div>
 
           {/* Column 3: Social & Concierge */}
           <div className="space-y-2.5 md:text-right flex flex-col md:items-end">
             <p>
               <a
-                href="https://instagram.com/vanicollection"
+                href="https://www.instagram.com/demo_store"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 hover:text-[#881337] transition font-medium"
@@ -120,7 +120,7 @@ export default function ContactView() {
             </p>
             <p>
               <a
-                href="https://facebook.com/vanicollection"
+                href="https://facebook.com/demo_store"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-stone-500 hover:text-[#1877F2] transition font-medium"
@@ -159,7 +159,7 @@ export default function ContactView() {
           className="text-center max-w-xl mx-auto space-y-7"
         >
           <p className="text-[13px] leading-relaxed text-stone-600 font-light">
-            Our products are available on our website and at our physical atelier location in Guna, Madhya Pradesh.
+            Our products are available on our website and at our physical atelier location in Demo City, India.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2">

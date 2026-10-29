@@ -85,18 +85,18 @@ export function localBusinessSchema(): JsonLdValue {
     paymentAccepted: "Cash, UPI, Credit Card, Debit Card, Net Banking, COD",
     address: compact({
       "@type": "PostalAddress",
-      streetAddress: "Station Road",
-      addressLocality: "Guna",
-      addressRegion: "Madhya Pradesh",
-      postalCode: "473001",
+      streetAddress: "Demo Street",
+      addressLocality: "Demo City",
+      addressRegion: "Demo State",
+      postalCode: "000000",
       addressCountry: "IN",
     }),
     geo: compact({
       "@type": "GeoCoordinates",
-      latitude: 24.6354,
-      longitude: 77.3126,
+      latitude: 28.6139,
+      longitude: 77.2090,
     }),
-    hasMap: "https://maps.google.com/?q=Vani+Collection+Guna+Madhya+Pradesh",
+    hasMap: "https://maps.google.com/?q=Connaught+Place+New+Delhi",
     openingHoursSpecification: [
       {
         "@type": "OpeningHoursSpecification",

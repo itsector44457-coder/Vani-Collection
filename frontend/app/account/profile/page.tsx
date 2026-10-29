@@ -318,7 +318,7 @@ export default function ProfilePage() {
       await deleteAccount();
       router.replace("/");
     } catch (cause) {
-      setError((cause as Error)?.message || "Failed to deactivate account. Please contact Vanicollectionguna@gmail.com.");
+      setError((cause as Error)?.message || "Failed to deactivate account. Please contact demo@example.com.");
       setShowDeleteModal(false);
       setDeleting(false);
     }

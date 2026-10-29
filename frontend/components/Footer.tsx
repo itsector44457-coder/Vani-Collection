@@ -204,23 +204,23 @@ export default function Footer() {
           </div>
 
           <div className="lg:col-span-5">
-            <Link href="/contact" aria-label="Visit the Vani Collection boutique in Guna" className="group relative block">
+            <Link href="/contact" aria-label="Visit the Vani Collection boutique" className="group relative block">
               <div className="relative aspect-[1.18] overflow-hidden rounded-[1.65rem] border border-white/20 bg-[#50313a] shadow-[0_28px_70px_rgba(0,0,0,0.32)] sm:aspect-[1.35] lg:aspect-[1.08]">
                 <Image
                   src="/vani-store-front.jpg"
-                  alt="Vani Collection boutique on Station Road in Guna"
+                  alt="Vani Collection boutique (demo store)"
                   fill
                   sizes="(max-width: 1023px) 100vw, 42vw"
                   className="object-cover object-center transition duration-700 group-hover:scale-[1.035]"
                 />
                 <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-[#160b10]/90 via-[#160b10]/10 to-black/5" />
                 <span className="absolute left-5 top-5 rounded-full border border-white/35 bg-[#28131d]/45 px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-white backdrop-blur-sm sm:left-6 sm:top-6">
-                  Our Guna boutique
+                  Our boutique · Demo
                 </span>
                 <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-4 sm:inset-x-6 sm:bottom-6">
                   <div>
                     <p className="font-serif text-2xl text-white sm:text-3xl">Come say hello.</p>
-                    <p className="mt-1 text-xs text-white/75 sm:text-sm">Station Road · Guna, Madhya Pradesh</p>
+                    <p className="mt-1 text-xs text-white/75 sm:text-sm">Demo Street · Demo City, India</p>
                   </div>
                   <span className="mb-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f3dfb3] text-[#36131f] transition-transform duration-300 group-hover:translate-x-1">
                     <ArrowIcon />
@@ -308,7 +308,7 @@ export default function Footer() {
             </p>
             <div className="mt-5 flex items-center gap-2.5">
               <a
-                href="https://www.instagram.com/vanicollection_guna"
+                href="https://www.instagram.com/demo_store"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Vani Collection on Instagram"
@@ -362,16 +362,16 @@ export default function Footer() {
             <h3 className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b273e]">Come by or say hello</h3>
             <Link href="/contact" className="group flex min-h-11 items-start gap-3 py-1 text-sm leading-relaxed text-[#51463e] transition hover:text-[#781e36]">
               <span className="mt-0.5 text-[#8b273e]"><PinIcon /></span>
-              <span>Station Road<br />Guna, Madhya Pradesh 473001</span>
+              <span>Demo Street<br />Demo City, India - 000000</span>
             </Link>
             <div className="mt-3 space-y-1">
               <a href={`tel:${STORE_PHONE_E164}`} className="flex min-h-11 items-center gap-3 py-1 text-sm text-[#51463e] transition hover:text-[#781e36]">
                 <span className="text-[#8b273e]"><PhoneIcon /></span>
                 <span>{STORE_PHONE_DISPLAY}</span>
               </a>
-              <a href="mailto:Vanicollectionguna@gmail.com" className="flex min-h-11 items-center gap-3 break-all py-1 text-sm text-[#51463e] transition hover:text-[#781e36]">
+              <a href="mailto:demo@example.com" className="flex min-h-11 items-center gap-3 break-all py-1 text-sm text-[#51463e] transition hover:text-[#781e36]">
                 <span className="text-[#8b273e]"><MailIcon /></span>
-                <span>Vanicollectionguna@gmail.com</span>
+                <span>demo@example.com</span>
               </a>
             </div>
           </div>

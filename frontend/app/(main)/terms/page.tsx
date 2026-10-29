@@ -293,12 +293,12 @@ export default async function TermsPage() {
             <div className="grid sm:grid-cols-2 gap-6">
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Legal Department</h4>
-                <p className="text-sm text-stone-600 mb-1">📧 Vanicollectionguna@gmail.com</p>
+                <p className="text-sm text-stone-600 mb-1">📧 demo@example.com</p>
                 <p className="text-sm text-stone-600">📱 {STORE_PHONE_DISPLAY}</p>
               </div>
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Customer Support</h4>
-                <p className="text-sm text-stone-600 mb-1">📧 Vanicollectionguna@gmail.com</p>
+                <p className="text-sm text-stone-600 mb-1">📧 demo@example.com</p>
                 <p className="text-sm text-stone-600">💬 WhatsApp Support Available</p>
               </div>
             </div>

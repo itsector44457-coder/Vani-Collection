@@ -115,7 +115,7 @@ export default async function ShippingPage() {
             <h2 className="font-serif text-2xl text-[#881337] mb-6">International Shipping</h2>
             <p className="text-stone-600 mb-4">Online checkout abhi sirf India ke liye hai. Bharat ke bahar delivery ke liye pehle humse sampark kare — hum jaanch karke sahi shipping quote denge:</p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <p className="text-blue-800 text-sm mb-2">📧 Email: Vanicollectionguna@gmail.com</p>
+              <p className="text-blue-800 text-sm mb-2">📧 Email: demo@example.com</p>
               <p className="text-blue-800 text-sm">📱 WhatsApp: {STORE_PHONE_DISPLAY}</p>
             </div>
           </section>
@@ -126,7 +126,7 @@ export default async function ShippingPage() {
             <p className="text-stone-600 mb-4">Our customer support team is here to help:</p>
             <div className="flex flex-col sm:flex-row gap-4">
               <a
-                href="mailto:Vanicollectionguna@gmail.com"
+                href="mailto:demo@example.com"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-[#881337] text-white rounded-full text-sm font-medium hover:bg-[#701a35] transition"
               >
                 📧 Email Support

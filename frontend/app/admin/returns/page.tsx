@@ -31,7 +31,7 @@ const DEMO_RETURNS: AdminReturn[] = [
   {
     _id: "t1",
     returnNumber: "RET17200000001",
-    orderId: { _id: "o1", orderNumber: "VC17200000001", status: "return_requested", createdAt: new Date(Date.now() - 86400e3 * 6).toISOString(), amounts: { total: 3999 }, payment: { method: "upi", status: "paid" }, shippingAddress: { fullName: "Meera Joshi", city: "Guna", state: "Madhya Pradesh", pincode: "473001" }, items: [{ sku: "VC-SR-02-DW", name: "Chunri Bandhani Saree in Deep Wine", unitPrice: 3999, quantity: 1 }] },
+    orderId: { _id: "o1", orderNumber: "VC17200000001", status: "return_requested", createdAt: new Date(Date.now() - 86400e3 * 6).toISOString(), amounts: { total: 3999 }, payment: { method: "upi", status: "paid" }, shippingAddress: { fullName: "Meera Joshi", city: "Guna", state: "Madhya Pradesh", pincode: "000000" }, items: [{ sku: "VC-SR-02-DW", name: "Chunri Bandhani Saree in Deep Wine", unitPrice: 3999, quantity: 1 }] },
     customerId: { _id: "c1", email: "meera@example.com", firstName: "Meera", lastName: "Joshi", phone: "+919800000001" },
     items: [{ sku: "VC-SR-02-DW", quantity: 1, reason: "Colour differed from the photographs", condition: "unworn, tags attached" }],
     type: "return",

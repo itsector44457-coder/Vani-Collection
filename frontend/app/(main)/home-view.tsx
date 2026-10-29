@@ -495,7 +495,7 @@ export default function HomeView({
                   write to us and a person will answer.
                 </p>
                 <a
-                  href="mailto:Vanicollectionguna@gmail.com"
+                  href="mailto:demo@example.com"
                   className="mt-6 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#881337] border-b border-[#881337]/30 pb-1 hover:border-[#881337] transition"
                 >
                   Ask us anything <span aria-hidden="true">→</span>
@@ -540,8 +540,8 @@ export default function HomeView({
             {/* Interactive atelier location, with a direct link if maps cannot load. */}
             <div className="overflow-hidden rounded-2xl border border-stone-200 bg-[#faf7f2] shadow-lg">
               <iframe
-                title="Vani Collection atelier location in Guna, Madhya Pradesh"
-                src="https://www.google.com/maps?q=Vani+Collection+Station+Road+Guna+Madhya+Pradesh&output=embed"
+                title="Demo store location"
+                src="https://www.google.com/maps?q=Connaught+Place+New+Delhi&output=embed"
                 loading="lazy"
                 referrerPolicy="no-referrer-when-downgrade"
                 allowFullScreen
@@ -550,10 +550,10 @@ export default function HomeView({
               <div className="flex flex-wrap items-center justify-between gap-4 border-t border-stone-200 px-5 py-4 sm:px-6">
                 <div>
                   <p className="text-[9px] font-semibold uppercase tracking-[0.25em] text-[#881337]">Flagship Atelier</p>
-                  <p className="mt-1 font-serif text-lg text-stone-900">Station Road · Guna, MP</p>
+                  <p className="mt-1 font-serif text-lg text-stone-900">Demo Street · Demo City, India</p>
                 </div>
                 <a
-                  href="https://www.google.com/maps/dir/?api=1&destination=Vani+Collection+Station+Road+Guna+Madhya+Pradesh"
+                  href="https://www.google.com/maps/dir/?api=1&destination=Connaught+Place+New+Delhi"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-full bg-[#881337] px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-[#6d0f2b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#881337]"

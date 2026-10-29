@@ -18,7 +18,7 @@ interface AtelierInfo {
 const DA: AtelierInfo = {
   foundedBadge: '✨ Speciality in Fancy Kurties & Party Wear Dresses · Guna',
   heroSubtitle: "Vani Collection was founded with a singular, unyielding devotion: to rescue India's most treasured handloom textiles from machine replication and restore pure, breathable luxury to the modern woman's wardrobe.",
-  location: 'Station Road, Guna, Madhya Pradesh',
+  location: 'Demo Street, Demo City, India',
   hours: 'Mon \u2013 Sat \u00b7 10:30 AM \u2013 7:30 PM',
   phone: STORE_PHONE_DISPLAY,
   waPhone: STORE_WHATSAPP_NUMBER,
