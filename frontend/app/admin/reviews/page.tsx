@@ -27,7 +27,7 @@ import {
 import { useApiResource } from "@/lib/use-api";
 
 const DEMO_REVIEWS: AdminReview[] = [
-  { _id: "r1", productId: "p1", productTitle: "Chunri Bandhani Saree in Deep Wine", rating: 5, title: "Worth every rupee", body: "The bandhani work is finer in person than in the photos. Wore it to a wedding in Guna and got endless compliments.", customerName: "Meera Joshi", status: "pending", verifiedPurchase: true, helpfulCount: 8, createdAt: new Date(Date.now() - 3600e3 * 5).toISOString() },
+  { _id: "r1", productId: "p1", productTitle: "Chunri Bandhani Saree in Deep Wine", rating: 5, title: "Worth every rupee", body: "The bandhani work is finer in person than in the photos. Wore it to a wedding in Demo City and got endless compliments.", customerName: "Meera Joshi", status: "pending", verifiedPurchase: true, helpfulCount: 8, createdAt: new Date(Date.now() - 3600e3 * 5).toISOString() },
   { _id: "r2", productId: "p2", productTitle: "Hand Block Print Cotton Kurti", rating: 4, title: "Lovely print, runs large", body: "Beautiful ajrakh tones. I would size down — the M fits like an L.", customerName: "Ananya Rao", status: "published", verifiedPurchase: true, helpfulCount: 14, adminReply: "Thank you Ananya — we have added a fit note to the size guide.", createdAt: new Date(Date.now() - 86400e3 * 2).toISOString() },
   { _id: "r3", productId: "p3", productTitle: "Zari Woven Silk Dupatta", rating: 2, title: "Zari frayed after one wash", body: "Disappointed. The border started fraying after a single dry clean.", customerName: "Ritika Menon", status: "pending", verifiedPurchase: true, helpfulCount: 3, createdAt: new Date(Date.now() - 86400e3 * 4).toISOString() },
   { _id: "r4", productId: "p4", productTitle: "Gotapatti Festive Lehenga Set", rating: 5, title: "Stunning craftsmanship", body: "The gota work is meticulous. Packing was excellent too.", customerName: "Sana Kapoor", status: "rejected", verifiedPurchase: false, helpfulCount: 0, createdAt: new Date(Date.now() - 86400e3 * 9).toISOString() },
@@ -287,7 +287,7 @@ export default function ReviewsPage() {
         open={Boolean(replying)}
         onClose={() => setReplying(null)}
         title="Reply to this review"
-        description="Your reply is shown publicly under the review, attributed to Vani Collection."
+        description="Your reply is shown publicly under the review, attributed to Demo Collection."
         footer={
           <>
             <ButtonGhost onClick={() => setReplying(null)}>Cancel</ButtonGhost>

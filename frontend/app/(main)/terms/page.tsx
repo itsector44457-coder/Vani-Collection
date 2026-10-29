@@ -6,8 +6,8 @@ import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 import { STORE_PHONE_DISPLAY } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Terms & Conditions | Vani Collection",
-  description: "Read our terms of service, ordering policies, and customer guarantees for purchasing handcrafted kurties and suits from Vani Collection.",
+  title: "Terms & Conditions | Demo Collection",
+  description: "Read our terms of service, ordering policies, and customer guarantees for purchasing handcrafted kurties and suits from Demo Collection.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -60,16 +60,16 @@ export default async function TermsPage() {
           <section>
             <h2 className="font-serif text-2xl text-[#881337] mb-4">Agreement to Terms</h2>
             <p className="text-stone-600 text-sm leading-relaxed">
-              These Terms and Conditions (“Terms”) govern your use of the Vani Collection Atelier website and services. By accessing or using our website, making a purchase, or engaging with our services, you agree to be bound by these Terms. If you do not agree to these Terms, please do not use our services.
+              These Terms and Conditions (“Terms”) govern your use of the Demo Collection Atelier website and services. By accessing or using our website, making a purchase, or engaging with our services, you agree to be bound by these Terms. If you do not agree to these Terms, please do not use our services.
             </p>
           </section>
 
           {/* Company Information */}
           <section>
-            <h2 className="font-serif text-2xl text-[#881337] mb-6">About Vani Collection</h2>
+            <h2 className="font-serif text-2xl text-[#881337] mb-6">About Demo Collection</h2>
             <div className="bg-stone-50 p-6 rounded-lg">
               <p className="text-stone-600 text-sm leading-relaxed">
-                Vani Collection Atelier is a boutique fashion brand specializing in handcrafted ethnic wear, including Mul Cotton suits, Anarkalis, and festive ensembles. We are based in Guna, Madhya Pradesh, India, and serve customers across India and internationally.
+                Demo Collection Atelier is a boutique fashion brand specializing in handcrafted ethnic wear, including Mul Cotton suits, Anarkalis, and festive ensembles. We are based in Demo City, India, and serve customers across India and internationally.
               </p>
             </div>
           </section>
@@ -202,7 +202,7 @@ export default async function TermsPage() {
             <h2 className="font-serif text-2xl text-[#881337] mb-6">Intellectual Property</h2>
             <div className="space-y-4">
               <p className="text-stone-600 text-sm">
-                All content on this website, including designs, images, text, logos, and graphics, is the property of Vani Collection Atelier and is protected by copyright and trademark laws.
+                All content on this website, including designs, images, text, logos, and graphics, is the property of Demo Collection Atelier and is protected by copyright and trademark laws.
               </p>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="p-4 border border-stone-200 rounded-lg">
@@ -239,7 +239,7 @@ export default async function TermsPage() {
               <div className="bg-red-50 border border-red-200 rounded-lg p-6">
                 <h3 className="font-semibold text-red-800 mb-3">Limitation of Liability</h3>
                 <p className="text-red-700 text-sm mb-3">
-                  To the maximum extent permitted by law, Vani Collection Atelier shall not be liable for any indirect, incidental, special, or consequential damages.
+                  To the maximum extent permitted by law, Demo Collection Atelier shall not be liable for any indirect, incidental, special, or consequential damages.
                 </p>
                 <p className="text-red-600 text-xs">
                   Our total liability shall not exceed the amount paid by you for the specific product or service in question.
@@ -271,7 +271,7 @@ export default async function TermsPage() {
             <h2 className="font-serif text-2xl text-[#881337] mb-6">Governing Law</h2>
             <div className="bg-stone-50 p-6 rounded-lg">
               <p className="text-stone-600 text-sm">
-                These Terms shall be governed by and construed in accordance with the laws of India. Any disputes arising under these Terms shall be subject to the exclusive jurisdiction of the courts in Guna, Madhya Pradesh.
+                These Terms shall be governed by and construed in accordance with the laws of India. Any disputes arising under these Terms shall be subject to the exclusive jurisdiction of the courts in Demo City, India.
               </p>
             </div>
           </section>
@@ -293,12 +293,12 @@ export default async function TermsPage() {
             <div className="grid sm:grid-cols-2 gap-6">
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Legal Department</h4>
-                <p className="text-sm text-stone-600 mb-1">📧 Vanicollectionguna@gmail.com</p>
+                <p className="text-sm text-stone-600 mb-1">📧 demo@example.com</p>
                 <p className="text-sm text-stone-600">📱 {STORE_PHONE_DISPLAY}</p>
               </div>
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Customer Support</h4>
-                <p className="text-sm text-stone-600 mb-1">📧 Vanicollectionguna@gmail.com</p>
+                <p className="text-sm text-stone-600 mb-1">📧 demo@example.com</p>
                 <p className="text-sm text-stone-600">💬 WhatsApp Support Available</p>
               </div>
             </div>

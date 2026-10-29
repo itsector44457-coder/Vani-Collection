@@ -59,7 +59,7 @@ const INDIAN_STATES = [
   "Kerala",
   "Ladakh",
   "Lakshadweep",
-  "Madhya Pradesh",
+  "India",
   "Maharashtra",
   "Manipur",
   "Meghalaya",
@@ -97,7 +97,7 @@ function stateForPincode(pincode: string): string {
     "30": "Rajasthan", "31": "Rajasthan", "32": "Rajasthan", "33": "Rajasthan", "34": "Rajasthan",
     "36": "Gujarat", "37": "Gujarat", "38": "Gujarat", "39": "Gujarat",
     "40": "Maharashtra", "41": "Maharashtra", "42": "Maharashtra", "43": "Maharashtra", "44": "Maharashtra",
-    "45": "Madhya Pradesh", "46": "Madhya Pradesh", "47": "Madhya Pradesh", "48": "Madhya Pradesh", "49": "Chhattisgarh",
+    "45": "India", "46": "India", "47": "India", "48": "India", "49": "Chhattisgarh",
     "50": "Telangana", "51": "Andhra Pradesh", "52": "Andhra Pradesh", "53": "Andhra Pradesh",
     "56": "Karnataka", "57": "Karnataka", "58": "Karnataka", "59": "Karnataka",
     "60": "Tamil Nadu", "61": "Tamil Nadu", "62": "Tamil Nadu", "63": "Tamil Nadu", "64": "Tamil Nadu", "65": "Tamil Nadu", "66": "Tamil Nadu",
@@ -678,7 +678,7 @@ export default function CheckoutPage() {
       key: pending.payment.keyId,
       amount: pending.payment.amount,
       currency: pending.payment.currency,
-      name: "Vani Collection",
+      name: "Demo Collection",
       description: `Order ${pending.order.orderNumber}`,
       order_id: pending.payment.id,
       prefill: { name: address.fullName, email: address.email, contact: address.phone },
@@ -1536,7 +1536,7 @@ export default function CheckoutPage() {
             href="/"
             className="font-serif text-xl text-[#1c1917] hover:text-[#881337] transition"
           >
-            Vani Collection
+            Demo Collection
           </Link>
           <div className="flex items-center gap-1.5 text-xs text-stone-700 font-medium bg-stone-100 px-3 py-1 rounded-full border border-stone-200">
             <svg className="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 24 24" fill="currentColor">

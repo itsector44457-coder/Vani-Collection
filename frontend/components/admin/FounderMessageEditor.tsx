@@ -33,7 +33,7 @@ export default function FounderMessageEditor({ documents, enabled, onSaved }: { 
   };
   return (
     <Card title="Founder’s Message · Homepage">
-      <p className="mb-5 text-sm text-stone-500">A personal letter from the people behind Vani. Edit the photo and copy here, then publish to update the homepage.</p>
+      <p className="mb-5 text-sm text-stone-500">A personal letter from the people behind demo. Edit the photo and copy here, then publish to update the homepage.</p>
       {error && <div className="mb-4"><Alert>{error}</Alert></div>}
       {notice && <p role="status" className="mb-4 text-sm text-emerald-700">{notice}</p>}
       <fieldset disabled={!enabled || busy} className="grid gap-4 disabled:opacity-60 md:grid-cols-2">
@@ -57,7 +57,7 @@ export default function FounderMessageEditor({ documents, enabled, onSaved }: { 
         <ButtonPrimary type="button" disabled={!enabled || busy} onClick={() => void save("published")}>{busy ? "Saving…" : "Publish founder’s message"}</ButtonPrimary>
         <span className="text-xs text-stone-400">{document?.status === "published" ? "Currently published" : "Default message / unpublished"}</span>
       </div>
-      {preview && <div className="mt-6 overflow-hidden rounded-xl"><FounderMessage content={{ ...form, image: /^(https?:\/\/|\/(?!\/))/.test(form.image) ? form.image : "/vani-store-front.jpg" }} /></div>}
+      {preview && <div className="mt-6 overflow-hidden rounded-xl"><FounderMessage content={{ ...form, image: /^(https?:\/\/|\/(?!\/))/.test(form.image) ? form.image : "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=1600&q=85" }} /></div>}
     </Card>
   );
 }

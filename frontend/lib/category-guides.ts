@@ -168,11 +168,11 @@ export function getCategoryGuide(category: SeoCategory | null, slug: string, lab
       ];
 
   return {
-    intro: category?.description?.trim() || base?.intro || `Explore the latest ${label} at Vani Collection — breathable Indian fabrics, honest pricing and COD available across India.`,
+    intro: category?.description?.trim() || base?.intro || `Explore the latest ${label} at Demo Collection — breathable Indian fabrics, honest pricing and COD available across India.`,
     paragraphs: adminParagraphs.length
       ? adminParagraphs
       : base?.paragraphs || [
-          `${label} at Vani Collection are chosen for Indian weather and Indian days — breathable fabrics, fits checked against real garment measurements, and finishing you can see up close in every product photo. Each product page lists fabric, what the set includes, and care instructions, so what you see is what arrives.`,
+          `${label} at Demo Collection are chosen for Indian weather and Indian days — breathable fabrics, fits checked against real garment measurements, and finishing you can see up close in every product photo. Each product page lists fabric, what the set includes, and care instructions, so what you see is what arrives.`,
           `New here? Start with the Size Guide, check delivery for your pin code on any product page, and remember Cash on Delivery is available across India. If you are unsure between two options, message us on WhatsApp and we will happily share close-up photos before you order.`,
         ],
     highlights: base?.highlights || ["Breathable Indian fabrics", "COD available", "Honest garment sizing", "Easy returns"],

@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       robots: { index: false, follow: true },
     };
   }
-  const title = article.seoTitle || `${article.title} | The Vani Journal`;
+  const title = article.seoTitle || `${article.title} | The demo Journal`;
   const description = truncate(article.seoDescription || article.excerpt || article.body, 158);
   const canonical = absoluteUrl(`/journal/${article.slug}`);
 
@@ -71,7 +71,7 @@ export default async function JournalArticlePage({ params }: Props) {
     .sort((a, b) => Number(b.category === article.category) - Number(a.category === article.category))
     .slice(0, 3);
   const articleUrl = absoluteUrl(`/journal/${article.slug}`);
-  const shareText = encodeURIComponent(`${article.title} — The Vani Journal`);
+  const shareText = encodeURIComponent(`${article.title} — The demo Journal`);
 
   return (
     <div className="bg-[#fbf7f1]">

@@ -8,20 +8,20 @@ import { absoluteUrl, SITE_NAME, truncate } from "@/lib/seo";
 
 export const revalidate = 300;
 
-const DESCRIPTION = "Fabric guides, sizing help, care tips and stories from our Guna atelier — the Vani Journal helps you choose Indian ethnic wear that fits your day, not just the photo.";
+const DESCRIPTION = "Fabric guides, sizing help, care tips and stories from our Demo atelier — the demo Journal helps you choose Indian ethnic wear that fits your day, not just the photo.";
 
 export const metadata: Metadata = {
-  title: { absolute: `The Vani Journal — Fabric, Fit & Care Guides | ${SITE_NAME}` },
+  title: { absolute: `The demo Journal — Fabric, Fit & Care Guides | ${SITE_NAME}` },
   description: DESCRIPTION,
-  keywords: ["mul cotton guide", "kurta set size guide India", "Indian ethnic wear blog", "handblock print care", "Vani Collection journal"],
+  keywords: ["mul cotton guide", "kurta set size guide India", "Indian ethnic wear blog", "handblock print care", "Demo Collection journal"],
   alternates: { canonical: absoluteUrl("/journal") },
   openGraph: {
-    title: `The Vani Journal | ${SITE_NAME}`,
+    title: `The demo Journal | ${SITE_NAME}`,
     description: DESCRIPTION,
     url: absoluteUrl("/journal"),
     type: "website",
   },
-  twitter: { title: `The Vani Journal | ${SITE_NAME}`, description: DESCRIPTION },
+  twitter: { title: `The demo Journal | ${SITE_NAME}`, description: DESCRIPTION },
 };
 
 const formatDate = (value: string): string => {
@@ -49,7 +49,7 @@ export default async function JournalPage() {
             "@type": "Blog",
             "@id": `${absoluteUrl("/journal")}#blog`,
             url: absoluteUrl("/journal"),
-            name: "The Vani Journal",
+            name: "The demo Journal",
             description: DESCRIPTION,
             blogPost: articles.slice(0, 30).map((article) => ({
               "@type": "BlogPosting",
@@ -68,7 +68,7 @@ export default async function JournalPage() {
             <span aria-hidden="true">›</span>
             <span aria-current="page" className="font-medium text-[#781e36]">Journal</span>
           </nav>
-          <h1 className="mt-5 font-serif text-4xl text-stone-900 sm:text-5xl">The Vani Journal</h1>
+          <h1 className="mt-5 font-serif text-4xl text-stone-900 sm:text-5xl">The demo Journal</h1>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-stone-600 sm:text-base">{DESCRIPTION}</p>
         </div>
       </section>

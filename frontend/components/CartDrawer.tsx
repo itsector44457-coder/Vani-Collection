@@ -255,7 +255,7 @@ export default function CartDrawer() {
                 >
                   <label htmlFor="cart-pincode" className="text-xs font-bold text-stone-700">Check delivery for your PIN code</label>
                   <div className="mt-2 flex gap-2">
-                    <input id="cart-pincode" value={pincode} onChange={(event) => { setPincode(event.target.value.replace(/\D/g, "").slice(0, 6)); setPincodeError(null); }} inputMode="numeric" autoComplete="postal-code" placeholder="473001" className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3 text-sm tracking-widest outline-none focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15" />
+                    <input id="cart-pincode" value={pincode} onChange={(event) => { setPincode(event.target.value.replace(/\D/g, "").slice(0, 6)); setPincodeError(null); }} inputMode="numeric" autoComplete="postal-code" placeholder="110001" className="min-h-11 min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3 text-sm tracking-widest outline-none focus:border-[#881337] focus:ring-2 focus:ring-[#881337]/15" />
                     <button type="submit" disabled={checkingPincode || pincode.length !== 6} className="min-h-11 shrink-0 rounded-xl bg-[#1c1917] px-4 text-xs font-bold text-white disabled:opacity-50">{checkingPincode ? "Check…" : "Check"}</button>
                   </div>
                   <div aria-live="polite">

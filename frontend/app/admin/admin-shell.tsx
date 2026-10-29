@@ -355,7 +355,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       >
         {/* Brand */}
         <div className={`flex items-center pt-5 pb-4 ${isSidebarCollapsed ? "flex-col gap-4 px-3" : "justify-between px-5"}`}>
-          <Link href="/admin" prefetch={false} aria-label="Vani Admin dashboard" className={`flex min-w-0 items-center ${isSidebarCollapsed ? "justify-center" : "gap-3"}`}>
+          <Link href="/admin" prefetch={false} aria-label="demo Admin dashboard" className={`flex min-w-0 items-center ${isSidebarCollapsed ? "justify-center" : "gap-3"}`}>
             <div className="relative flex h-10 w-10 items-center justify-center">
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#dfc28c] via-[#c9a56b] to-[#8a6d3f]" />
               <div className="absolute inset-[1.5px] rounded-[14px] bg-[#14100f]" />
@@ -365,7 +365,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             </div>
             {!isSidebarCollapsed && <div className="min-w-0 leading-tight">
               <div className="font-serif text-[16px] font-semibold tracking-tight">
-                Vani
+                demo
               </div>
               <div className="text-[8.5px] font-semibold uppercase tracking-[0.22em] text-[#dfc28c]/60">
                 Admin Console

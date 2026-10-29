@@ -341,7 +341,7 @@ export default function NewProductPage() {
               <label htmlFor="p-fabric" className={labelClass}>
                 Fabric
               </label>
-              <input id="p-fabric" value={fabric} onChange={(event) => setFabric(event.target.value)} className={inputClass} placeholder="100% Pure Guna Mul Cotton" />
+              <input id="p-fabric" value={fabric} onChange={(event) => setFabric(event.target.value)} className={inputClass} placeholder="100% Pure Mul Cotton" />
             </div>
             <div>
               <label htmlFor="p-craft" className={labelClass}>

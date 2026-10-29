@@ -15,13 +15,13 @@ export default function FounderMessage({ content = DEFAULT_FOUNDER }: { content?
         <div className="mb-8 flex items-center gap-4 sm:mb-12">
           <span className="h-px w-10 bg-[#dfc28c]" />
           <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#dfc28c]">Behind the label</p>
-          <span className="ml-auto hidden text-[10px] uppercase tracking-[0.24em] text-[#dfc28c]/60 sm:block">Guna, Madhya Pradesh</span>
+          <span className="ml-auto hidden text-[10px] uppercase tracking-[0.24em] text-[#dfc28c]/60 sm:block">Demo City, India</span>
         </div>
         <div className="grid items-center gap-9 lg:grid-cols-[0.9fr_1.1fr] lg:gap-0">
           <div className="relative lg:pb-12 lg:pr-0">
             <div className="absolute -inset-2 border border-[#dfc28c]/30 sm:-inset-3 lg:bottom-9 lg:right-7" aria-hidden="true" />
             <div className="relative aspect-[4/5] max-h-[580px] overflow-hidden bg-[#532b36]">
-              <Image src={failedImage === content.image ? "/vani-store-front.jpg" : content.image} alt={content.imageAlt} fill unoptimized sizes="(max-width: 1023px) 90vw, 480px" onError={() => setFailedImage(content.image)} className="object-cover" />
+              <Image src={failedImage === content.image ? "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=1600&q=85" : content.image} alt={content.imageAlt} fill unoptimized sizes="(max-width: 1023px) 90vw, 480px" onError={() => setFailedImage(content.image)} className="object-cover" />
               <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-[#210c14]/85 via-transparent to-transparent" />
               <div className="absolute bottom-7 left-6 right-6 flex items-end justify-between gap-3 sm:bottom-10 sm:left-9">
                 <p className="font-serif text-2xl italic text-white">Made with love.<br /><span className="text-[#dfc28c]">Always.</span></p>

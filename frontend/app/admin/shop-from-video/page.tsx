@@ -3,7 +3,7 @@ import ShopFromVideoView from "./shop-from-video-view";
 
 export const metadata: Metadata = {
   title: "Shop From The Video",
-  description: "Manage the shoppable videos shown directly below the Vani Collection homepage banner.",
+  description: "Manage the shoppable videos shown directly below the Demo Collection homepage banner.",
 };
 
 export default function ShopFromVideoPage() {

@@ -318,7 +318,7 @@ export default function ProfilePage() {
       await deleteAccount();
       router.replace("/");
     } catch (cause) {
-      setError((cause as Error)?.message || "Failed to deactivate account. Please contact Vanicollectionguna@gmail.com.");
+      setError((cause as Error)?.message || "Failed to deactivate account. Please contact demo@example.com.");
       setShowDeleteModal(false);
       setDeleting(false);
     }
@@ -376,7 +376,7 @@ export default function ProfilePage() {
       )}
 
       {/* ---------------- Personal Information ---------------- */}
-      <Card title="Personal information" description="Your primary identity details on Vani Collection." className="mb-6">
+      <Card title="Personal information" description="Your primary identity details on Demo Collection." className="mb-6">
         <div className="flex flex-wrap items-center gap-4 border-b border-[#f0ebe3] pb-6">
           <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#881337] via-[#a21d46] to-[#4c0a1f] text-[20px] font-bold text-white shadow-md">
             {initials}
@@ -388,7 +388,7 @@ export default function ProfilePage() {
               <Badge tone="success" dot>Active Member</Badge>
             </div>
             <p className="text-[12px] text-stone-500 mt-0.5">
-              {memberSince ? `Member since ${memberSince}` : "Valued Vani Collection Customer"}
+              {memberSince ? `Member since ${memberSince}` : "Valued Demo Collection Customer"}
             </p>
           </div>
         </div>
@@ -582,7 +582,7 @@ export default function ProfilePage() {
       {/* ---------------- Communication Preferences ---------------- */}
       <Card
         title="Communication preferences"
-        description="Choose how Vani Collection communicates delivery updates and offers to you."
+        description="Choose how Demo Collection communicates delivery updates and offers to you."
         className="mb-6"
       >
         <div className="space-y-3">
@@ -661,7 +661,7 @@ export default function ProfilePage() {
               Deactivate your account?
             </h3>
             <p id="deactivate-dialog-description" className="mt-2 text-[13px] text-stone-600 leading-relaxed">
-              Are you sure you want to deactivate your Vani Collection account for <strong>{user.email}</strong>? You will be signed out immediately.
+              Are you sure you want to deactivate your Demo Collection account for <strong>{user.email}</strong>? You will be signed out immediately.
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <ButtonGhost type="button" onClick={() => setShowDeleteModal(false)} disabled={deleting}>

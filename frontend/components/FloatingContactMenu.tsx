@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { INSTAGRAM_URL } from "../lib/seo";
 import { STORE_PHONE_E164, storeWhatsAppUrl } from "../lib/site-contact";
 
-const WHATSAPP_URL = storeWhatsAppUrl("Hello Vani Collection!");
+const WHATSAPP_URL = storeWhatsAppUrl("Hello Demo Collection!");
 
 const iconProps = {
   viewBox: "0 0 24 24",
@@ -72,9 +72,9 @@ function CloseIcon() {
 }
 
 const contactItems = [
-  { label: "Visit Guna Atelier & Contact", href: "/contact", Icon: LocationIcon, external: false },
+  { label: "Visit Demo City Atelier & Contact", href: "/contact", Icon: LocationIcon, external: false },
   { label: "Chat on WhatsApp", href: WHATSAPP_URL, Icon: WhatsAppIcon, external: true },
-  { label: "Call Vani Collection", href: `tel:${STORE_PHONE_E164}`, Icon: PhoneIcon, external: false },
+  { label: "Call Demo Collection", href: `tel:${STORE_PHONE_E164}`, Icon: PhoneIcon, external: false },
   { label: "Visit Instagram", href: INSTAGRAM_URL, Icon: InstagramIcon, external: true },
 ];
 

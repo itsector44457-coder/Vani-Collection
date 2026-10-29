@@ -459,7 +459,7 @@ export default function ShopFromVideo({
               New Collection
             </h3>
             <p className="text-[11px] text-white/80 font-light hidden sm:block">
-              Discover the Latest Trends &amp; Handcrafted Styles from Guna Atelier
+              Discover the Latest Trends &amp; Handcrafted Styles from Demo City Atelier
             </p>
           </div>
           <Link
@@ -563,7 +563,7 @@ export default function ShopFromVideo({
 
             {/* Top-Center: Brand Logo */}
             <h3 id="shop-video-title" className="font-serif text-base font-normal uppercase tracking-widest text-[#dfc28c] sm:text-xl">
-              VANI COLLECTION
+              DEMO COLLECTION
             </h3>
 
             {/* Top-Right: Close Button (X) */}
@@ -782,7 +782,7 @@ export default function ShopFromVideo({
                 {/* Direct WhatsApp Order Button */}
                 <a
                   href={storeWhatsAppUrl(
-                    `Hello Vani Collection, I am interested in ordering "${activeReel.productId?.name || activeReel.title}" which I saw in your video look.`
+                    `Hello Demo Collection, I am interested in ordering "${activeReel.productId?.name || activeReel.title}" which I saw in your video look.`
                   )}
                   target="_blank"
                   rel="noopener noreferrer"

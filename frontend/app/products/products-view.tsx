@@ -431,7 +431,7 @@ function ProductsContent({ initialProducts, initialCategories = [] }: { initialP
       <div className="bg-gradient-to-br from-[#1c1917] via-[#3d2012] to-[#881337] text-white py-16 px-4">
         <div className="max-w-7xl mx-auto text-center">
           <p className="text-[10px] uppercase tracking-[0.4em] text-[#dfc28c] mb-3 font-semibold">
-            Handcrafted in Guna
+            Handcrafted in Demo City
           </p>
           <h1 className="font-serif text-4xl sm:text-5xl font-light mb-4">
             {activeCategory === "all" ? "Our Collection" : activeCategoryLabel}

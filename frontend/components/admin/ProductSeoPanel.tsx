@@ -27,7 +27,7 @@ interface ProductSeoPanelProps {
 export default function ProductSeoPanel(props: ProductSeoPanelProps) {
   const metaDescription = props.seoDescription.trim() || props.shortDescription.trim();
   const fullCopy = `${props.shortDescription} ${props.description}`.trim();
-  const previewTitle = props.seoTitle.trim() || `${props.productName.trim() || "Product name"} | Vani Collection`;
+  const previewTitle = props.seoTitle.trim() || `${props.productName.trim() || "Product name"} | Demo Collection`;
 
   return (
     <Card title="Google search (SEO)">
@@ -40,7 +40,7 @@ export default function ProductSeoPanel(props: ProductSeoPanelProps) {
             <Textarea id={`${props.idPrefix}-seo-description`} rows={3} maxLength={320} value={props.seoDescription} onChange={(event) => props.onSeoDescriptionChange(event.target.value)} placeholder="Fabric, khaasiyat aur kis ke liye hai — ek saaf line me…" />
           </Field>
           <div className="rounded-xl border border-[#e5ded5] bg-white p-3" aria-label="Google result preview">
-            <p className="truncate text-[11px] text-stone-500">vanicollection.com/product/{props.slug || "…"}</p>
+            <p className="truncate text-[11px] text-stone-500">democollection.example.com/product/{props.slug || "…"}</p>
             <p className="mt-0.5 truncate text-[15px] font-medium text-[#1a0dab]">{previewTitle}</p>
             <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-stone-600">{metaDescription || "Short ya SEO description likhne par yahan preview dikhega…"}</p>
           </div>

@@ -6,7 +6,7 @@ import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 import { storeWhatsAppUrl } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Returns & Exchanges Policy | Vani Collection",
+  title: "Returns & Exchanges Policy | Demo Collection",
   description: "Easy returns and 7-day hassle-free exchanges for handcrafted kurties and suits. Read our transparent exchange and refund process.",
 };
 
@@ -102,11 +102,11 @@ export default async function ReturnsPage() {
                   <h4 className="font-semibold text-stone-800 mb-2">Initiate Return Request</h4>
                   <p className="text-sm text-stone-600 mb-2">Contact us within 7 days of delivery</p>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <a href="mailto:Vanicollectionguna@gmail.com" className="text-xs text-blue-600 hover:underline flex items-center gap-1.5 font-medium">
+                    <a href="mailto:demo@example.com" className="text-xs text-blue-600 hover:underline flex items-center gap-1.5 font-medium">
                       <svg className="w-3.5 h-3.5 text-stone-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                       </svg>
-                      <span>Vanicollectionguna@gmail.com</span>
+                      <span>demo@example.com</span>
                     </a>
                     <span className="hidden sm:block text-stone-400">|</span>
                     <a href={storeWhatsAppUrl()} className="text-xs text-[#25D366] hover:underline flex items-center gap-1.5 font-medium mt-1">
@@ -224,7 +224,7 @@ export default async function ReturnsPage() {
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Email Support</h4>
-                <p className="text-sm text-stone-600 mb-2">Vanicollectionguna@gmail.com</p>
+                <p className="text-sm text-stone-600 mb-2">demo@example.com</p>
                 <p className="text-xs text-stone-500">Response within 24 hours</p>
               </div>
               <div className="bg-stone-50 p-4 rounded-lg">

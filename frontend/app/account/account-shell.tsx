@@ -73,7 +73,7 @@ export default function AccountShell({ children }: { children: ReactNode }) {
       {/* -------- Top brand bar -------- */}
       <header className="sticky top-0 z-30 border-b border-[#ebe6de] bg-[#faf7f2]/85 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between px-5 lg:px-8">
-          <Link href="/" className="flex min-h-11 items-center gap-3" aria-label="Vani Collection home">
+          <Link href="/" className="flex min-h-11 items-center gap-3" aria-label="Demo Collection home">
             <div className="relative flex h-10 w-10 items-center justify-center">
               <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#dfc28c] via-[#c9a56b] to-[#8a6d3f]" />
               <div className="absolute inset-[1.5px] rounded-[14px] bg-[#faf7f2]" />
@@ -83,7 +83,7 @@ export default function AccountShell({ children }: { children: ReactNode }) {
             </div>
             <div className="leading-tight">
               <div className="font-serif text-[16px] font-semibold tracking-tight">
-                Vani Collection
+                Demo Collection
               </div>
               <div className="text-[8.5px] font-semibold uppercase tracking-[0.22em] text-stone-400">
                 My Account

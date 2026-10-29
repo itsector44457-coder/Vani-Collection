@@ -93,7 +93,7 @@ export default function SignupPage() {
           <div 
             className="absolute inset-0 bg-cover bg-center"
             style={{
-              backgroundImage: "url('/vani-store-front.jpg')",
+              backgroundImage: "url('https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=1600&q=85')",
             }}
           >
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
@@ -106,7 +106,7 @@ export default function SignupPage() {
               <span className="text-xs font-semibold uppercase tracking-wider">Join Our Family</span>
             </div>
             <h2 className="font-serif text-3xl font-light leading-tight mb-2">
-              Start Your Journey with Vani Collection
+              Start Your Journey with Demo Collection
             </h2>
             <p className="text-white/80 text-sm">
               Experience authentic handcrafted luxury, exclusive collections, and personalized styling
@@ -125,7 +125,7 @@ export default function SignupPage() {
                 <span className="relative font-serif text-xl font-bold text-[#881337]">V</span>
               </div>
               <div className="leading-tight">
-                <div className="font-serif text-lg font-semibold text-stone-900">Vani Collection</div>
+                <div className="font-serif text-lg font-semibold text-stone-900">Demo Collection</div>
                 <div className="text-[8px] font-semibold uppercase tracking-wider text-stone-400">Artisanal Luxury</div>
               </div>
             </Link>

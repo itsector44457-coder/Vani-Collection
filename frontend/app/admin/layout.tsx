@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     default: "Admin Console",
     template: "%s · Admin Console",
   },
-  description: "Vani Collection staff console.",
+  description: "Demo Collection staff console.",
   robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
   // No canonical: these URLs must never be presented as the preferred version of anything.
 };

@@ -6,7 +6,7 @@ import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 import { storeWhatsAppUrl } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Size Guide & Fitting Chart | Vani Collection",
+  title: "Size Guide & Fitting Chart | Demo Collection",
   description: "Find your perfect fit with our comprehensive ethnic wear size guide, including bust, waist, and length measurements for Kurtis, Anarkalis, and suit sets.",
 };
 
@@ -326,7 +326,7 @@ export default async function SizeGuidePage() {
                 💬 WhatsApp par size madad
               </a>
               <a
-                href="mailto:Vanicollectionguna@gmail.com"
+                href="mailto:demo@example.com"
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#881337] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#701a35]"
               >
                 📧 Email par size madad

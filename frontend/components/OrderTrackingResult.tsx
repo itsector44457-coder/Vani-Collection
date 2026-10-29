@@ -104,7 +104,7 @@ export default function OrderTrackingResult({ tracking }: { tracking: PublicOrde
                 {item.image ? (
                   <Image src={item.image} alt="" width={52} height={64} unoptimized className="h-16 w-13 shrink-0 rounded-lg object-cover" />
                 ) : (
-                  <span aria-hidden="true" className="flex h-16 w-13 shrink-0 items-center justify-center rounded-lg bg-[#f4e4de] text-xs text-[#881337]">Vani</span>
+                  <span aria-hidden="true" className="flex h-16 w-13 shrink-0 items-center justify-center rounded-lg bg-[#f4e4de] text-xs text-[#881337]">demo</span>
                 )}
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-stone-800">{item.name}</p>

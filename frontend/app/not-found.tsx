@@ -3,8 +3,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  // Absolute prevents the root `%s | Vani Collection` template from branding the title twice.
-  title: { absolute: "Page Not Found | Vani Collection" },
+  // Absolute prevents the root `%s | Demo Collection` template from branding the title twice.
+  title: { absolute: "Page Not Found | Demo Collection" },
   description: "The page you’re looking for could not be found.",
 };
 

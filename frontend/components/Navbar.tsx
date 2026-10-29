@@ -21,7 +21,7 @@ const FALLBACK_CATEGORIES: StoreCategory[] = [
 
 const FALLBACK_SETTINGS: NavigationSettings = {
   theme: "atelier",
-  brandName: "Vani Collection",
+  brandName: "Demo Collection",
   brandTagline: "Speciality in Fancy Kurties & Party Wear Dresses",
   logoUrl: "",
   collectionLabel: "Collections",
@@ -29,7 +29,7 @@ const FALLBACK_SETTINGS: NavigationSettings = {
     "✦ Speciality in Fancy Kurties & Party Wear Dresses",
     "✦ Free Express Shipping Across India Above ₹1,999",
     "✦ Cash on Delivery Available (select pincodes)",
-    "✦ 100% Certified Pure Handcrafted Ensembles · Guna",
+    "✦ 100% Certified Pure Handcrafted Ensembles · Demo City",
   ],
   links: [
     { label: "Shop From The Video", href: "/#shop-from-video", isActive: true },

@@ -32,7 +32,7 @@ interface Review {
 
 const toReview = (review: StoreReview): Review => ({
   id: review._id,
-  userName: review.customerName || "Vani customer",
+  userName: review.customerName || "demo customer",
   rating: review.rating,
   date: review.createdAt,
   verified: Boolean(review.verifiedPurchase),
@@ -294,7 +294,7 @@ export default function ProductReviews({ productId, apiProductId }: ProductRevie
                 )}
                 {review.adminReply && (
                   <div className="rounded-r-xl border-l-2 border-[#881337] bg-rose-50/60 px-4 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-[#881337]">Response from Vani Collection</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-[#881337]">Response from Demo Collection</p>
                     <p className="mt-1 text-sm leading-relaxed text-gray-700">{review.adminReply}</p>
                   </div>
                 )}

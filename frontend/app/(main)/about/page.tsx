@@ -16,13 +16,13 @@ interface AtelierInfo {
 }
 
 const DA: AtelierInfo = {
-  foundedBadge: '✨ Speciality in Fancy Kurties & Party Wear Dresses · Guna',
-  heroSubtitle: "Vani Collection was founded with a singular, unyielding devotion: to rescue India's most treasured handloom textiles from machine replication and restore pure, breathable luxury to the modern woman's wardrobe.",
-  location: 'Station Road, Guna, Madhya Pradesh',
+  foundedBadge: '✨ Speciality in Fancy Kurties & Party Wear Dresses · Demo City',
+  heroSubtitle: "Demo Collection was founded with a singular, unyielding devotion: to rescue India's most treasured handloom textiles from machine replication and restore pure, breathable luxury to the modern woman's wardrobe.",
+  location: 'Demo Street, Demo City, India',
   hours: 'Mon \u2013 Sat \u00b7 10:30 AM \u2013 7:30 PM',
   phone: STORE_PHONE_DISPLAY,
   waPhone: STORE_WHATSAPP_NUMBER,
-  storyPara1: 'In an era dominated by synthetic polyesters and cold, hurried mass-production factories, Vani Collection took the road less traveled \u2014 back to the sun-baked artisan colonies of Bagru, Sanganer, and Patan.',
+  storyPara1: 'In an era dominated by synthetic polyesters and cold, hurried mass-production factories, Demo Collection took the road less traveled \u2014 back to the sun-baked artisan colonies of Bagru, Sanganer, and Patan.',
   storyPara2: "We started with just three wooden looms and five fifth-generation master block carvers who feared their ancestral craft would disappear forever. We made a sacred vow: never use artificial polyester blends, never dilute our natural dyes.",
   statBadgeNumber: '1,200+',
   statBadgeLabel: 'Hand-carved block stamps on every single royal ensemble.',
@@ -81,26 +81,26 @@ async function load() {
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
-    title: 'Our Story · The Guna Atelier Heritage | Vani Collection',
-    description: 'Discover the soul of Vani Collection — born amidst the artisan guilds of Guna, Madhya Pradesh. Speciality in Fancy Kurties & Party Wear Dresses. Preserving ancient hand-block printing, pure Gaji silk, and featherweight 100-count Mulmul.',
+    title: 'Our Story · The Demo City Atelier Heritage | Demo Collection',
+    description: 'Discover the soul of Demo Collection — born amidst the artisan guilds of Demo City, India. Speciality in Fancy Kurties & Party Wear Dresses. Preserving ancient hand-block printing, pure Gaji silk, and featherweight 100-count Mulmul.',
     alternates: { canonical: absoluteUrl("/about") },
     keywords: [
-      "Vani Collection story", "Vani Collection Guna", "handloom Guna",
-      "mul cotton", "Bagru handblock print", "ethnic wear Madhya Pradesh",
-      "fancy kurties Guna", "party wear dresses Guna", "handcrafted Indian wear",
+      "Demo Collection story", "Demo Collection Demo City", "handloom Demo City",
+      "mul cotton", "Bagru handblock print", "ethnic wear India",
+      "fancy kurties Demo City", "party wear dresses Demo City", "handcrafted Indian wear",
     ],
     openGraph: {
       type: "website",
       url: absoluteUrl("/about"),
-      siteName: "Vani Collection",
-      title: 'Our Story · Vani Collection Atelier',
-      description: 'Handcrafted luxury ethnic wear rooted in the weaving traditions of Guna, Madhya Pradesh. Speciality in Fancy Kurties & Party Wear Dresses.',
+      siteName: "Demo Collection",
+      title: 'Our Story · Demo Collection Atelier',
+      description: 'Handcrafted luxury ethnic wear rooted in the weaving traditions of Demo City, India. Speciality in Fancy Kurties & Party Wear Dresses.',
       locale: "en_IN",
     },
     twitter: {
       card: "summary_large_image",
-      title: 'Our Story · Vani Collection Atelier',
-      description: 'Handcrafted luxury ethnic wear rooted in the weaving traditions of Guna, Madhya Pradesh.',
+      title: 'Our Story · Demo Collection Atelier',
+      description: 'Handcrafted luxury ethnic wear rooted in the weaving traditions of Demo City, India.',
     },
   };
 }
@@ -140,7 +140,7 @@ export default async function AboutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           <div className="relative">
             <div className="relative h-[420px] sm:h-[500px] w-full rounded-3xl overflow-hidden shadow-2xl border border-stone-200">
-              <Image src={atelier.storyImageUrl} alt="Vani Collection Master Craftsman" fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
+              <Image src={atelier.storyImageUrl} alt="Demo Collection Master Craftsman" fill priority className="object-cover" sizes="(max-width: 1024px) 100vw, 50vw" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
               <div className="absolute bottom-6 left-6 right-6 text-white">
                 <p className="text-[11px] font-semibold tracking-[0.2em] uppercase text-[#dfc28c]">The Living Craft</p>
@@ -156,7 +156,7 @@ export default async function AboutPage() {
             <div className="inline-block">
               <span className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#881337] bg-[#881337]/10 px-3 py-1 rounded-full">Chapter I \u00b7 The Genesis</span>
             </div>
-            <h2 className="font-serif text-2xl sm:text-4xl text-stone-900 font-normal leading-tight">Rooted in the Artisan Courtyards of Guna</h2>
+            <h2 className="font-serif text-2xl sm:text-4xl text-stone-900 font-normal leading-tight">Rooted in the Artisan Courtyards of Demo City</h2>
             <p className="text-stone-600 text-sm sm:text-base leading-relaxed">{atelier.storyPara1}</p>
             <p className="text-stone-600 text-sm sm:text-base leading-relaxed">{atelier.storyPara2}</p>
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-stone-200">
@@ -168,7 +168,7 @@ export default async function AboutPage() {
               <div className="rounded-2xl bg-white p-4 border border-stone-200/80 shadow-sm">
                 <span className="text-xl">\u2600\ufe0f</span>
                 <h4 className="font-serif font-semibold text-stone-900 text-sm mt-2">Sun-Baked Dyes</h4>
-                <p className="text-xs text-stone-500 mt-1">Traditional vegetable indigo and madder dried under Madhya Pradesh sunlight.</p>
+                <p className="text-xs text-stone-500 mt-1">Traditional vegetable indigo and madder dried under Indian sunlight.</p>
               </div>
             </div>
           </div>
@@ -180,7 +180,7 @@ export default async function AboutPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <span className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#881337] bg-[#881337]/10 px-3 py-1 rounded-full">Chapter II \u00b7 The Pillars</span>
-            <h2 className="font-serif text-3xl sm:text-4xl text-stone-900 font-normal mt-3 mb-4">The Four Sacred Weaves of Vani Collection</h2>
+            <h2 className="font-serif text-3xl sm:text-4xl text-stone-900 font-normal mt-3 mb-4">The Four Sacred Weaves of Demo Collection</h2>
             <p className="text-sm sm:text-base text-stone-600">Each piece in our boutique is born from one of these time-honored artisanal disciplines.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -210,7 +210,7 @@ export default async function AboutPage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <span className="text-[11px] font-bold tracking-[0.25em] uppercase text-[#881337] bg-[#881337]/10 px-3 py-1 rounded-full">Chapter III \u00b7 Our Vow</span>
-          <h2 className="font-serif text-3xl sm:text-4xl text-stone-900 font-normal mt-3 mb-4">The Vani Slow Fashion Manifesto</h2>
+          <h2 className="font-serif text-3xl sm:text-4xl text-stone-900 font-normal mt-3 mb-4">The demo Slow Fashion Manifesto</h2>
           <p className="text-sm sm:text-base text-stone-600">{atelier.chapterIIISubtitle}</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -230,7 +230,7 @@ export default async function AboutPage() {
           <span className="inline-block rounded-full bg-[#dfc28c]/15 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#dfc28c] mb-4">Flagship Atelier &amp; Studio</span>
           <h2 className="font-serif text-3xl sm:text-4xl font-normal text-white mb-4">Experience the Loom in Person</h2>
           <p className="max-w-2xl mx-auto text-sm sm:text-base text-white/80 leading-relaxed font-light mb-8">
-            When you visit Guna, step into our serene atelier. Touch the raw mulmul, watch master carvers engrave teakwood blocks, and sip authentic saffron cardamom chai while our stylists curate your bridal or festive trousseau.
+            When you visit Demo City, step into our serene atelier. Touch the raw mulmul, watch master carvers engrave teakwood blocks, and sip authentic saffron cardamom chai while our stylists curate your bridal or festive trousseau.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto text-xs text-stone-300 mb-8 border-y border-white/10 py-4">
             <div><p className="font-semibold text-white">\U0001f4cd Location</p><p className="mt-0.5 text-white/70">{atelier.location}</p></div>
@@ -240,7 +240,7 @@ export default async function AboutPage() {
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link href="/contact" className="rounded-xl bg-[#dfc28c] px-6 py-3 text-xs font-bold uppercase tracking-wider text-[#1c1917] hover:bg-white transition">Get Directions &amp; Contact</Link>
             <a
-              href={`https://wa.me/${atelier.waPhone}?text=Hello%20Vani%20Collection%20Atelier,%20I%20would%20like%20to%20book%20a%20private%20styling%20appointment.`}
+              href={`https://wa.me/${atelier.waPhone}?text=Hello%20Demo%20Collection,%20I%20would%20like%20to%20book%20a%20private%20styling%20appointment.`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-xl border border-white/30 bg-white/10 px-6 py-3 text-xs font-bold uppercase tracking-wider text-white hover:bg-white/20 transition"

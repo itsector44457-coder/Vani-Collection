@@ -6,7 +6,7 @@ import { absoluteUrl, SITE_NAME } from "@/lib/seo";
 import CollectionsView from "./collections-view";
 
 const title = `Shop by Collection | ${SITE_NAME}`;
-const description = `Explore handcrafted collections from ${SITE_NAME}, Guna — from breathable Mul Cotton and everyday Kurta Sets to festive heirlooms and Sarees.`;
+const description = `Explore handcrafted collections from ${SITE_NAME}, Demo City — from breathable Mul Cotton and everyday Kurta Sets to festive heirlooms and Sarees.`;
 
 export const metadata: Metadata = {
   title: { absolute: title },

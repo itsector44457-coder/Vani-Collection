@@ -6,8 +6,8 @@ import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 import { STORE_PHONE_DISPLAY, storeWhatsAppUrl } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Shipping & Delivery Policy | Vani Collection",
-  description: "Learn about our shipping policies, express delivery times across India, and free shipping over ₹1,999 for Vani Collection artisanal kurties and dresses.",
+  title: "Shipping & Delivery Policy | Demo Collection",
+  description: "Learn about our shipping policies, express delivery times across India, and free shipping over ₹1,999 for Demo Collection artisanal kurties and dresses.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -81,7 +81,7 @@ export default async function ShippingPage() {
                 <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</span>
                 <div>
                   <h4 className="font-semibold text-stone-800">Dispatch</h4>
-                  <p className="text-sm text-stone-600">Orders Guna atelier se dispatch hote hain; AWB SMS, WhatsApp aur email par bheja jata hai.</p>
+                  <p className="text-sm text-stone-600">Orders Demo atelier se dispatch hote hain; AWB SMS, WhatsApp aur email par bheja jata hai.</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-4 bg-purple-50 rounded-lg">
@@ -115,7 +115,7 @@ export default async function ShippingPage() {
             <h2 className="font-serif text-2xl text-[#881337] mb-6">International Shipping</h2>
             <p className="text-stone-600 mb-4">Online checkout abhi sirf India ke liye hai. Bharat ke bahar delivery ke liye pehle humse sampark kare — hum jaanch karke sahi shipping quote denge:</p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <p className="text-blue-800 text-sm mb-2">📧 Email: Vanicollectionguna@gmail.com</p>
+              <p className="text-blue-800 text-sm mb-2">📧 Email: demo@example.com</p>
               <p className="text-blue-800 text-sm">📱 WhatsApp: {STORE_PHONE_DISPLAY}</p>
             </div>
           </section>
@@ -126,7 +126,7 @@ export default async function ShippingPage() {
             <p className="text-stone-600 mb-4">Our customer support team is here to help:</p>
             <div className="flex flex-col sm:flex-row gap-4">
               <a
-                href="mailto:Vanicollectionguna@gmail.com"
+                href="mailto:demo@example.com"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-[#881337] text-white rounded-full text-sm font-medium hover:bg-[#701a35] transition"
               >
                 📧 Email Support

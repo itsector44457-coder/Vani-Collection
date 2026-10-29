@@ -30,11 +30,11 @@ import { useAdminSession } from "@/lib/use-admin-session";
 import { useApiResource } from "@/lib/use-api";
 
 const DEMO_STAFF: StaffUser[] = [
-  { _id: "s1", email: "admin@vanicollection.in", firstName: "Vani", lastName: "Sharma", roles: ["super_admin"], status: "active", lastLoginAt: new Date(Date.now() - 3600e3 * 2).toISOString(), createdAt: new Date("2025-11-04").toISOString() },
-  { _id: "s2", email: "support@vanicollection.in", firstName: "Rhea", lastName: "Kulkarni", roles: ["support"], status: "active", lastLoginAt: new Date(Date.now() - 3600e3 * 9).toISOString(), createdAt: new Date("2026-01-19").toISOString() },
-  { _id: "s3", email: "warehouse@vanicollection.in", firstName: "Imran", lastName: "Sheikh", roles: ["warehouse", "catalog_manager"], status: "active", lastLoginAt: new Date(Date.now() - 86400e3 * 1).toISOString(), createdAt: new Date("2026-02-02").toISOString() },
-  { _id: "s4", email: "finance@vanicollection.in", firstName: "Nikhil", lastName: "Verma", roles: ["finance"], status: "active", createdAt: new Date("2026-03-11").toISOString() },
-  { _id: "s5", email: "intern@vanicollection.in", firstName: "Tara", lastName: "Nair", roles: ["support"], status: "blocked", createdAt: new Date("2026-06-27").toISOString() },
+  { _id: "s1", email: "admin@democollection.example.com", firstName: "demo", lastName: "Sharma", roles: ["super_admin"], status: "active", lastLoginAt: new Date(Date.now() - 3600e3 * 2).toISOString(), createdAt: new Date("2025-11-04").toISOString() },
+  { _id: "s2", email: "support@democollection.example.com", firstName: "Rhea", lastName: "Kulkarni", roles: ["support"], status: "active", lastLoginAt: new Date(Date.now() - 3600e3 * 9).toISOString(), createdAt: new Date("2026-01-19").toISOString() },
+  { _id: "s3", email: "warehouse@democollection.example.com", firstName: "Imran", lastName: "Sheikh", roles: ["warehouse", "catalog_manager"], status: "active", lastLoginAt: new Date(Date.now() - 86400e3 * 1).toISOString(), createdAt: new Date("2026-02-02").toISOString() },
+  { _id: "s4", email: "finance@democollection.example.com", firstName: "Nikhil", lastName: "Verma", roles: ["finance"], status: "active", createdAt: new Date("2026-03-11").toISOString() },
+  { _id: "s5", email: "intern@democollection.example.com", firstName: "Tara", lastName: "Nair", roles: ["support"], status: "blocked", createdAt: new Date("2026-06-27").toISOString() },
 ];
 
 /** What each role can actually reach — shown next to the picker so grants are deliberate. */
@@ -374,7 +374,7 @@ export default function StaffPage() {
       >
         <div className="space-y-4">
           <Field label="Work email" htmlFor="staff-email">
-            <TextInput id="staff-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@vanicollection.in" />
+            <TextInput id="staff-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@democollection.example.com" />
           </Field>
 
           <div className="grid grid-cols-2 gap-4">

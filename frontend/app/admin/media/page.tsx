@@ -103,7 +103,7 @@ export default function MediaLibraryPage() {
       {error && <Alert>{error}</Alert>}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard label="All media" value={counts.total.toLocaleString("en-IN")} hint="Images and videos in the Vani Collection folders" />
+        <StatCard label="All media" value={counts.total.toLocaleString("en-IN")} hint="Images and videos in the Demo Collection folders" />
         <StatCard label="Images" value={counts.images.toLocaleString("en-IN")} hint="Product and content images" />
         <StatCard label="Videos" value={counts.videos.toLocaleString("en-IN")} hint="Uploaded video files" tone="gold" />
       </div>

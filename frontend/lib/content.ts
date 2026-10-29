@@ -4,7 +4,7 @@ import { FOUNDER_KEY, toFounderMessage, type FounderMessage } from "./founder";
  *
  * Homepage testimonials, lookbook and FAQ are editable through `PUT /api/content/:key`. Legacy banner
  * documents still map to HeroSlide records for CMS compatibility, but the storefront hero is now a
- * fixed Vani Collection photo. This module turns loosely-shaped Content documents into structures the
+ * fixed Demo Collection photo. This module turns loosely-shaped Content documents into structures the
  * homepage and Admin can consume.
  *
  * Only published CMS content is rendered; an empty CMS produces empty homepage content.

@@ -9,9 +9,9 @@
  *
  * The fallback below is the store's real customer number.
  */
-// Vani Collection's live customer line. Used when the env variables above are not set.
-const DEFAULT_PHONE_DISPLAY = "+91 877 030 9639";
-const DEFAULT_WHATSAPP_NUMBER = "918770309639";
+// Demo Collection's live customer line. Used when the env variables above are not set.
+const DEFAULT_PHONE_DISPLAY = "+91 96942 00417";
+const DEFAULT_WHATSAPP_NUMBER = "919694200417";
 
 const digitsOnly = (value?: string) => (value ?? "").replace(/\D/g, "");
 const configuredWhatsApp = digitsOnly(process.env.NEXT_PUBLIC_STORE_WHATSAPP);

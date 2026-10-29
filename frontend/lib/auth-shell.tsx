@@ -77,7 +77,7 @@ export function AuthShell({
               </div>
               <div className="leading-tight">
                 <div className="font-serif text-[19px] font-semibold tracking-tight text-stone-900">
-                  Vani Collection
+                  Demo Collection
                 </div>
                 <div className="text-[9.5px] font-semibold uppercase tracking-[0.2em] text-stone-400">
                   Artisanal Luxury
@@ -110,7 +110,7 @@ export function AuthShell({
               </div>
 
               <p className="mt-5 text-center text-[11px] text-stone-400">
-                © {new Date().getFullYear()} Vani Collection · Crafted in India
+                © {new Date().getFullYear()} Demo Collection · Crafted in India
               </p>
             </div>
           </div>
