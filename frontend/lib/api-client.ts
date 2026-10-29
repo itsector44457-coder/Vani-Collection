@@ -1,5 +1,5 @@
 /**
- * Real API client for the Vani Collection backend (/backend).
+ * Real API client for the Demo Collection backend (/backend).
  *
  * The admin console talks to this client when NEXT_PUBLIC_API_URL is set. Without it, screens show
  * empty states rather than fabricated records.
@@ -152,7 +152,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     }
   } catch (error) {
     if ((error as Error)?.name === "AbortError") throw error;
-    throw new ApiError(0, "NETWORK_ERROR", "Could not reach the Vani Collection API");
+    throw new ApiError(0, "NETWORK_ERROR", "Could not reach the Demo Collection API");
   }
 
   if (response.status === 204) {
@@ -195,7 +195,7 @@ export async function uploadAdminMedia(files: File[], type: "image" | "video"): 
     response = await send();
     if ((await needsSessionRefresh(response)) && (await refreshSession())) response = await send();
   } catch (cause) {
-    throw new ApiError(0, "NETWORK_ERROR", "Could not upload media to the Vani Collection API", cause);
+    throw new ApiError(0, "NETWORK_ERROR", "Could not upload media to the Demo Collection API", cause);
   }
 
   const text = await response.text();
@@ -1156,7 +1156,7 @@ export async function downloadFromApi(path: string, fallbackFilename: string): P
     response = await fetch(`${API_BASE}${path}`, { credentials: "include", cache: "no-store" });
   } catch (error) {
     if ((error as Error)?.name === "AbortError") throw error;
-    throw new ApiError(0, "NETWORK_ERROR", "Could not reach the Vani Collection API");
+    throw new ApiError(0, "NETWORK_ERROR", "Could not reach the Demo Collection API");
   }
 
   if (!response.ok) {

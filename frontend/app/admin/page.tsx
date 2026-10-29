@@ -108,7 +108,7 @@ export default function AdminDashboard() {
           <h1 className="mt-1 font-serif text-[28px] font-semibold tracking-tight">Store overview</h1>
           <p className="mt-1 text-[13px] text-stone-500">
             {dashboard.source === "live"
-              ? "Live figures from the Vani Collection backend (last 30 days)."
+              ? "Live figures from the Demo Collection backend (last 30 days)."
               : "Live figures are unavailable until the backend connection succeeds."}
           </p>
         </div>

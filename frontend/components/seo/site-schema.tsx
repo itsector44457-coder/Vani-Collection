@@ -3,7 +3,7 @@
  * block points at by `@id`. Rendered once from the root layout.
  *
  * The LocalBusiness (ClothingStore) node is critical for local SEO — it powers the Google
- * Maps listing, knowledge panel, and "near me" searches for "Vani Collection Guna".
+ * Maps listing, knowledge panel, and "near me" searches for "Demo Collection Demo City".
  */
 
 import { JsonLdGroup } from "./json-ld";

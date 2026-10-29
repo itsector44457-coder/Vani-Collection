@@ -122,7 +122,7 @@ export default function PaymentsPage() {
       <PageHeader
         eyebrow="Billing"
         title="Payments"
-        subtitle="Orders ke saath jude asal payment records yahi milenge. Card ya UPI details Vani Collection save nahi karti."
+        subtitle="Orders ke saath jude asal payment records yahi milenge. Card ya UPI details Demo Collection save nahi karti."
       />
 
       <div aria-live="polite">

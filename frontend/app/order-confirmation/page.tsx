@@ -79,7 +79,7 @@ function ConfirmationContent() {
           >
             <h1 className="font-serif text-3xl text-gray-900 mb-2">Order Placed!</h1>
             <p className="text-gray-500 text-sm">
-              Thank you for shopping with Vani Collection 🌸
+              Thank you for shopping with Demo Collection 🌸
             </p>
           </motion.div>
         </div>
@@ -277,7 +277,7 @@ function ConfirmationContent() {
             Continue Shopping
           </Link>
           <a
-            href={whatsappShareUrl(`My Vani Collection order #${order?.orderNumber ?? orderId} is confirmed! Check it out.`)}
+            href={whatsappShareUrl(`My Demo Collection order #${order?.orderNumber ?? orderId} is confirmed! Check it out.`)}
             target="_blank"
             rel="noreferrer"
             className="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 text-white rounded-xl font-semibold text-sm hover:bg-emerald-700 transition"

@@ -30,7 +30,7 @@ const jakarta = localFont({
 });
 
 const SITE_DESCRIPTION =
-  "Vani Collection — Speciality in fancy kurties and party wear dresses. Handcrafted ethnic wear, pure mul cotton, and royal festive ensembles in Guna, Madhya Pradesh.";
+  "Demo Collection — Speciality in fancy kurties and party wear dresses. Handcrafted ethnic wear, pure mul cotton, and royal festive ensembles in Demo City, India.";
 
 export const metadata: Metadata = {
   // Every relative URL in `openGraph`, `twitter` and `alternates` resolves against this, so it has
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
-  keywords: "fancy kurties, party wear dresses, mul cotton suits, bagru handblock print, anarkali sets, festive suits, women ethnic wear, guna atelier, vani collection",
+  keywords: "fancy kurties, party wear dresses, mul cotton suits, bagru handblock print, anarkali sets, festive suits, women ethnic wear, demo city atelier, demo collection",
   applicationName: SITE_NAME,
   authors: [{ name: SITE_NAME, url: SITE_URL }],
   creator: SITE_NAME,
@@ -66,8 +66,8 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: `${SITE_NAME} | ${SITE_TAGLINE}`,
     description: SITE_DESCRIPTION,
-    site: "@vanicollection",
-    creator: "@vanicollection",
+    site: "@demo_collection",
+    creator: "@demo_collection",
   },
   robots: {
     index: true,

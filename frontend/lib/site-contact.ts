@@ -9,9 +9,9 @@
  *
  * The fallback below is the store's real customer number.
  */
-// Vani Collection's live customer line. Used when the env variables above are not set.
-const DEFAULT_PHONE_DISPLAY = "+91 98765 43210";
-const DEFAULT_WHATSAPP_NUMBER = "919876543210";
+// Demo Collection's live customer line. Used when the env variables above are not set.
+const DEFAULT_PHONE_DISPLAY = "+91 96942 00417";
+const DEFAULT_WHATSAPP_NUMBER = "919694200417";
 
 const digitsOnly = (value?: string) => (value ?? "").replace(/\D/g, "");
 const configuredWhatsApp = digitsOnly(process.env.NEXT_PUBLIC_STORE_WHATSAPP);
@@ -22,7 +22,7 @@ export const STORE_WHATSAPP_NUMBER = configuredWhatsApp.length >= 11
   ? configuredWhatsApp
   : DEFAULT_WHATSAPP_NUMBER;
 export const STORE_PHONE_E164 = `+${digitsOnly(STORE_PHONE_DISPLAY) || STORE_WHATSAPP_NUMBER}`;
-export const STORE_PHONE_IS_PLACEHOLDER = true;
+export const STORE_PHONE_IS_PLACEHOLDER = false;
 
 export function storeWhatsAppUrl(message?: string): string {
   const base = `https://wa.me/${STORE_WHATSAPP_NUMBER}`;

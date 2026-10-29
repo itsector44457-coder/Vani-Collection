@@ -16,7 +16,7 @@ import { fetchSeoProduct, lowestVariant, productImageUrls } from "@/lib/seo";
 
 export const revalidate = 3600;
 
-export const alt = "Vani Collection — handcrafted pure mul cotton and festive wear from Guna";
+export const alt = "Demo Collection — handcrafted pure mul cotton and festive wear from Demo City";
 export const size = OG_SIZE;
 export const contentType = "image/png";
 

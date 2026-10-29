@@ -6,8 +6,8 @@ import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 import { STORE_PHONE_DISPLAY } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Privacy Policy | Vani Collection",
-  description: "Learn how Vani Collection protects your privacy, secures your shopping data, and handles personal information responsibly.",
+  title: "Privacy Policy | Demo Collection",
+  description: "Learn how Demo Collection protects your privacy, secures your shopping data, and handles personal information responsibly.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -60,7 +60,7 @@ export default async function PrivacyPage() {
           <section>
             <h2 className="font-serif text-2xl text-[#881337] mb-4">Introduction</h2>
             <p className="text-stone-600 text-sm leading-relaxed">
-              Vani Collection Atelier (“we,” “our,” or “us”) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website, make a purchase, or interact with our services. Please read this privacy policy carefully.
+              Demo Collection Atelier (“we,” “our,” or “us”) is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website, make a purchase, or interact with our services. Please read this privacy policy carefully.
             </p>
           </section>
 
@@ -302,7 +302,7 @@ export default async function PrivacyPage() {
               <div className="bg-stone-50 p-4 rounded-lg">
                 <h4 className="font-semibold text-stone-800 mb-2">Mailing Address</h4>
                 <p className="text-sm text-stone-600">
-                  Vani Collection Atelier<br />
+                  Demo Collection Atelier<br />
                   Demo Street, Demo City, India<br />
                   PIN: 000000
                 </p>

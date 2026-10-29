@@ -22,7 +22,7 @@ export default function InspiredLooks({ products, image, loading = false }: { pr
             <div className="relative aspect-[2/3] overflow-hidden bg-[#eee3db] md:aspect-auto md:min-h-[640px]">
               {featureImage && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={featureImage} src={featureImage} alt={activeId || !image ? active.title : "Vani Collection — inspired occasionwear styling"} loading="lazy" className="absolute inset-0 h-full w-full object-cover" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/product-not-found.jpg"; }} />
+                <img key={featureImage} src={featureImage} alt={activeId || !image ? active.title : "Demo Collection — inspired occasionwear styling"} loading="lazy" className="absolute inset-0 h-full w-full object-cover" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = "/product-not-found.jpg"; }} />
               )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent px-6 pb-6 pt-16 text-white">
                 <span className="text-[9px] uppercase tracking-[0.22em]">The occasion edit</span>

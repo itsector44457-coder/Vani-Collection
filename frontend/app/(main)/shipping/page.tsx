@@ -6,8 +6,8 @@ import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 import { STORE_PHONE_DISPLAY, storeWhatsAppUrl } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Shipping & Delivery Policy | Vani Collection",
-  description: "Learn about our shipping policies, express delivery times across India, and free shipping over ₹1,999 for Vani Collection artisanal kurties and dresses.",
+  title: "Shipping & Delivery Policy | Demo Collection",
+  description: "Learn about our shipping policies, express delivery times across India, and free shipping over ₹1,999 for Demo Collection artisanal kurties and dresses.",
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -81,7 +81,7 @@ export default async function ShippingPage() {
                 <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</span>
                 <div>
                   <h4 className="font-semibold text-stone-800">Dispatch</h4>
-                  <p className="text-sm text-stone-600">Orders Guna atelier se dispatch hote hain; AWB SMS, WhatsApp aur email par bheja jata hai.</p>
+                  <p className="text-sm text-stone-600">Orders Demo atelier se dispatch hote hain; AWB SMS, WhatsApp aur email par bheja jata hai.</p>
                 </div>
               </div>
               <div className="flex items-start gap-4 p-4 bg-purple-50 rounded-lg">

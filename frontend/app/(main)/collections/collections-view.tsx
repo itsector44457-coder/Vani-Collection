@@ -87,7 +87,7 @@ export default function CollectionsView() {
 
           <div className="mx-auto max-w-2xl text-center">
             <p className="mb-2 text-[9px] font-semibold uppercase tracking-[0.32em] text-[#a47c42] sm:mb-3 sm:text-[10px]">
-              The Vani edit · Guna
+              The demo edit · Demo City
             </p>
             <h1 className="font-serif text-[29px] font-medium leading-tight text-[#292524] sm:text-4xl md:text-[42px]">
               Shop by collection

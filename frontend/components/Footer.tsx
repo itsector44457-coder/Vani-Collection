@@ -177,7 +177,7 @@ export default function Footer() {
           <div className="lg:col-span-7">
             <div className="mb-6 flex items-center gap-3 text-[10px] font-semibold uppercase tracking-[0.27em] text-[#e7c990] sm:text-[11px]">
               <span className="h-px w-8 bg-[#d7b978]" />
-              Vani Collection <span className="text-white/35">·</span> Guna, India
+              Demo Collection <span className="text-white/35">·</span> Demo City, India
             </div>
             <h2 className="font-serif text-[clamp(2.5rem,7vw,5.25rem)] font-normal leading-[0.95] tracking-[-0.045em] text-[#fffaf1]">
               A little tradition.
@@ -198,17 +198,17 @@ export default function Footer() {
                 href="/about"
                 className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/20 px-6 py-3 text-xs font-medium uppercase tracking-[0.12em] text-white/85 transition hover:border-[#e4c68c]/70 hover:text-[#f0d9aa]"
               >
-                The Vani story
+                The demo story
               </Link>
             </div>
           </div>
 
           <div className="lg:col-span-5">
-            <Link href="/contact" aria-label="Visit the Vani Collection boutique" className="group relative block">
+            <Link href="/contact" aria-label="Visit the Demo Collection boutique" className="group relative block">
               <div className="relative aspect-[1.18] overflow-hidden rounded-[1.65rem] border border-white/20 bg-[#50313a] shadow-[0_28px_70px_rgba(0,0,0,0.32)] sm:aspect-[1.35] lg:aspect-[1.08]">
                 <Image
-                  src="/vani-store-front.jpg"
-                  alt="Vani Collection boutique (demo store)"
+                  src="https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=1600&q=85"
+                  alt="Demo Collection boutique (demo store)"
                   fill
                   sizes="(max-width: 1023px) 100vw, 42vw"
                   className="object-cover object-center transition duration-700 group-hover:scale-[1.035]"
@@ -233,7 +233,7 @@ export default function Footer() {
 
         <div className="relative border-t border-white/10">
           <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-[10px] uppercase tracking-[0.17em] text-white/50 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-            <span>Guna · Madhya Pradesh · India</span>
+            <span>Demo City · India</span>
             <span className="font-serif text-sm normal-case tracking-wide text-[#e6c88f]">Made to feel like you.</span>
           </div>
         </div>
@@ -243,10 +243,10 @@ export default function Footer() {
       <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="-mt-7 grid gap-5 rounded-2xl border border-[#d8c7ae] bg-[#eadfce] px-5 py-6 shadow-[0_18px_48px_rgba(54,32,25,0.12)] sm:-mt-8 sm:grid-cols-2 sm:items-center sm:gap-8 sm:px-8 sm:py-8 lg:px-10">
           <div>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b273e]">The Vani letter</p>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b273e]">The demo letter</p>
             <h3 className="font-serif text-2xl leading-tight text-[#2d211d] sm:text-[1.75rem]">A note worth opening.</h3>
             <p className="mt-2 max-w-md text-xs leading-relaxed text-[#6f6256] sm:text-sm">
-              New arrivals, styling notes and stories from Guna — shared every now and then.
+              New arrivals, styling notes and stories from Demo City — shared every now and then.
             </p>
           </div>
 
@@ -287,7 +287,7 @@ export default function Footer() {
             >
               {subscribeError || (subscribed
                 ? alreadySubscribed
-                  ? "Aap pehle se Vani letter se jude hue hai."
+                  ? "Aap pehle se demo letter se jude hue hai."
                   : "Dhanyavaad — aapki subscription save ho gayi hai."
                 : "Only the good stuff. Unsubscribe whenever you like.")}
             </p>
@@ -299,8 +299,8 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-4 pb-10 pt-12 sm:px-6 sm:pb-12 sm:pt-14 lg:px-8">
         <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 sm:gap-x-8 lg:grid-cols-12 lg:gap-x-10">
           <div className="col-span-2 sm:col-span-3 lg:col-span-4">
-            <Link href="/" aria-label="Vani Collection home" className="inline-flex flex-col">
-              <span className="font-serif text-[2rem] leading-none tracking-[-0.035em] text-[#781e36] sm:text-4xl">Vani Collection</span>
+            <Link href="/" aria-label="Demo Collection home" className="inline-flex flex-col">
+              <span className="font-serif text-[2rem] leading-none tracking-[-0.035em] text-[#781e36] sm:text-4xl">Demo Collection</span>
               <span className="mt-2 text-[9px] font-semibold uppercase tracking-[0.23em] text-[#8b7b6d]">A little tradition, a lot of you</span>
             </Link>
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-[#6f6258]">
@@ -308,19 +308,19 @@ export default function Footer() {
             </p>
             <div className="mt-5 flex items-center gap-2.5">
               <a
-                href="https://www.instagram.com/demo_store"
+                href="https://www.instagram.com/demo_collection"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Vani Collection on Instagram"
+                aria-label="Demo Collection on Instagram"
                 className="flex h-11 w-11 items-center justify-center rounded-full border border-[#d6c8b7] text-[#781e36] transition hover:border-[#781e36] hover:bg-[#781e36] hover:text-white"
               >
                 <InstagramIcon />
               </a>
               <a
-                href={storeWhatsAppUrl("Hi Vani Collection, I need help choosing an outfit.")}
+                href={storeWhatsAppUrl("Hi Demo Collection, I need help choosing an outfit.")}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Chat with Vani Collection on WhatsApp"
+                aria-label="Chat with Demo Collection on WhatsApp"
                 className="flex h-11 w-11 items-center justify-center rounded-full border border-[#d6c8b7] text-[#781e36] transition hover:border-[#781e36] hover:bg-[#781e36] hover:text-white"
               >
                 <WhatsAppIcon />
@@ -350,7 +350,7 @@ export default function Footer() {
           <nav aria-label="Customer care and company information" className="lg:col-span-2">
             <h3 className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-[#8b273e]">Good to know</h3>
             <ul className="space-y-1">
-              {[...FOOTER_LINKS.help.slice(0, 4), { label: "The Vani Journal", href: "/journal" }, ...FOOTER_LINKS.about.slice(0, 1)].map((item) => (
+              {[...FOOTER_LINKS.help.slice(0, 4), { label: "The demo Journal", href: "/journal" }, ...FOOTER_LINKS.about.slice(0, 1)].map((item) => (
                 <li key={item.href}>
                   <Link href={item.href} className="inline-flex min-h-11 items-center py-1 text-sm text-[#51463e] transition hover:text-[#781e36]">{item.label}</Link>
                 </li>
@@ -382,9 +382,9 @@ export default function Footer() {
       <div className="bg-[#29161d] text-white/75">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 pb-20 sm:px-6 sm:py-5 lg:flex-row lg:items-center lg:justify-between lg:px-8 lg:pb-6">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px]">
-            <span>© {currentYear} Vani Collection</span>
+            <span>© {currentYear} Demo Collection</span>
             <span className="hidden text-white/25 sm:inline">|</span>
-            <span className="text-white/50">Made with care in Guna, Madhya Pradesh</span>
+            <span className="text-white/50">Made with care in Demo City, India</span>
           </div>
           <PaymentIcons />
           <div className="flex items-center gap-4 text-[11px]">

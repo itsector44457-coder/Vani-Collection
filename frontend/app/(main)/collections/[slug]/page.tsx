@@ -24,14 +24,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const category = await fetchSeoCategoryBySlug(slug).catch(() => null);
   const label = category?.name || categoryLabel(slug);
   const guide = getCategoryGuide(category, slug, label);
-  const title = category?.seo?.title || `${label} for Women — Buy Online in India | Vani Collection`;
+  const title = category?.seo?.title || `${label} for Women — Buy Online in India | Demo Collection`;
   const description = truncate(category?.seo?.description || guide.intro, 158);
   const canonical = categoryUrl(slug);
 
   return {
     title: { absolute: title },
     description,
-    keywords: [`${label} online India`, `buy ${label}`, `${label} for women`, "ethnic wear online India", "Vani Collection"],
+    keywords: [`${label} online India`, `buy ${label}`, `${label} for women`, "ethnic wear online India", "Demo Collection"],
     alternates: { canonical },
     openGraph: {
       title,

@@ -11,8 +11,8 @@
 import { API_BASE } from "./api-client";
 import { STORE_PHONE_DISPLAY } from "./site-contact";
 
-export const SITE_NAME = "Vani Collection";
-export const SITE_LEGAL_NAME = "Vani Collection Atelier";
+export const SITE_NAME = "Demo Collection";
+export const SITE_LEGAL_NAME = "Demo Collection Atelier";
 export const SITE_TAGLINE = "Speciality in Fancy Kurties & Party Wear Dresses";
 
 /**
@@ -20,16 +20,16 @@ export const SITE_TAGLINE = "Speciality in Fancy Kurties & Party Wear Dresses";
  * Override with `NEXT_PUBLIC_SITE_URL` per environment; the fallback matches the customer-facing
  * inbox the storefront already advertises (`demo@example.com`).
  */
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.vanicollection.com").replace(/\/+$/, "");
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.democollection.example.com").replace(/\/+$/, "");
 
 export const SITE_LOCALE = "en_IN";
 export const SITE_CURRENCY = "INR";
 export const SUPPORT_EMAIL = "demo@example.com";
-export const INSTAGRAM_URL = "https://www.instagram.com/demo_store";
+export const INSTAGRAM_URL = "https://www.instagram.com/demo_collection";
 
 /** Physical address published in the Organization schema — matches the privacy policy. */
 export const ORG_ADDRESS = {
-  streetAddress: "Vani Collection Atelier",
+  streetAddress: "Demo Collection Atelier",
   addressLocality: "Demo City",
   addressRegion: "Demo State",
   addressCountry: "IN",
@@ -346,7 +346,7 @@ export function productImageUrls(product: SeoProduct): string[] {
 
 /** Meta description for a product: the CMS override wins, then the long copy, then the short. */
 export function productDescription(product: SeoProduct): string {
-  return truncate(product.seo?.description || product.description || product.shortDescription || `${product.name} — handcrafted by ${SITE_LEGAL_NAME}, Guna.`, 158);
+  return truncate(product.seo?.description || product.description || product.shortDescription || `${product.name} — handcrafted by ${SITE_LEGAL_NAME}, Demo City.`, 158);
 }
 
 /** `<title>` for a product: the CMS override wins, then the product name plus the brand. */

@@ -90,7 +90,7 @@ export default function ProductView({ slug, initialProduct = null }: { slug: str
     if (!product) return "#";
     const currentUrl = typeof window !== "undefined" ? window.location.href : "";
     const text =
-      `Namaste Vani Collection Atelier! 🌸\n\n` +
+      `Namaste Demo Collection Atelier! 🌸\n\n` +
       `I am interested in:\n*${product.title}*\n` +
       `• Price: ₹${product.price.toLocaleString("en-IN")}\n` +
       (activeSize ? `• Selected Size: ${activeSize}\n` : "") +

@@ -43,7 +43,7 @@ export function organizationSchema(): JsonLdValue {
       url: absoluteUrl("/favicon.svg"),
     },
     email: SUPPORT_EMAIL,
-    description: "Handcrafted pure mul cotton, Bagru handblock prints and festive heirlooms from a family atelier in Guna.",
+    description: "Handcrafted pure mul cotton, Bagru handblock prints and festive heirlooms from a family atelier in Demo City.",
     address: compact({
       "@type": "PostalAddress",
       streetAddress: ORG_ADDRESS.streetAddress,
@@ -66,7 +66,7 @@ export function organizationSchema(): JsonLdValue {
 
 /**
  * ClothingStore (subtype of LocalBusiness) for Google Maps, local pack and knowledge panel.
- * Critical for searches like "Vani Collection Guna", "kurta shop near me", etc.
+ * Critical for searches like "Demo Collection Demo City", "kurta shop near me", etc.
  */
 export function localBusinessSchema(): JsonLdValue {
   return compact({
@@ -74,11 +74,11 @@ export function localBusinessSchema(): JsonLdValue {
     "@id": `${SITE_URL}/#localbusiness`,
     name: SITE_NAME,
     alternateName: SITE_LEGAL_NAME,
-    description: `${SITE_NAME} — Speciality in Fancy Kurties & Party Wear Dresses. Handcrafted pure mul cotton, Bagru handblock prints and festive heirlooms from a family atelier in Guna, Madhya Pradesh.`,
+    description: `${SITE_NAME} — Speciality in Fancy Kurties & Party Wear Dresses. Handcrafted pure mul cotton, Bagru handblock prints and festive heirlooms from a family atelier in Demo City, India.`,
     url: SITE_URL,
     telephone: STORE_PHONE,
     email: SUPPORT_EMAIL,
-    image: absoluteUrl("/vani-store-front.jpg"),
+    image: absoluteUrl("https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=1600&q=85"),
     logo: absoluteUrl("/favicon.svg"),
     priceRange: "₹999 - ₹15,000",
     currenciesAccepted: "INR",
@@ -112,7 +112,7 @@ export function localBusinessSchema(): JsonLdValue {
     sameAs: [INSTAGRAM_URL],
     founder: compact({
       "@type": "Person",
-      name: "Vani Collection",
+      name: "Demo Collection",
     }),
   });
 }
@@ -126,7 +126,7 @@ export function websiteSchema(): JsonLdValue {
     "@id": `${SITE_URL}/#website`,
     url: SITE_URL,
     name: SITE_NAME,
-    description: "Artisanal pure mul cotton and festive wear, handcrafted in Guna.",
+    description: "Artisanal pure mul cotton and festive wear, handcrafted in Demo City.",
     inLanguage: SITE_LOCALE,
     publisher: { "@id": `${SITE_URL}/#organization` },
     potentialAction: {

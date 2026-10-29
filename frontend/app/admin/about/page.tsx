@@ -75,13 +75,13 @@ export default function AdminAboutPage() {
 
   /* ─── Atelier / Hero state ─── */
   const [atelier, setAtelier] = useState<AtelierBlocks>({
-    foundedBadge: "\u2728 Guna Atelier \u00b7 Est. 2018 \u00b7 Madhya Pradesh",
-    heroSubtitle: "Vani Collection was founded with a singular, unyielding devotion: to rescue India's most treasured handloom textiles from machine replication and restore pure, breathable luxury to the modern woman's wardrobe.",
+    foundedBadge: "\u2728 Demo City Atelier \u00b7 Est. 2018 \u00b7 India",
+    heroSubtitle: "Demo Collection was founded with a singular, unyielding devotion: to rescue India's most treasured handloom textiles from machine replication and restore pure, breathable luxury to the modern woman's wardrobe.",
     location: "Demo Street, Demo City, India",
     hours: "Mon \u2013 Sat \u00b7 10:30 AM \u2013 7:30 PM",
     phone: STORE_PHONE_DISPLAY,
     waPhone: STORE_WHATSAPP_NUMBER,
-    storyPara1: "In an era dominated by synthetic polyesters and cold, hurried mass-production factories, Vani Collection took the road less traveled \u2014 back to the sun-baked artisan colonies of Bagru, Sanganer, and Patan.",
+    storyPara1: "In an era dominated by synthetic polyesters and cold, hurried mass-production factories, Demo Collection took the road less traveled \u2014 back to the sun-baked artisan colonies of Bagru, Sanganer, and Patan.",
     storyPara2: "We started with just three wooden looms and five fifth-generation master block carvers who feared their ancestral craft would disappear forever.",
     statBadgeNumber: "1,200+",
     statBadgeLabel: "Hand-carved block stamps on every single royal ensemble.",

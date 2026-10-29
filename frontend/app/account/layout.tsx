@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     default: "My Account",
     template: "%s · My Account",
   },
-  description: "Manage your Vani Collection orders, wishlist, addresses and rewards.",
+  description: "Manage your Demo Collection orders, wishlist, addresses and rewards.",
   robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
 };
 

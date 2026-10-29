@@ -85,7 +85,7 @@ export default function ContactView() {
 
           {/* Column 2: Atelier Address */}
           <div className="space-y-1">
-            <p className="font-medium text-[#1c1917]">Vani Collection Flagship Atelier</p>
+            <p className="font-medium text-[#1c1917]">Demo Collection Flagship Atelier</p>
             <p>Demo Street</p>
             <p className="text-stone-500">Demo City, India - 000000</p>
           </div>
@@ -94,7 +94,7 @@ export default function ContactView() {
           <div className="space-y-2.5 md:text-right flex flex-col md:items-end">
             <p>
               <a
-                href="https://www.instagram.com/demo_store"
+                href="https://www.instagram.com/demo_collection"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 hover:text-[#881337] transition font-medium"
@@ -107,7 +107,7 @@ export default function ContactView() {
             </p>
             <p>
               <a
-                href={storeWhatsAppUrl("Hello Vani Collection")}
+                href={storeWhatsAppUrl("Hello Demo Collection")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 hover:text-[#25D366] transition font-medium"
@@ -120,7 +120,7 @@ export default function ContactView() {
             </p>
             <p>
               <a
-                href="https://facebook.com/demo_store"
+                href="https://facebook.com/demo_collection"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-stone-500 hover:text-[#1877F2] transition font-medium"
@@ -143,7 +143,7 @@ export default function ContactView() {
         >
           <Image
             src="/contact-editorial.jpg"
-            alt="Vani Collection Artisanal Editorial Craft"
+            alt="Demo Collection Artisanal Editorial Craft"
             fill
             sizes="(max-width: 1024px) 100vw, 960px"
             className="object-cover object-center"

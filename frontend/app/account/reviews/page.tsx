@@ -382,7 +382,7 @@ export default function ReviewsPage() {
                       <div className="flex h-20 w-16 shrink-0 items-center justify-center rounded-xl bg-[#faf7f2] font-serif text-xl font-semibold text-[#881337]" aria-hidden="true">{(purchase.line.name ?? "V").charAt(0)}</div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-[14px] font-semibold leading-snug text-stone-900">{purchase.line.name ?? "Vani Collection product"}</h3>
+                      <h3 className="text-[14px] font-semibold leading-snug text-stone-900">{purchase.line.name ?? "Demo Collection product"}</h3>
                       <p className="mt-1 text-[11.5px] leading-relaxed text-stone-500">
                         {purchase.line.size ? `Size ${purchase.line.size} · ` : ""}{purchase.line.color ? `${purchase.line.color} · ` : ""}Order #{purchase.order.orderNumber} · {formatDate(purchase.order.createdAt)}
                       </p>
@@ -456,7 +456,7 @@ export default function ReviewsPage() {
               const meta = statusMeta(review.status);
               const purchase = orderLineByProduct.get(review.productId);
               const productImage = review.product?.images?.[0]?.url ?? purchase?.line.image;
-              const productName = review.product?.name ?? purchase?.line.name ?? "Vani Collection product";
+              const productName = review.product?.name ?? purchase?.line.name ?? "Demo Collection product";
               const deleting = deletingId === review._id;
               const editing = editingId === review._id;
               return (
@@ -515,7 +515,7 @@ export default function ReviewsPage() {
                         )}
                         {review.adminReply && (
                           <div className="mt-4 rounded-r-xl border-l-2 border-[#881337] bg-rose-50/60 px-4 py-3">
-                            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#881337]">Vani Collection ka jawab</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#881337]">Demo Collection ka jawab</p>
                             <p className="mt-1 text-[12.5px] leading-relaxed text-stone-700">{review.adminReply}</p>
                           </div>
                         )}

@@ -41,7 +41,7 @@ export default function AdminLoginPage() {
             V
           </div>
           <div>
-            <h1 className="font-serif text-[22px] font-semibold tracking-tight text-[#14100f]">Vani Admin</h1>
+            <h1 className="font-serif text-[22px] font-semibold tracking-tight text-[#14100f]">demo Admin</h1>
             <p className="text-[12px] text-stone-500">Sign in with your staff account</p>
           </div>
         </div>
@@ -75,7 +75,7 @@ export default function AdminLoginPage() {
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               className="mt-1.5 w-full rounded-xl border border-[#ebe6de] bg-white px-3.5 py-2.5 text-[13.5px] outline-none transition focus:border-[#dfc28c] disabled:bg-stone-50"
-              placeholder="admin@vanicollection.in"
+              placeholder="admin@democollection.example.com"
             />
           </div>
           <div>

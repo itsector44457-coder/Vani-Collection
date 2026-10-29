@@ -26,14 +26,14 @@ const NAV_THEME_PRESETS = {
 
 const DEFAULT_NAV_SETTINGS: NavigationSettings = {
   theme: "atelier",
-  brandName: "Vani Collection",
+  brandName: "Demo Collection",
   brandTagline: "Speciality in Fancy Kurties & Party Wear Dresses",
   logoUrl: "",
   collectionLabel: "Collections",
   announcements: [
     "✦ Speciality in Fancy Kurties & Party Wear Dresses",
     "✦ Free Express Shipping Across India Above ₹1,999",
-    "✦ 100% Certified Pure Handcrafted Ensembles · Guna",
+    "✦ 100% Certified Pure Handcrafted Ensembles · Demo City",
   ],
   links: [
     { label: "Shop From The Video", href: "/#shop-from-video", isActive: true },
@@ -349,8 +349,8 @@ export default function CategoriesPage() {
                   <span className="mt-1 block font-normal text-stone-400">{form.seoDescription.trim().length}/320 · Google me lagbhag 155 characters dikhte hain.</span>
                 </label>
                 <div className="rounded-xl border border-[#e5ded5] bg-white p-3" aria-label="Google result preview">
-                  <p className="truncate text-[11px] text-stone-500">vanicollection.com/collections/{form.slug || "…"}</p>
-                  <p className="mt-0.5 truncate text-[14px] font-medium text-[#1a0dab]">{form.seoTitle.trim() || `${form.name || "Category"} for Women — Buy Online in India | Vani Collection`}</p>
+                  <p className="truncate text-[11px] text-stone-500">democollection.example.com/collections/{form.slug || "…"}</p>
+                  <p className="mt-0.5 truncate text-[14px] font-medium text-[#1a0dab]">{form.seoTitle.trim() || `${form.name || "Category"} for Women — Buy Online in India | Demo Collection`}</p>
                   <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-stone-600">{form.seoDescription.trim() || form.description.trim() || "Description yahan dikhegi…"}</p>
                 </div>
               </fieldset>

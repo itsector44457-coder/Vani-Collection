@@ -27,7 +27,7 @@ export default function Error({ error, reset }: ErrorProps) {
               <span className="relative font-serif text-lg font-bold text-[#881337]">V</span>
             </div>
             <div className="leading-tight">
-              <div className="font-serif text-lg font-semibold text-stone-900">Vani Collection</div>
+              <div className="font-serif text-lg font-semibold text-stone-900">Demo Collection</div>
               <div className="text-[8px] font-semibold uppercase tracking-wider text-stone-400">Artisanal Luxury</div>
             </div>
           </Link>
@@ -163,7 +163,7 @@ export default function Error({ error, reset }: ErrorProps) {
       <footer className="border-t border-[#e8dfd5] bg-white py-6">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p className="text-xs text-gray-500">
-            © {new Date().getFullYear()} Vani Collection Atelier. All rights reserved.
+            © {new Date().getFullYear()} Demo Collection Atelier. All rights reserved.
           </p>
         </div>
       </footer>

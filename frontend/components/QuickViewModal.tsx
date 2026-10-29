@@ -86,7 +86,7 @@ export default function QuickViewModal() {
     }, 800);
   };
 
-  const whatsappMessage = `Hello Vani Collection Atelier! I am interested in: "${quickViewProduct.title}" (Price: ₹${quickViewProduct.price}). Could you please share more details?`;
+  const whatsappMessage = `Hello Demo Collection Atelier! I am interested in: "${quickViewProduct.title}" (Price: ₹${quickViewProduct.price}). Could you please share more details?`;
 
   return (
     <AnimatePresence>
@@ -168,7 +168,7 @@ export default function QuickViewModal() {
             <div>
               {/* Brand & Category */}
               <div className="flex items-center justify-between text-xs text-[#b8935a] uppercase tracking-widest font-semibold mb-2">
-                <span>Vani Collection Atelier</span>
+                <span>Demo Collection Atelier</span>
                 <span className="text-stone-400">{activeVariant?.sku ? `SKU: ${activeVariant.sku}` : "Handcrafted in India"}</span>
               </div>
 

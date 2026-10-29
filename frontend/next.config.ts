@@ -10,7 +10,7 @@ import type { NextConfig } from "next";
  */
 const remotePatterns = [
   { protocol: "https" as const, hostname: "res.cloudinary.com" },
-  // A cloud name is a path segment, so one entry covers every Vani Collection Cloudinary account.
+  // A cloud name is a path segment, so one entry covers every Demo Collection Cloudinary account.
   { protocol: "https" as const, hostname: "images.unsplash.com" },
   { protocol: "https" as const, hostname: "images.pexels.com" },
   { protocol: "https" as const, hostname: "cdn.shopify.com" },

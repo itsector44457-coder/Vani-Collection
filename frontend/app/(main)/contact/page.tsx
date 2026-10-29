@@ -14,12 +14,12 @@ export const metadata: Metadata = {
   description: `Get in touch with ${SITE_NAME} — our flagship atelier in Demo City, India. Visit us on Demo Street, call, WhatsApp or email demo@example.com for styling help, custom orders, and private appointments.`,
   alternates: { canonical: absoluteUrl("/contact") },
   keywords: [
-    "Vani Collection contact",
-    "Vani Collection Demo",
+    "Demo Collection contact",
+    "Demo Collection Demo",
     "Demo store address",
     "kurta shop demo",
     "ethnic wear demo India",
-    "Vani Collection phone number",
+    "Demo Collection phone number",
     "fancy kurties demo",
   ],
   openGraph: {

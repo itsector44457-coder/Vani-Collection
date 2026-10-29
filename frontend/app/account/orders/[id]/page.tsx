@@ -101,7 +101,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         key: payment.keyId,
         amount: payment.amount,
         currency: payment.currency,
-        name: "Vani Collection",
+        name: "Demo Collection",
         description: `Order ${order.orderNumber}`,
         order_id: payment.id,
         prefill: { name: shippingAddress?.fullName ?? "", email: shippingAddress?.email ?? "", contact: shippingAddress?.phone ?? "" },

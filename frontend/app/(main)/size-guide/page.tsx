@@ -6,7 +6,7 @@ import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 import { storeWhatsAppUrl } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Size Guide & Fitting Chart | Vani Collection",
+  title: "Size Guide & Fitting Chart | Demo Collection",
   description: "Find your perfect fit with our comprehensive ethnic wear size guide, including bust, waist, and length measurements for Kurtis, Anarkalis, and suit sets.",
 };
 

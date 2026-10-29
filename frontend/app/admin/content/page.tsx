@@ -35,16 +35,16 @@ import { useApiResource } from "@/lib/use-api";
 import { useCatalogue } from "@/lib/use-storefront";
 
 const DEMO_CONTENT: ContentDoc[] = [
-  { _id: "c1", key: "home.banner.1", kind: "banner", title: "Poetry in Pure Mul Cotton", subtitle: "The Summer Bagru Edit 2026", body: "Featherlight 100-count handspun cotton woven for everyday grace.", ctaLabel: "Shop Pure Mul Sets", ctaHref: "#products", media: [{ url: "/vani-store-front.jpg", alt: "Vani Collection storefront" }], position: 0, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 2).toISOString() },
+  { _id: "c1", key: "home.banner.1", kind: "banner", title: "Poetry in Pure Mul Cotton", subtitle: "The Summer Bagru Edit 2026", body: "Featherlight 100-count handspun cotton woven for everyday grace.", ctaLabel: "Shop Pure Mul Sets", ctaHref: "#products", media: [{ url: "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=1600&q=85", alt: "Demo Collection storefront" }], position: 0, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 2).toISOString() },
   { _id: "c2", key: "home.banner.2", kind: "banner", title: "Gulmohar Festive Heirlooms", subtitle: "Chanderi Silk & Zari Soiree", body: "A timeless ode to royal celebrations.", ctaLabel: "Discover Festive Edit", ctaHref: "#products", position: 1, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 2).toISOString() },
   { _id: "c3", key: "home.testimonial.ananya", kind: "testimonial", title: "Softest Mul Cotton I Have Ever Worn!", body: "The Gulab Bagh Anarkali is pure bliss in summer heat.", blocks: { name: "Dr. Ananya Roy", city: "Bengaluru", rating: 5, verified: true, product: "Gulab Bagh Anarkali Set" }, position: 0, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 6).toISOString() },
-  { _id: "c4", key: "home.faq.shipping", kind: "faq", title: "How long does delivery take?", body: "Orders are dispatched within 2–3 working days from Guna and usually arrive in 3–7 days. You get a tracking link by email the moment the courier picks it up.", position: 0, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 9).toISOString() },
-  { _id: "c5", key: "home.faq.fabric", kind: "faq", title: "What exactly is mul cotton?", body: "Mul cotton is a fine, handspun weaving native to Guna & Madhya Pradesh — breathable and lightweight, softer with every wash. We use 100-count mul for most of our everyday pieces.", position: 1, status: "draft", updatedAt: new Date(Date.now() - 86400e3 * 1).toISOString() },
+  { _id: "c4", key: "home.faq.shipping", kind: "faq", title: "How long does delivery take?", body: "Orders are dispatched within 2–3 working days from Demo City and usually arrive in 3–7 days. You get a tracking link by email the moment the courier picks it up.", position: 0, status: "published", updatedAt: new Date(Date.now() - 86400e3 * 9).toISOString() },
+  { _id: "c5", key: "home.faq.fabric", kind: "faq", title: "What exactly is mul cotton?", body: "Mul cotton is a fine, handspun weaving native to Demo City, India — breathable and lightweight, softer with every wash. We use 100-count mul for most of our everyday pieces.", position: 1, status: "draft", updatedAt: new Date(Date.now() - 86400e3 * 1).toISOString() },
 ];
 
 /** What each kind actually drives, so an editor knows the consequence of a change. */
 const KIND_HINTS: Record<string, string> = {
-  banner: "Legacy homepage banner records; the storefront hero now uses the fixed Vani Collection photo.",
+  banner: "Legacy homepage banner records; the storefront hero now uses the fixed Demo Collection photo.",
   testimonial: "Homepage customer reviews — managed in Admin → Homepage reviews (consent + verified checks)",
   lookbook: "Homepage shoppable lookbook (first published block only)",
   faq: "Homepage FAQ accordion + FAQPage structured data",
@@ -531,7 +531,7 @@ export default function ContentPage() {
       <PageHeading
         eyebrow="Content"
         title="Website content"
-        subtitle="Manage storefront pages, homepage product placement, lookbook and FAQs. The hero uses the Vani Collection storefront photo with a fixed Shop Now link; reviews and Journal articles have dedicated editors."
+        subtitle="Manage storefront pages, homepage product placement, lookbook and FAQs. The hero uses the Demo Collection storefront photo with a fixed Shop Now link; reviews and Journal articles have dedicated editors."
         action={
           <ButtonPrimary onClick={openCreate} disabled={content.source !== "live"}>
             New block
@@ -810,7 +810,7 @@ export default function ContentPage() {
                 <TextInput id="content-title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. How long does delivery take?" />
               </Field>
               <Field label="Answer *" htmlFor="content-body" hint="Answer shown in the accordion and in Google FAQPage structured data">
-                <Textarea id="content-body" rows={5} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="Orders are dispatched within 2–3 working days from Guna and usually arrive in 3–7 days..." />
+                <Textarea id="content-body" rows={5} value={form.body} onChange={(e) => set("body", e.target.value)} placeholder="Orders are dispatched within 2–3 working days from Demo City and usually arrive in 3–7 days..." />
               </Field>
             </div>
           )}
@@ -838,7 +838,7 @@ export default function ContentPage() {
               </Field>
 
               <Field label="Subtitle" htmlFor="content-subtitle" hint="Secondary tagline">
-                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted Guna Weaves" />
+                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted Heritage Weaves" />
               </Field>
 
               <Field label="Description" htmlFor="content-body" hint="Brief summary copy below the headline">
@@ -1140,7 +1140,7 @@ export default function ContentPage() {
               </Field>
 
               <Field label="Subtitle" htmlFor="content-subtitle">
-                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted in Guna since 2018" />
+                <TextInput id="content-subtitle" value={form.subtitle} onChange={(e) => set("subtitle", e.target.value)} placeholder="e.g. Handcrafted in Demo City since 2018" />
               </Field>
 
               <Field label="Page Content *" htmlFor="content-body" hint="Full body copy / story">
@@ -1149,7 +1149,7 @@ export default function ContentPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <Field label="SEO Meta Title" htmlFor="seo-title" hint="Browser tab & Google title">
-                  <TextInput id="seo-title" value={form.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} placeholder="e.g. Heritage | Vani Collection" />
+                  <TextInput id="seo-title" value={form.seoTitle} onChange={(e) => set("seoTitle", e.target.value)} placeholder="e.g. Heritage | Demo Collection" />
                 </Field>
                 <Field label="SEO Meta Description" htmlFor="seo-desc" hint="Google search snippet">
                   <TextInput id="seo-desc" value={form.seoDescription} onChange={(e) => set("seoDescription", e.target.value)} placeholder="e.g. Explore our traditional artisanal weaving..." />

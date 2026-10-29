@@ -45,7 +45,7 @@ function LoginContent() {
           <div 
             className="absolute inset-0 bg-cover bg-center"
             style={{
-              backgroundImage: "url('/vani-store-front.jpg')",
+              backgroundImage: "url('https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=1600&q=85')",
             }}
           >
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
@@ -58,7 +58,7 @@ function LoginContent() {
               <span className="text-xs font-semibold uppercase tracking-wider">Customer Portal</span>
             </div>
             <h2 className="font-serif text-3xl font-light leading-tight mb-2">
-              Welcome to Vani Collection
+              Welcome to Demo Collection
             </h2>
             <p className="text-white/80 text-sm">
               Discover handcrafted luxury in authentic Mul Cotton and festive ensembles
@@ -77,7 +77,7 @@ function LoginContent() {
                 <span className="relative font-serif text-xl font-bold text-[#881337]">V</span>
               </div>
               <div className="leading-tight">
-                <div className="font-serif text-lg font-semibold text-stone-900">Vani Collection</div>
+                <div className="font-serif text-lg font-semibold text-stone-900">Demo Collection</div>
                 <div className="text-[8px] font-semibold uppercase tracking-wider text-stone-400">Artisanal Luxury</div>
               </div>
             </Link>

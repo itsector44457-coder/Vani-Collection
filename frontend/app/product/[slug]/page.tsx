@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     if (existence.status === "not_found") notFound();
 
     const fallbackTitle = `${labelFromSlug(slug)} | ${SITE_NAME}`;
-    const fallbackDescription = `${labelFromSlug(slug)} from ${SITE_NAME} — ${SITE_TAGLINE.toLowerCase()}, handcrafted in Guna.`;
+    const fallbackDescription = `${labelFromSlug(slug)} from ${SITE_NAME} — ${SITE_TAGLINE.toLowerCase()}, handcrafted in Demo City.`;
     return {
       title: { absolute: fallbackTitle },
       description: fallbackDescription,
@@ -77,9 +77,9 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   const description = productDescription(product);
 
   return {
-    // `absolute` opts out of the root layout's `%s | Vani Collection` template: `productTitle`
+    // `absolute` opts out of the root layout's `%s | Demo Collection` template: `productTitle`
     // already brands (and de-duplicates) the title, so letting the template run would render
-    // "Saree | Vani Collection | Vani Collection". This also keeps <title>, og:title and
+    // "Saree | Demo Collection | Demo Collection". This also keeps <title>, og:title and
     // twitter:title byte-identical.
     title: { absolute: title },
     description,

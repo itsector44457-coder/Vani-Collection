@@ -6,7 +6,7 @@ import { fetchManagedPage, managedPageMetadata } from "../../../lib/content";
 import { storeWhatsAppUrl } from "../../../lib/site-contact";
 
 const DEFAULT_METADATA: Metadata = {
-  title: "Returns & Exchanges Policy | Vani Collection",
+  title: "Returns & Exchanges Policy | Demo Collection",
   description: "Easy returns and 7-day hassle-free exchanges for handcrafted kurties and suits. Read our transparent exchange and refund process.",
 };
 

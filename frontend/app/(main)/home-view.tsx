@@ -133,11 +133,11 @@ export default function HomeView({
       // "is the homepage actually reading my CMS content, or still the bundled copy?"
       data-content-source={fromCms ? "cms" : "empty"}
     >
-      {/* ================= 1. VANI COLLECTION STOREFRONT ================= */}
+      {/* ================= 1. DEMO COLLECTION STOREFRONT ================= */}
       <section className="relative h-[42svh] min-h-[270px] max-h-[400px] w-full overflow-hidden bg-stone-900 sm:h-[84vh] sm:min-h-[580px] sm:max-h-[860px]">
         <Image
-          src="/vani-store-front.jpg"
-          alt="Vani Collection storefront in Guna"
+          src="https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=1600&q=85"
+          alt="Demo Collection storefront in Demo City"
           fill
           priority
           sizes="100vw"
@@ -147,8 +147,8 @@ export default function HomeView({
         <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-black/55" />
         <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center">
           <h1 className="font-serif text-[clamp(2.35rem,7vw,5.5rem)] font-medium leading-[1.03] text-white drop-shadow-[0_3px_18px_rgba(0,0,0,0.75)]">
-            <span className="block">Vani Collection</span>
-            <span className="block">Guna</span>
+            <span className="block">Demo Collection</span>
+            <span className="block">Demo City</span>
           </h1>
           <Link
             href="/products"
@@ -533,7 +533,7 @@ export default function HomeView({
         </section>
       )}
 
-      {/* ================= 8. THE GUNA ATELIER & CONCIERGE ================= */}
+      {/* ================= 8. THE DEMO CITY ATELIER & CONCIERGE ================= */}
       <section className="py-16 sm:py-24 bg-white border-t border-[#f0ebe3]">
         <div className="max-w-[1300px] mx-auto px-4 sm:px-8 lg:px-12">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
@@ -576,7 +576,7 @@ export default function HomeView({
               </div>
 
               <p className="text-stone-600 text-sm sm:text-base leading-relaxed font-light">
-                Discover the touch of 100-count pure Mul Cotton and handblock craft in person. Our Guna atelier welcomes you for bespoke styling, festive consultations, and made-to-order ensembles.
+                Discover the touch of 100-count pure Mul Cotton and handblock craft in person. Our Demo atelier welcomes you for bespoke styling, festive consultations, and made-to-order ensembles.
               </p>
 
               <div className="grid grid-cols-2 gap-4 pt-2 border-t border-stone-100 text-xs text-stone-700">
@@ -599,7 +599,7 @@ export default function HomeView({
                   <span>→</span>
                 </Link>
                 <a
-                  href={storeWhatsAppUrl("Hello Vani Collection Atelier!")}
+                  href={storeWhatsAppUrl("Hello Demo Collection Atelier!")}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 border border-stone-300 hover:border-stone-500 text-stone-800 text-xs font-semibold tracking-[0.15em] uppercase px-6 py-4 rounded-full transition"
